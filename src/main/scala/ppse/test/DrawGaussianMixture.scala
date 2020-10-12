@@ -7,7 +7,7 @@ import better.files._
 
 object DrawGaussianMixture extends App {
 
-  val g1 = new MultivariateNormalDistribution(Array(0.1, 0.1), Array(Array(0.1, 0), Array(0.0, 0.1)))
+  val g1 = new MultivariateNormalDistribution(Array(0.1, 0.1), Array(Array(0.1, 0.0), Array(0.0, 0.1)))
   val g2 = new MultivariateNormalDistribution(Array(0.8, 0.8), Array(Array(0.1, 0.0), Array(0.0, 0.1)))
 
   val gm = new MixtureMultivariateNormalDistribution(

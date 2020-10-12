@@ -4,20 +4,19 @@ import scala.util.Random
 
 object Sampling {
 
-  type DensityMap = Vector[Vector[Double]]
+  type Pattern = Vector[Int]
+  type DensityMap = Map[Pattern, Double]
+  type PatternFunction = Vector[Double] => Pattern
 
-  def uniform2D(f: Vector[Double] => Vector[Double], size: Int, points: Int, random: Random) = {
-    def patternFunction = Benchmark.pattern(f, Vector(size, size))
+  def uniform2D(pattern: PatternFunction, points: Int, random: Random) = {
+    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(pattern).map(_ -> 1.0)
+    val total = drawn.map(_._2).sum
 
-    val densities =
-      (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).
-        map(patternFunction).
-        groupBy(identity).
-        view.mapValues(_.size / points.toDouble).toMap
-
-    (0 until size).map(x =>
-      (0 until size). map(y => densities.getOrElse(Vector(x, y),0.0)).toVector
-    ).toVector
+    drawn.
+      groupBy(p => p._1).
+      view.
+      mapValues(_.map(_._2).sum / total.toDouble).
+      toMap
   }
 
 
