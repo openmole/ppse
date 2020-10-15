@@ -27,7 +27,7 @@ The importance sampling can be used to compute statistic estimators of f(x) when
 
 It doesn't seem to be a solution to this problem since the distribution that is sampled in this method is a uniform distribution which is simple to sample.
 
-## MM-CMAES
+### MM-CMAES
 
 https://hal.inria.fr/hal-01420342
 
