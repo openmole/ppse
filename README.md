@@ -26,3 +26,9 @@ A naive approach is to sample uniformly in the input space and count the reached
 The importance sampling can be used to compute statistic estimators of f(x) when x is drawn in a distribution p(x) and sampling directly in p(x) is hard.
 
 It doesn't seem to be a solution to this problem since the distribution that is sampled in this method is a uniform distribution which is simple to sample.
+
+## MM-CMAES
+
+https://hal.inria.fr/hal-01420342
+
+Extend CMAES evolutionnary strategy to sample in gaussian mixutres
