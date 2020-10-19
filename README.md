@@ -27,8 +27,7 @@ The importance sampling can be used to compute statistic estimators of f(x) when
 
 It doesn't seem to be a solution to this problem since the distribution that is sampled in this method is a uniform distribution which is simple to sample.
 
-### MM-CMAES
+### Distribution based evolution strategies
 
-https://hal.inria.fr/hal-01420342
-
-Extend CMAES evolutionnary strategy to sample in gaussian mixutres
+Extend CMAES evolutionnary strategy to sample in gaussian mixutres: https://hal.inria.fr/hal-01420342
+GCES  is  a  stochastic  method  for  multimodal  optimization  of  nonlinear  nonconvex functions: https://sci-hub.se/https://ieeexplore.ieee.org/document/6729097
