@@ -6,3 +6,8 @@ scalaVersion := "2.13.3"
 
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1"
 libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
+libraryDependencies += "org.openmole" %% "mgo" % "3.47"
+
+scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps")
+
+
