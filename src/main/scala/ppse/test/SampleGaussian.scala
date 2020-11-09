@@ -28,14 +28,14 @@ object SampleGaussian extends App {
   def patternFunction =
     Benchmark.pattern(Benchmark.sample, Vector(size, size))
 
-  val drawn = (0 until points).map(_ => gm.sample().toVector).map(s => (patternFunction(s), gm.density(s.toArray)))
+  val drawn = (0 until points).map(_ => gm.sample().toVector).map(s => (patternFunction(s), gm.density(s.toArray)))//.filter(_._1.forall(_ <= 50))
   val total = drawn.map(_._2).sum
 
   val densities =
     drawn.
       groupBy(p => p._1).
       view.
-      mapValues(_.map(_._2).sum / total.toDouble).filter(_._1.forall(_ <= 50)).
+      mapValues(_.map(_._2).sum / total.toDouble).
       toMap
 
 
