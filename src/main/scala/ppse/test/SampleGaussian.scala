@@ -13,7 +13,7 @@ import scala.jdk.CollectionConverters._
  * @param test
  * @param pass
  */
-case class MonteCarloState(test: Long=0L, pass: Long=0L) {
+case class MonteCarloState(test: Long = 0L, pass: Long = 0L) {
   def inverseProbability() = test.toDouble / pass
 }
 
@@ -25,8 +25,8 @@ case class MonteCarloState(test: Long=0L, pass: Long=0L) {
  * @param predicate
  */
 class RejectionSampler(val dist: AbstractMultivariateRealDistribution, val patternFunction: Vector[Double] => Vector[Int], val predicate: Vector[Int] => Boolean) {
-  def success(state: MonteCarloState) = MonteCarloState(state.test+1, state.pass+1)
-  def fail(state: MonteCarloState) = MonteCarloState(state.test+1, state.pass)
+  def success(state: MonteCarloState) = MonteCarloState(state.test + 1, state.pass + 1)
+  def fail(state: MonteCarloState) = MonteCarloState(state.test + 1, state.pass)
   def sample(state: MonteCarloState): (MonteCarloState, (Vector[Int], Double)) = {
     val s = dist.sample()
     val pattern = patternFunction(s.toVector)
@@ -36,7 +36,7 @@ class RejectionSampler(val dist: AbstractMultivariateRealDistribution, val patte
     } else {
       val newState = success(state)
       // if the sample is accepted, return the state, the sample pattern and the adjusted density
-      (newState, (pattern, dist.density(s) * newState.inverseProbability()))
+      (newState, (pattern, 1 / (dist.density(s) * newState.inverseProbability())))
     }
   }
 }
@@ -45,17 +45,11 @@ object SampleGaussian {
 
   def run = {
 
-    val g1 = new MultivariateNormalDistribution(Array(0.1, 0.1), Array(Array(0.1, 0.0), Array(0.0, 0.1)))
-    val g2 = new MultivariateNormalDistribution(Array(0.8, 0.8), Array(Array(0.1, 0.0), Array(0.0, 0.1)))
-
-    val gm = new MixtureMultivariateNormalDistribution(
-      List(
-        new Pair(java.lang.Double.valueOf(0.5), g1),
-        new Pair(java.lang.Double.valueOf(0.5), g2)).asJava
-    )
 
     val points = 500000
     val size = 50
+
+    val gm = mixture()
 
     //  def pattern(p: Vector[Double]): Vector[Int] = {
     //    p.map(x => math.floor(x * size).toInt)
@@ -64,7 +58,7 @@ object SampleGaussian {
     def patternFunction =
       Benchmark.pattern(Benchmark.sample, Vector(size, size))
 
-    //  val drawn = (0 until points).map(_ => gm.sample().toVector).map(s => (patternFunction(s), gm.density(s.toArray))).filter(_._1.forall(_ <= 50))
+    //val drawn = (0 until points).map(_ => gm.sample().toVector).map(s => (patternFunction(s), 1 / gm.density(s.toArray))).filter(_._1.forall(_ <= 50))
     val sampler = new RejectionSampler(gm, patternFunction, _.forall(_ <= 50))
 
     def sample(n: Int, state: MonteCarloState, seq: Seq[(Vector[Int], Double)]): Seq[(Vector[Int], Double)] = {
