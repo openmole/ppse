@@ -53,8 +53,8 @@ object PPSE2 {
     result(population, pse.continuous, pse.pattern)
 
   @Lenses case class Individual(
-                                 genome: Genome,
-                                 phenotype: Array[Double])
+    genome: Genome,
+    phenotype: Array[Double])
 
   def buildIndividual(g: Genome, f: Vector[Double]) = Individual(g, f.toArray)
   def vectorPhenotype = Individual.phenotype composeLens arrayToVectorLens
@@ -63,11 +63,11 @@ object PPSE2 {
     CDGenome.initialGenomes(lambda, continuous, discrete, reject, rng)
 
   def adaptiveBreeding(
-                        lambda: Int,
-                        operatorExploration: Double,
-                        discrete: Vector[D],
-                        pattern: Vector[Double] => Vector[Int],
-                        reject: Option[Genome => Boolean]): Breeding[PPSE2State, Individual, Genome] =
+    lambda: Int,
+    operatorExploration: Double,
+    discrete: Vector[D],
+    pattern: Vector[Double] => Vector[Int],
+    reject: Option[Genome => Boolean]): Breeding[PPSE2State, Individual, Genome] =
     PPSE2Operations.adaptiveBreeding[PPSE2State, Individual, Genome](
       Individual.genome.get,
       continuousValues.get,
@@ -118,29 +118,29 @@ object PPSE2 {
 }
 
 case class PPSE2(
-                lambda: Int,
-                phenotype: (Vector[Double], Vector[Int]) => Vector[Double],
-                pattern: Vector[Double] => Vector[Int],
-                continuous: Vector[C] = Vector.empty,
-                discrete: Vector[D] = Vector.empty,
-                operatorExploration: Double = 0.1,
-                reject: Option[(Vector[Double], Vector[Int]) => Boolean] = None)
+  lambda: Int,
+  phenotype: (Vector[Double], Vector[Int]) => Vector[Double],
+  pattern: Vector[Double] => Vector[Int],
+  continuous: Vector[C] = Vector.empty,
+  discrete: Vector[D] = Vector.empty,
+  operatorExploration: Double = 0.1,
+  reject: Option[(Vector[Double], Vector[Int]) => Boolean] = None)
 
 object PPSE2Operations {
 
   def adaptiveBreeding[S, I, G](
-                                 genome: I => G,
-                                 continuousValues: G => Vector[Double],
-                                 continuousOperator: G => Option[Int],
-                                 discreteValues: G => Vector[Int],
-                                 discreteOperator: G => Option[Int],
-                                 discrete: Vector[D],
-                                 pattern: I => Vector[Int],
-                                 buildGenome: (Vector[Double], Option[Int], Vector[Int], Option[Int]) => G,
-                                 lambda: Int,
-                                 reject: Option[G => Boolean],
-                                 operatorExploration: Double,
-                                 hitmap: monocle.Lens[S, HitMap]): Breeding[S, I, G] =
+    genome: I => G,
+    continuousValues: G => Vector[Double],
+    continuousOperator: G => Option[Int],
+    discreteValues: G => Vector[Int],
+    discreteOperator: G => Option[Int],
+    discrete: Vector[D],
+    pattern: I => Vector[Int],
+    buildGenome: (Vector[Double], Option[Int], Vector[Int], Option[Int]) => G,
+    lambda: Int,
+    reject: Option[G => Boolean],
+    operatorExploration: Double,
+    hitmap: monocle.Lens[S, HitMap]): Breeding[S, I, G] =
     (s, population, rng) => {
       val ranks = hitCountRanking(s, population, pattern, hitmap).map(x => -x)
       val continuousOperatorStatistics = operatorProportions(genome andThen continuousOperator, population)
@@ -159,10 +159,10 @@ object PPSE2Operations {
     }
 
   def elitism[S, I, P: CanBeNaN](
-                                  values: I => (Vector[Double], Vector[Int]),
-                                  phenotype: I => P,
-                                  pattern: P => Vector[Int],
-                                  hitmap: monocle.Lens[S, HitMap]): Elitism[S, I] =
+    values: I => (Vector[Double], Vector[Int]),
+    phenotype: I => P,
+    pattern: P => Vector[Int],
+    hitmap: monocle.Lens[S, HitMap]): Elitism[S, I] =
     (s, population, candidates, rng) => {
       val noNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
