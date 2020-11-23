@@ -10,37 +10,36 @@ object EMGMM  {
   /**
    * Full covariance Gaussian Mixture Model, trained using Expectation Maximization.
    *
-   * @param X data points
-   * @param n_col number of data columns
+   * @param x data points
+   * @param columns number of data columns
    */
   def fit(
-    n_components: Int,
-    n_iters: Int,
-    tol: Double,
-    X: Array[Array[Double]],
-    n_col: Int,
+    components: Int,
+    iterations: Int,
+    tolerance: Double,
+    x: Array[Array[Double]],
+    columns: Int,
     random: Random) = {
     // data's dimensionality and responsibility vector
-    val n_row = X.length
+    val n_row = x.length
     // initialize parameters
     // chose Random means in data points
-    val chosen = Array.fill(n_components)(random.nextInt(n_row))
-    val means = chosen.map(c=>X(c))
+    val chosen = Array.fill(components)(random.nextInt(n_row))
+    val means = chosen.map(c => x(c))
     // set equal weights to all components
-    val weights = Array.fill(n_components)(1.0/n_components)
+    val weights = Array.fill(components)(1.0 / components)
     // compute covariances
-    val covariances = Array.fill(n_components)(cov(X,n_col))
-    val (emMeans, emCovariances, emWweights, logLikelihoodTrace) =
+    val covariances = Array.fill(components)(cov(x, columns))
+    val (emMeans, emCovariances, emWeights, logLikelihoodTrace) =
       recurseFit(
-        X = X,
-        n_col = n_col,
+        x = x,
         means = means,
         covariances = covariances,
         weights = weights,
         logLikelihood = 0.0,
-        n_components = n_components,
-        iters = n_iters,
-        tol = tol,
+        components = components,
+        iterations = iterations,
+        tolerance = tolerance,
         trace = IndexedSeq()
       )
 
@@ -48,53 +47,51 @@ object EMGMM  {
       GMM(
         means = emMeans,
         covariances = emCovariances,
-        weights = emWweights
+        weights = emWeights
       )
 
     (gmm, logLikelihoodTrace)
   }
 
   def recurseFit(
-    X: Array[Array[Double]],
-    n_col: Int,
+    x: Array[Array[Double]],
     means: Array[Array[Double]],
     covariances: Array[Array[Array[Double]]],
     weights: Array[Double],
     logLikelihood: Double,
-    n_components: Int,
-    iters: Int,
-    tol: Double,
+    components: Int,
+    iterations: Int,
+    tolerance: Double,
     trace: Seq[Double]): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double], Seq[Double]) =
-    iters match {
+    iterations match {
       case 0 => (means, covariances, weights, trace)
       case i =>
-        val (updatedLogLikelihood, resp) = eStep(X, means, covariances, weights)
-        val (updatedWeights, updatedMeans, updatedCovariances) = mStep(X, resp, n_components)
-        if (math.abs(updatedLogLikelihood - logLikelihood) <= tol) (updatedMeans, updatedCovariances, updatedWeights, trace :+ updatedLogLikelihood)
+        val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
+        val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components)
+        if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (updatedMeans, updatedCovariances, updatedWeights, trace :+ updatedLogLikelihood)
         else recurseFit(
-          X = X,
-          n_col = n_col,
+          x = x,
           means = updatedMeans,
           covariances = updatedCovariances,
           weights = updatedWeights,
           logLikelihood = updatedLogLikelihood,
-          n_components = n_components,
-          iters = i - 1,
-          tol = tol,
+          components = components,
+          iterations = i - 1,
+          tolerance = tolerance,
           trace = trace :+ updatedLogLikelihood)
     }
 
 
   /**
    * Estimate a covariance matrix, given data.
-   * @param X data points
-   * @param n_col number of columns f the points
+   * @param x data points
+   * @param columns number of columns f the points
    */
-  def cov(X: Array[Array[Double]], n_col: Int) = {
-    val mean = Array.tabulate(n_col){i => X.map(_ (i)).sum / X.length }
-    val m = X.map(_.zipWithIndex.map(v => v._1 - mean(v._2)))
+  def cov(x: Array[Array[Double]], columns: Int) = {
+    val mean = Array.tabulate(columns){ i => x.map(_ (i)).sum / x.length }
+    val m = x.map(_.zipWithIndex.map(v => v._1 - mean(v._2)))
     val p = m.map(v => v.map(x => v.map(_ * x)))
-    Array.tabulate(n_col, n_col)((i, j) => p.map(_ (i)(j)).sum / (X.length - 1))
+    Array.tabulate(columns, columns)((i, j) => p.map(_ (i)(j)).sum / (x.length - 1))
   }
 
   /**
@@ -102,14 +99,14 @@ object EMGMM  {
    * update resp matrix so that resp[j, k] is the responsibility of cluster k for data point j,
    * to compute likelihood of seeing data point j given cluster k.
    *
-   * @param X data points
+   * @param x data points
    * @param means means of the components (clusters)
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def eStep(X: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]) = {
+  def eStep(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]) = {
     // resp matrix
-    val resp = compute_log_likelihood(X, means, covariances, weights)
+    val resp = compute_log_likelihood(x, means, covariances, weights)
     val sum = resp.map(_.sum)
     val log_likelihood = sum.map(math.log).sum
     val updatedResp = resp.zip(sum).map { case (v, div) => v.map(_ / div) }
@@ -118,22 +115,22 @@ object EMGMM  {
 
   /**
    * Compute the log likelihood (used for e step).
-   * @param X data points
+   * @param x data points
    * @param means means of the components (clusters)
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def compute_log_likelihood(X: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]) = {
-    weights.zipWithIndex.map { case (prior, k) => X.map(x => new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior) }.transpose
+  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]) = {
+    weights.zipWithIndex.map { case (prior, k) => x.map(x => new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior) }.transpose
   }
 
   /**
    * M-step, update parameters.
    * @param X data points
    */
-  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], n_components: Int) = {
+  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int) = {
     // sum the columns to get total responsibility assigned to each cluster, N^{soft}
-    val resp_weights = Array.tabulate(n_components)(i => resp.map(_ (i)).sum)
+    val resp_weights = Array.tabulate(components)(i => resp.map(_ (i)).sum)
     // normalized weights
     val weights = resp_weights.map(_ / X.length)
     // means
@@ -141,7 +138,7 @@ object EMGMM  {
     val means = weighted_sum.zip(resp_weights).map { case (array, w) => array.map(_ / w) }
     // covariance
     val resp_t = resp.transpose
-    val covariances = Array.tabulate(n_components) { k =>
+    val covariances = Array.tabulate(components) { k =>
       val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
       val resp_k = resp_t(k)
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
@@ -183,11 +180,11 @@ object EMGMMTest extends App {
 
   val (gmm, logLikelihoodTrace) =
     EMGMM.fit(
-      n_components = n_components,
-      n_iters = 10,
-      tol = 0.0001,
-      X = X,
-      n_col = 2,
+      components = n_components,
+      iterations = 10,
+      tolerance = 0.0001,
+      x = X,
+      columns = 2,
       random = rng)
 
   println("finished")
