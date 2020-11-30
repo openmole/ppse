@@ -1,4 +1,4 @@
-package ppse.test
+package ppse.em
 
 import better.files.File
 import org.apache.commons.math3.distribution.MultivariateNormalDistribution
