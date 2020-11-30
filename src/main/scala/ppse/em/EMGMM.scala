@@ -18,7 +18,7 @@ object EMGMM  {
    * @param x data points
    * @param columns number of data columns
    */
-  def fit(
+  def initializeAndFit(
     components: Int,
     iterations: Int,
     tolerance: Double,
@@ -29,14 +29,14 @@ object EMGMM  {
     val n_row = x.length
     // initialize parameters
     // chose Random means in data points
-    val chosen = Array.fill(components)(random.nextInt(n_row))
+    val chosen = random.shuffle(x.indices.toArray[Int]).take(components).toArray
     val means = chosen.map(c => x(c))
     // set equal weights to all components
     val weights = Array.fill(components)(1.0 / components)
     // compute covariances
     val covariances = Array.fill(components)(cov(x, columns))
     val (emMeans, emCovariances, emWeights, logLikelihoodTrace) =
-      recurseFit(
+      fit(
         x = x,
         means = means,
         covariances = covariances,
@@ -70,7 +70,7 @@ object EMGMM  {
     new MixtureMultivariateNormalDistribution(pairs.asJava)
   }
 
-  def recurseFit(
+  def fit(
     x: Array[Array[Double]],
     means: Array[Array[Double]],
     covariances: Array[Array[Array[Double]]],
@@ -86,7 +86,7 @@ object EMGMM  {
         val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
         val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components)
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (updatedMeans, updatedCovariances, updatedWeights, trace :+ updatedLogLikelihood)
-        else recurseFit(
+        else fit(
           x = x,
           means = updatedMeans,
           covariances = updatedCovariances,
@@ -195,7 +195,7 @@ object EMGMMTest extends App {
   val rng = new Random(42)
 
   val (gmm, logLikelihoodTrace) =
-    EMGMM.fit(
+    EMGMM.initializeAndFit(
       components = n_components,
       iterations = 10,
       tolerance = 0.0001,

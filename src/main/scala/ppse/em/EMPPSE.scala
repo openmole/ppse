@@ -171,7 +171,7 @@ object PPSE2Operations {
 
 
       val gmm =
-        EMGMM.fit(
+        EMGMM.initializeAndFit(
           components = components,
           iterations = iterations,
           tolerance = tolerance,
