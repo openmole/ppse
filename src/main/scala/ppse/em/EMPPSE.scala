@@ -1,5 +1,6 @@
 package ppse.em
 
+import scala.reflect.ClassTag
 import scala.util.Random
 
 
@@ -169,7 +170,7 @@ object PPSE2Operations {
       def weightedPoints = (population zip hits).flatMap { case (i, h) => Vector.fill(maxHits - h)(continuousValues(genome(i))) }
 
 
-      val emm =
+      val gmm =
         EMGMM.fit(
           components = components,
           iterations = iterations,
@@ -179,7 +180,9 @@ object PPSE2Operations {
           rng
         )
 
-      Vector()
+      def newPoints = EMGMM.toDistribution(gmm._1).sample(lambda).toVector.map(g => g.map(v => mgo.tools.clamp(v)))
+
+      newPoints.map(p => buildGenome(p.toVector))
 
       // GENERATE
 //
