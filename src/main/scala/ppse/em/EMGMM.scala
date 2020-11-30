@@ -53,6 +53,18 @@ object EMGMM  {
     (gmm, logLikelihoodTrace)
   }
 
+
+  def toDistribution(gmm: GMM) = {
+    import org.apache.commons.math3.distribution._
+    import org.apache.commons.math3.util._
+    import scala.jdk.CollectionConverters._
+
+    def dist = (gmm.means zip gmm.covariances).map { case (m, c) =>  new MultivariateNormalDistribution(m, c) }
+    def pairs = (dist zip gmm.weights).map { case (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
+
+    new MixtureMultivariateNormalDistribution(pairs.asJava)
+  }
+
   def recurseFit(
     x: Array[Array[Double]],
     means: Array[Array[Double]],
