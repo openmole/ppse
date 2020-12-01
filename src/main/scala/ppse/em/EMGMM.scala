@@ -35,7 +35,7 @@ object EMGMM  {
     val weights = Array.fill(components)(1.0 / components)
     // compute covariances
     val covariances = Array.fill(components)(cov(x, columns))
-    val (emMeans, emCovariances, emWeights, logLikelihoodTrace) =
+    val (gmm, logLikelihoodTrace) =
       fit(
         x = x,
         means = means,
@@ -46,13 +46,6 @@ object EMGMM  {
         iterations = iterations,
         tolerance = tolerance,
         trace = IndexedSeq()
-      )
-
-    def gmm =
-      GMM(
-        means = emMeans,
-        covariances = emCovariances,
-        weights = emWeights
       )
 
     (gmm, logLikelihoodTrace)
@@ -79,13 +72,20 @@ object EMGMM  {
     components: Int,
     iterations: Int,
     tolerance: Double,
-    trace: Seq[Double]): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double], Seq[Double]) =
+    trace: Seq[Double] = Seq()): (GMM, Seq[Double]) = {
+    def gmm =
+      GMM(
+        means = means,
+        covariances = covariances,
+        weights = weights
+      )
+
     iterations match {
-      case 0 => (means, covariances, weights, trace)
+      case 0 => (gmm, trace)
       case i =>
         val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
         val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components)
-        if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (updatedMeans, updatedCovariances, updatedWeights, trace :+ updatedLogLikelihood)
+        if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
           x = x,
           means = updatedMeans,
@@ -97,6 +97,7 @@ object EMGMM  {
           tolerance = tolerance,
           trace = trace :+ updatedLogLikelihood)
     }
+  }
 
 
   /**

@@ -40,7 +40,7 @@ object EMPPSE {
 
 
 
-  case class EMPPSEState(hitmap: HitMap)
+  case class EMPPSEState(hitmap: HitMap, gmm: Option[GMM])
 
 //  case class Result(continuous: Vector[Double], discrete: Vector[Int], pattern: Vector[Int], phenotype: Vector[Double], individual: Individual)
 //
@@ -150,59 +150,82 @@ case class EMPPSE(
 object PPSE2Operations {
 
   def breeding[S, I, G](
-    genome: I => G,
-    continuousValues: G => Vector[Double],
     continuous: Vector[C],
-    pattern: I => Vector[Int],
     buildGenome: Vector[Double] => G,
     lambda: Int,
     //reject: Option[G => Boolean],
-    hitmap: S => HitMap,
-    components: Int,
-    iterations: Int,
-    tolerance: Double): Breeding[S, I, G] =
+    gmm: S => Option[GMM]
+ ): Breeding[S, I, G] =
     (s, population, rng) => {
 
-      def hitCount(cell: Vector[Int]): Int = hitmap(s).getOrElse(cell, 0)
-      val hits = population.map (i => hitCount(pattern(i)) )
-      val maxHits = hits.max
+      def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Vector.fill(genomeLength)(() => rng.nextDouble()).map(_())
 
-      def weightedPoints = (population zip hits).flatMap { case (i, h) => Vector.fill(maxHits - h)(continuousValues(genome(i))) }
+      gmm(s) match {
+        case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng))).toVector
+        case Some(gmm) =>
+          EMGMM.toDistribution(gmm).
+            sample(lambda).toVector.
+            map(g => g.map(v => mgo.tools.clamp(v))).
+            map(g => buildGenome(g.toVector))
+      }
+    }
+
+    def elitism[S, I, P: CanBeNaN](
+      continuous: Vector[C],
+      values: I => Vector[Double],
+      phenotype: I => P,
+      pattern: P => Vector[Int],
+      hitmap: monocle.Lens[S, HitMap],
+      gmm: monocle.Lens[S, Option[GMM]],
+      generation: S => Long,
+      components: Int,
+      iterations: Int,
+      tolerance: Double,
+      bootstrap: Int): Elitism[S, I] = { (s, population, candidates, rng) =>
+
+      def noNan = filterNaN(candidates, phenotype)
+      val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(s))
+      def keepFirst(i: Vector[I]) = Vector(i.head)
+
+      def state2 = hitmap.set(hm2)(s)
+      val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
+
+      if(generation(s) > bootstrap) {
+        def hitCount(cell: Vector[Int]): Int = hm2.getOrElse(cell, 0)
+        val hits = population.map (i => hitCount(pattern(phenotype(i))))
+        val maxHits = hits.max
+
+        def weightedPoints = (population zip hits).flatMap { case (i, h) => Vector.fill(maxHits - h)(values(i)) }
 
 
-      val gmm =
-        EMGMM.initializeAndFit(
-          components = components,
-          iterations = iterations,
-          tolerance = tolerance,
-          x = weightedPoints.map(_.toArray).toArray,
-          columns = continuous.size,
-          rng
-        )
+        val (gmmValue, _) = {
+          gmm.get(s) match {
+            case None =>
+              EMGMM.initializeAndFit(
+                components = components,
+                iterations = iterations,
+                tolerance = tolerance,
+                x = weightedPoints.map(_.toArray).toArray,
+                columns = continuous.size,
+                rng
+              )
+            case Some(gmm) =>
+              EMGMM.fit(
+                means = gmm.means,
+                covariances = gmm.covariances,
+                weights = gmm.weights,
+                components = components,
+                iterations = iterations,
+                tolerance = tolerance,
+                x = weightedPoints.map(_.toArray).toArray,
+                logLikelihood = 0.0
+              )
+          }
 
-      def newPoints = EMGMM.toDistribution(gmm._1).sample(lambda).toVector.map(g => g.map(v => mgo.tools.clamp(v)))
+        }
 
-      newPoints.map(p => buildGenome(p.toVector))
-
-      // GENERATE
-//
-//      val ranks = population.map(i => pattern(i)) hitCountRanking(s, population, pattern, hitmap)
-//      val maxRank = ranks.max
-//
-//
-//
-//
-//      val breeding = applyDynamicOperators[S, I, G](
-//        tournament(ranks, logOfPopulationSize),
-//        genome andThen continuousValues,
-//        genome andThen discreteValues,
-//        continuousOperatorStatistics,
-//        discreteOperatorStatistics,
-//        discrete,
-//        operatorExploration,
-//        buildGenome)
-//      val offspring = breed[S, I, G](breeding, lambda, reject)(s, population, rng)
-//      randomTake(offspring, lambda, rng)
+        (gmm.set(Some(gmmValue))(state2), population2)
+      } else (state2, population2)
     }
 
 //  def elitism[S, I, P: CanBeNaN](
