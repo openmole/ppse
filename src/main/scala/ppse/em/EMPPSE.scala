@@ -40,7 +40,8 @@ object EMPPSE {
 
 
 
-  case class EMPPSEState(hitmap: HitMap, gmm: Option[GMM])
+  type ProbabilityMap = Map[Vector[Int], Double]
+  @Lenses case class EMPPSEState(hitmap: HitMap, gmm: Option[GMM], probabilityMap: ProbabilityMap)
 
 //  case class Result(continuous: Vector[Double], discrete: Vector[Int], pattern: Vector[Int], phenotype: Vector[Double], individual: Individual)
 //
@@ -82,6 +83,26 @@ object EMPPSE {
 
     generate(List(), 0)
   }
+
+  def breeding(
+    continuous: Vector[C],
+    lambda: Int): Breeding[EMPPSEState, Individual, Genome] =
+    PPSE2Operations.breeding(continuous, identity, lambda, EMPPSEState.gmm.get)
+
+//  def elitism[S, I, P: CanBeNaN](
+//    continuous: Vector[C],
+//    values: I => Vector[Double],
+//    phenotype: I => P,
+//    pattern: P => Vector[Int],
+//    hitmap: monocle.Lens[S, HitMap],
+//    gmm: monocle.Lens[S, Option[GMM]],
+//    components: Int,
+//    iterations: Int,
+//    tolerance: Double,
+//    bootstrap: Int): Elitism[EMPPSEState, Individual, Genome] =
+//    PPSE2Operations.elitism(
+//
+//    )
 
 //  def adaptiveBreeding(
 //    lambda: Int,
@@ -143,11 +164,14 @@ case class EMPPSE(
     phenotype: Vector[Double] => Vector[Double],
     pattern: Vector[Double] => Vector[Int],
     continuous: Vector[C] = Vector.empty,
-    discrete: Vector[D] = Vector.empty,
-    operatorExploration: Double = 0.1,
-    reject: Option[(Vector[Double], Vector[Int]) => Boolean] = None)
+    components: Int,
+    iterations: Int,
+    tolerance: Double,
+    bootstrap: Int)
 
 object PPSE2Operations {
+
+  import EMPPSE.ProbabilityMap
 
   def breeding[S, I, G](
     continuous: Vector[C],
@@ -175,69 +199,81 @@ object PPSE2Operations {
       values: I => Vector[Double],
       phenotype: I => P,
       pattern: P => Vector[Int],
+      probabilities: monocle.Lens[S, ProbabilityMap],
       hitmap: monocle.Lens[S, HitMap],
       gmm: monocle.Lens[S, Option[GMM]],
       components: Int,
       iterations: Int,
       tolerance: Double,
-      bootstrap: Int): Elitism[S, I] = { (s, population, candidates, rng) =>
+      bootstrap: Int,
+      lowest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def noNan = filterNaN(candidates, phenotype)
-      val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(s))
       def keepFirst(i: Vector[I]) = Vector(i.head)
-
-      def state2 = hitmap.set(hm2)(s)
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
 
       if(population2.size > bootstrap) {
-        def hitCount(cell: Vector[Int]): Int = hm2.getOrElse(cell, 0)
-        val hits = population.map (i => hitCount(pattern(phenotype(i))))
-        val maxHits = hits.max
+        val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
+        val sortedPopulation2 = population2.sortBy(i => hm2.getOrElse(pattern(phenotype(i)), 1))
 
-        def weightedPoints = (population zip hits).flatMap { case (i, h) => Vector.fill(maxHits - h)(values(i)) }
+        val nbLowest = math.max(population2.size / lowest, 1)
+        def keepLowest = sortedPopulation2.take(nbLowest)
 
-
-        val (gmmValue, _) = {
-          gmm.get(s) match {
-            case None =>
+        gmm.get(state) match {
+          case None =>
+            val (gmmValue, _) =
               EMGMM.initializeAndFit(
                 components = components,
                 iterations = iterations,
                 tolerance = tolerance,
-                x = weightedPoints.map(_.toArray).toArray,
+                x = keepLowest.map(values).map(_.toArray).toArray,
                 columns = continuous.size,
                 rng
               )
-            case Some(gmm) =>
+
+            def state2 = (gmm.set(Some(gmmValue)) andThen hitmap.set(hm2))(state)
+
+            (state2, population2)
+          case Some(gmmValue) =>
+            val distribution = EMGMM.toDistribution(gmmValue, rng)
+            def densities =
+              noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
+                mapValues { v => v.map(values).map(p => distribution.density(p.toArray))}.toSeq
+
+            val hm = hitmap.get(state)
+            val pm: ProbabilityMap = probabilities.get(state)
+
+            def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
+              val (pattern, densities) = p
+              val hits = hm.getOrElse(pattern, 0)
+              val newDensity = (pm.getOrElse(pattern, 0.0) * hits + densities.sum) / (hits + densities.size)
+              pattern -> newDensity
+            }
+
+            val pm2 = pm ++ densities.map(probabilityUpdate)
+
+            val (gmmValue2, _) =
               EMGMM.fit(
-                means = gmm.means,
-                covariances = gmm.covariances,
-                weights = gmm.weights,
+                means = gmmValue.means,
+                covariances = gmmValue.covariances,
+                weights = gmmValue.weights,
                 components = components,
                 iterations = iterations,
                 tolerance = tolerance,
-                x = weightedPoints.map(_.toArray).toArray
+                x = keepLowest.map(values).map(_.toArray).toArray
               )
-          }
 
+            def state2 =
+              (gmm.set(Some(gmmValue2)) andThen
+                probabilities.set(pm2) andThen
+                hitmap.set(hm2))(state)
+
+            (state2, sortedPopulation2)
         }
 
-        (gmm.set(Some(gmmValue))(state2), population2)
-      } else (state2, population2)
+      } else (state, population2)
     }
 
-//  def elitism[S, I, P: CanBeNaN](
-//                                  values: I => (Vector[Double], Vector[Int]),
-//                                  phenotype: I => P,
-//                                  pattern: P => Vector[Int],
-//                                  hitmap: monocle.Lens[S, HitMap]): Elitism[S, I] =
-//    (s, population, candidates, rng) => {
-//      val noNan = filterNaN(candidates, phenotype)
-//      def keepFirst(i: Vector[I]) = Vector(i.head)
-//      val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(s))
-//      val elite = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
-//      (hitmap.set(hm2)(s), elite)
-//    }
 
 }
 
