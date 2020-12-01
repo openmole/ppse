@@ -177,7 +177,6 @@ object PPSE2Operations {
       pattern: P => Vector[Int],
       hitmap: monocle.Lens[S, HitMap],
       gmm: monocle.Lens[S, Option[GMM]],
-      generation: S => Long,
       components: Int,
       iterations: Int,
       tolerance: Double,
@@ -190,7 +189,7 @@ object PPSE2Operations {
       def state2 = hitmap.set(hm2)(s)
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
 
-      if(generation(s) > bootstrap) {
+      if(population2.size > bootstrap) {
         def hitCount(cell: Vector[Int]): Int = hm2.getOrElse(cell, 0)
         val hits = population.map (i => hitCount(pattern(phenotype(i))))
         val maxHits = hits.max
