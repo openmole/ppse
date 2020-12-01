@@ -163,7 +163,7 @@ object PPSE2Operations {
       gmm(s) match {
         case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng))).toVector
         case Some(gmm) =>
-          EMGMM.toDistribution(gmm).
+          EMGMM.toDistribution(gmm, rng).
             sample(lambda).toVector.
             map(g => g.map(v => mgo.tools.clamp(v))).
             map(g => buildGenome(g.toVector))
@@ -216,8 +216,7 @@ object PPSE2Operations {
                 components = components,
                 iterations = iterations,
                 tolerance = tolerance,
-                x = weightedPoints.map(_.toArray).toArray,
-                logLikelihood = 0.0
+                x = weightedPoints.map(_.toArray).toArray
               )
           }
 

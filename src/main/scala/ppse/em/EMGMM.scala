@@ -52,7 +52,7 @@ object EMGMM  {
   }
 
 
-  def toDistribution(gmm: GMM) = {
+  def toDistribution(gmm: GMM, random: Random) = {
     import org.apache.commons.math3.distribution._
     import org.apache.commons.math3.util._
     import scala.jdk.CollectionConverters._
@@ -60,7 +60,7 @@ object EMGMM  {
     def dist = (gmm.means zip gmm.covariances).map { case (m, c) =>  new MultivariateNormalDistribution(m, c) }
     def pairs = (dist zip gmm.weights).map { case (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
 
-    new MixtureMultivariateNormalDistribution(pairs.asJava)
+    new MixtureMultivariateNormalDistribution(mgo.tools.apacheRandom(random), pairs.asJava)
   }
 
   def fit(
@@ -68,10 +68,10 @@ object EMGMM  {
     means: Array[Array[Double]],
     covariances: Array[Array[Array[Double]]],
     weights: Array[Double],
-    logLikelihood: Double,
     components: Int,
     iterations: Int,
     tolerance: Double,
+    logLikelihood: Double = 0.0,
     trace: Seq[Double] = Seq()): (GMM, Seq[Double]) = {
     def gmm =
       GMM(
