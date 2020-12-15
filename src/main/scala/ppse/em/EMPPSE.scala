@@ -38,29 +38,31 @@ import scala.language.higherKinds
 
 object EMPPSE {
 
-
-
   type ProbabilityMap = Map[Vector[Int], Double]
   @Lenses case class EMPPSEState(
     hitmap: HitMap = Map(),
     gmm: Option[GMM] = None,
     probabilityMap: ProbabilityMap = Map())
 
-//  case class Result(continuous: Vector[Double], discrete: Vector[Int], pattern: Vector[Int], phenotype: Vector[Double], individual: Individual)
-//
-//  def result(population: Vector[Individual], continuous: Vector[C], pattern: Vector[Double] => Vector[Int]) =
-//    population.map { i =>
-//      Result(
-//        scaleContinuousValues(continuousValues.get(i.genome), continuous),
-//        Individual.genome composeLens discreteValues get i,
-//        pattern(i.phenotype.toVector),
-//        i.phenotype.toVector,
-//        i)
-//    }
+ case class Result(continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual)
 
-//  def result(pse: PPSE2, population: Vector[Individual]): Vector[Result] =
-//    result(population, pse.continuous, pse.pattern)
+  def result(population: Vector[Individual], state: EvolutionState[EMPPSEState], continuous: Vector[C], pattern: Vector[Double] => Vector[Int]) = {
+    val densityMap = (EvolutionState.s composeLens EMPPSEState.probabilityMap).get(state)
 
+    population.map { i =>
+      val p = pattern(i.phenotype.toVector)
+
+      Result(
+        scaleContinuousValues(i.genome, continuous),
+        p,
+        densityMap.getOrElse(p, 0.0),
+        i.phenotype.toVector,
+        i)
+    }
+  }
+
+  def result(pse: EMPPSE, population: Vector[Individual], state: EvolutionState[EMPPSEState]): Vector[Result] =
+    result(population, state, pse.continuous, pse.pattern)
 
   type Genome = Vector[Double]
 
@@ -196,7 +198,7 @@ case class EMPPSE(
     pattern: Vector[Double] => Vector[Int],
     continuous: Vector[C],
     components: Int = 20,
-    iterations: Int = 50,
+    iterations: Int = 10,
     tolerance: Double = 0.0001,
     lowest: Int = 100)
 
@@ -282,16 +284,32 @@ object PPSE2Operations {
 
             def pm2 = pm ++ densities.map(probabilityUpdate)
 
-            val (gmmValue2, _) =
-              EMGMM.fit(
-                means = gmmValue.means,
-                covariances = gmmValue.covariances,
-                weights = gmmValue.weights,
-                components = components,
-                iterations = iterations,
-                tolerance = tolerance,
-                x = lowestHitIndividual.map(values).map(_.toArray).toArray
-              )
+            val (gmmValue2, _) = {
+              try {
+//                EMGMM.fit(
+//                  means = gmmValue.means,
+//                  covariances = gmmValue.covariances,
+//                  weights = gmmValue.weights,
+//                  components = components,
+//                  iterations = iterations,
+//                  tolerance = tolerance,
+//                  x = lowestHitIndividual.map(values).map(_.toArray).toArray
+//                )
+
+                EMGMM.initializeAndFit(
+                  components = components,
+                  iterations = iterations,
+                  tolerance = tolerance,
+                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
+                  columns = continuous.size,
+                  rng
+                )
+
+              } catch {
+                case t: org.apache.commons.math3.linear.SingularMatrixException =>
+                  throw new RuntimeException("Computing GMM for points [" + lowestHitIndividual.map(values).map(p => s"""[${p.mkString(", ")}]""").mkString(", ") + "]", t)
+              }
+            }
 
             def state2 =
               (gmm.set(Some(gmmValue2)) andThen

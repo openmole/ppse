@@ -4,6 +4,7 @@ import mgo._
 import ppse.em._
 import mgo.evolution._
 import niche._
+import better.files._
 
 object EMPPSETest extends App {
 
@@ -19,12 +20,14 @@ object EMPPSETest extends App {
 
   def evolution =
     ppse.
-      until(afterGeneration(1000)).
+      until(afterGeneration(100)).
       trace((s, is) => println(s.generation))
 
   val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
 
-  println(finalPopulation)
+  //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
+  def result = EMPPSE.result(ppse, finalPopulation, finalState)
 
- // println(result(pse, finalPopulation).mkString("\n"))
+  File(args(0)).write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n"))
+
 }
