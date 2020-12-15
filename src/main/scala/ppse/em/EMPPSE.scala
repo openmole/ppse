@@ -245,13 +245,13 @@ object PPSE2Operations {
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
 
       if(population2.size >= lowest) {
-        val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
-        val sortedPopulation2 = population2.sortBy(i => hm2.getOrElse(pattern(phenotype(i)), 1))
-
-        def lowestHitIndividual = sortedPopulation2.take(lowest)
 
         gmm.get(state) match {
           case None =>
+            // TODO count hits and update densities
+
+            def lowestHitIndividual = population2.take(lowest)
+
             val (gmmValue, _) =
               EMGMM.initializeAndFit(
                 components = components,
@@ -262,10 +262,16 @@ object PPSE2Operations {
                 rng
               )
 
-            def state2 = (gmm.set(Some(gmmValue)) andThen hitmap.set(hm2))(state)
+            def state2 = (gmm.set(Some(gmmValue)))(state)
 
             (state2, population2)
           case Some(gmmValue) =>
+
+            val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
+            val sortedPopulation2 = population2.sortBy(i => hm2.getOrElse(pattern(phenotype(i)), 1))
+
+            def lowestHitIndividual = sortedPopulation2.take(lowest)
+
             val distribution = EMGMM.toDistribution(gmmValue, rng)
 
             def densities =
