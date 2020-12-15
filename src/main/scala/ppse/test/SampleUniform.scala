@@ -1,6 +1,6 @@
 package ppse.test
 
-import ppse.{Benchmark, Sampling}
+import ppse.Sampling
 
 import scala.util.Random
 import better.files._

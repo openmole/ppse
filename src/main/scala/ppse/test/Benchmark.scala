@@ -1,4 +1,4 @@
-package ppse
+package ppse.test
 
 object Benchmark {
 

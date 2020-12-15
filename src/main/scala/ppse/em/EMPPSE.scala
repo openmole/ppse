@@ -41,7 +41,10 @@ object EMPPSE {
 
 
   type ProbabilityMap = Map[Vector[Int], Double]
-  @Lenses case class EMPPSEState(hitmap: HitMap, gmm: Option[GMM], probabilityMap: ProbabilityMap)
+  @Lenses case class EMPPSEState(
+    hitmap: HitMap = Map(),
+    gmm: Option[GMM] = None,
+    probabilityMap: ProbabilityMap = Map())
 
 //  case class Result(continuous: Vector[Double], discrete: Vector[Int], pattern: Vector[Int], phenotype: Vector[Double], individual: Individual)
 //
@@ -86,8 +89,30 @@ object EMPPSE {
 
   def breeding(
     continuous: Vector[C],
-    lambda: Int): Breeding[EMPPSEState, Individual, Genome] =
-    PPSE2Operations.breeding(continuous, identity, lambda, EMPPSEState.gmm.get)
+    lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual, Genome] =
+    PPSE2Operations.breeding(continuous, identity, lambda, (EvolutionState.s composeLens EMPPSEState.gmm).get)
+
+  def elitism(
+    continuous: Vector[C],
+    pattern: Vector[Double] => Vector[Int],
+    components: Int,
+    iterations: Int,
+    tolerance: Double,
+    lowest: Int) =
+    PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual, Vector[Double]](
+      continuous = continuous,
+      values = Individual.genome.get,
+      phenotype = Individual.phenotype composeLens arrayToVectorLens get,
+      pattern = pattern,
+      probabilities = EvolutionState.s composeLens EMPPSEState.probabilityMap,
+      hitmap = EvolutionState.s composeLens EMPPSEState.hitmap,
+      gmm = EvolutionState.s composeLens EMPPSEState.gmm,
+      components = components,
+      iterations = iterations,
+      tolerance = tolerance,
+      lowest = lowest
+    )
+
 
 //  def elitism[S, I, P: CanBeNaN](
 //    continuous: Vector[C],
@@ -131,31 +156,37 @@ object EMPPSE {
 //      pattern,
 //      EvolutionState.s[HitMap])
 //
-//  def expression(phenotype: (Vector[Double], Vector[Int]) => Vector[Double], continuous: Vector[C]): Genome => Individual =
-//    deterministic.expression[Genome, Vector[Double], Individual](
+  def expression(phenotype: Vector[Double] => Vector[Double], continuous: Vector[C]): Genome => Individual = (g: Genome) => {
+    val sc = scaleContinuousValues(g, continuous)
+    Individual(g, phenotype(sc).toArray)
+  }
+//  deterministic.expression[Genome, Vector[Double], Individual](
 //      values(_, continuous),
 //      buildIndividual,
 //      phenotype)
-//
+//}
+
+
+  //
 //  def reject(pse: PPSE2) = NSGA2.reject(pse.reject, pse.continuous)
-//
-//  implicit def isAlgorithm: Algorithm[PPSE2, Individual, Genome, EvolutionState[HitMap]] = new Algorithm[PPSE2, Individual, Genome, EvolutionState[HitMap]] {
-//    def initialState(t: PPSE2, rng: util.Random) = EvolutionState[HitMap](s = Map.empty)
-//
-//    override def initialPopulation(t: PPSE2, rng: scala.util.Random) =
-//      deterministic.initialPopulation[Genome, Individual](
-//        PPSE2.initialGenomes(t.lambda, t.continuous, t.discrete, reject(t), rng),
-//        PPSE2.expression(t.phenotype, t.continuous))
-//
-//    def step(t: PPSE2) =
-//      (s, pop, rng) =>
-//        deterministic.step[EvolutionState[HitMap], Individual, Genome](
-//          PPSE2.adaptiveBreeding(t.lambda, t.operatorExploration, t.discrete, t.pattern, reject(t)),
-//          PPSE2.expression(t.phenotype, t.continuous),
-//          PPSE2.elitism(t.pattern, t.continuous),
-//          EvolutionState.generation)(s, pop, rng)
-//
-//  }
+
+  implicit def isAlgorithm: Algorithm[EMPPSE, Individual, Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual, Genome, EvolutionState[EMPPSEState]] {
+    def initialState(t: EMPPSE, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
+
+    override def initialPopulation(t: EMPPSE, rng: scala.util.Random) =
+      deterministic.initialPopulation[Genome, Individual](
+        EMPPSE.initialGenomes(t.lambda, t.continuous, None, rng),
+        EMPPSE.expression(t.phenotype, t.continuous))
+
+    def step(t: EMPPSE) =
+      (s, pop, rng) =>
+        deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
+          EMPPSE.breeding(t.continuous, t.lambda),
+          EMPPSE.expression(t.phenotype, t.continuous),
+          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest),
+          EvolutionState.generation)(s, pop, rng)
+
+  }
 
 }
 
@@ -163,11 +194,11 @@ case class EMPPSE(
     lambda: Int,
     phenotype: Vector[Double] => Vector[Double],
     pattern: Vector[Double] => Vector[Int],
-    continuous: Vector[C] = Vector.empty,
-    components: Int,
-    iterations: Int,
-    tolerance: Double,
-    bootstrap: Int)
+    continuous: Vector[C],
+    components: Int = 20,
+    iterations: Int = 50,
+    tolerance: Double = 0.0001,
+    lowest: Int = 100)
 
 object PPSE2Operations {
 
@@ -205,19 +236,17 @@ object PPSE2Operations {
       components: Int,
       iterations: Int,
       tolerance: Double,
-      bootstrap: Int,
       lowest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def noNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
 
-      if(population2.size > bootstrap) {
+      if(population2.size >= lowest) {
         val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
         val sortedPopulation2 = population2.sortBy(i => hm2.getOrElse(pattern(phenotype(i)), 1))
 
-        val nbLowest = math.max(population2.size / lowest, 1)
-        def keepLowest = sortedPopulation2.take(nbLowest)
+        def lowestHitIndividual = sortedPopulation2.take(lowest)
 
         gmm.get(state) match {
           case None =>
@@ -226,7 +255,7 @@ object PPSE2Operations {
                 components = components,
                 iterations = iterations,
                 tolerance = tolerance,
-                x = keepLowest.map(values).map(_.toArray).toArray,
+                x = lowestHitIndividual.map(values).map(_.toArray).toArray,
                 columns = continuous.size,
                 rng
               )
@@ -236,6 +265,7 @@ object PPSE2Operations {
             (state2, population2)
           case Some(gmmValue) =>
             val distribution = EMGMM.toDistribution(gmmValue, rng)
+
             def densities =
               noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
                 mapValues { v => v.map(values).map(p => distribution.density(p.toArray))}.toSeq
@@ -250,7 +280,7 @@ object PPSE2Operations {
               pattern -> newDensity
             }
 
-            val pm2 = pm ++ densities.map(probabilityUpdate)
+            def pm2 = pm ++ densities.map(probabilityUpdate)
 
             val (gmmValue2, _) =
               EMGMM.fit(
@@ -260,7 +290,7 @@ object PPSE2Operations {
                 components = components,
                 iterations = iterations,
                 tolerance = tolerance,
-                x = keepLowest.map(values).map(_.toArray).toArray
+                x = lowestHitIndividual.map(values).map(_.toArray).toArray
               )
 
             def state2 =
