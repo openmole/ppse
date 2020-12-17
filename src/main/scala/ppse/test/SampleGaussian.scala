@@ -24,12 +24,21 @@ case class MonteCarloState(test: Long = 0L, pass: Long = 0L) {
  * @param patternFunction
  * @param predicate
  */
-class RejectionSampler(val dist: AbstractMultivariateRealDistribution, val patternFunction: Vector[Double] => Vector[Int], val predicate: Vector[Int] => Boolean) {
+class RejectionSampler(val dist: AbstractMultivariateRealDistribution, val function: Vector[Double] => Vector[Double], val predicate: Vector[Double] => Boolean) {
   def success(state: MonteCarloState) = MonteCarloState(state.test + 1, state.pass + 1)
   def fail(state: MonteCarloState) = MonteCarloState(state.test + 1, state.pass)
-  def sample(state: MonteCarloState): (MonteCarloState, (Vector[Int], Double)) = {
+
+  def warmup(n: Int, state: MonteCarloState = MonteCarloState()): MonteCarloState =
+    if(n > 0) {
+      val s = dist.sample()
+      val pattern = function(s.toVector)
+      if (!predicate(pattern)) warmup(n - 1, fail(state))
+      else warmup(n -1, success(state))
+    } else state
+
+  def sample(state: MonteCarloState = MonteCarloState()): (MonteCarloState, (Vector[Double], Double)) = {
     val s = dist.sample()
-    val pattern = patternFunction(s.toVector)
+    val pattern = function(s.toVector)
     if (!predicate(pattern)) {
       // if the sample is rejected, resample and keep the failure in the state
       sample(fail(state))
@@ -55,21 +64,20 @@ object SampleGaussian {
     //    p.map(x => math.floor(x * size).toInt)
     //  }
 
-    def patternFunction =
-      Benchmark.pattern(Benchmark.sample, Vector(size, size))
+    def patternFunction(p: Vector[Double]) = Benchmark.pattern(p, Vector(size, size))
 
     //val drawn = (0 until points).map(_ => gm.sample().toVector).map(s => (patternFunction(s), 1 / gm.density(s.toArray))).filter(_._1.forall(_ <= 50))
-    val sampler = new RejectionSampler(gm, patternFunction, _.forall(_ <= 50))
+    val sampler = new RejectionSampler(gm, Benchmark.sample, _.forall(_ <= 1.0))
 
-    def sample(n: Int, state: MonteCarloState, seq: Seq[(Vector[Int], Double)]): Seq[(Vector[Int], Double)] = {
+    def sample(n: Int, state: MonteCarloState, seq: Seq[(Vector[Int], Double)] = IndexedSeq()): Seq[(Vector[Int], Double)] = {
       if (n == 0) seq
       else {
-        val s = sampler.sample(state)
-        sample(n - 1, s._1, seq :+ s._2)
+        val (newState, (x, d)) = sampler.sample(state)
+        sample(n - 1, newState, seq :+ (patternFunction(x), d))
       }
     }
 
-    val drawn = sample(points, MonteCarloState(), IndexedSeq())
+    val drawn = sample(points, sampler.warmup(1000))
     val total = drawn.map(_._2).sum
 
     drawn.

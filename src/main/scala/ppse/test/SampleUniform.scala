@@ -10,8 +10,8 @@ object SampleUniform {
   def run = {
     val size = 50
 
-    def patternFunction =
-      Benchmark.pattern(Benchmark.sample, Vector(size, size))
+    def patternFunction(x: Vector[Double]) =
+      Benchmark.pattern(Benchmark.sample(x), Vector(size, size))
 
     Sampling.uniform2D(patternFunction, 50000, new Random(42))
   }
