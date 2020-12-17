@@ -1,5 +1,9 @@
 package ppse.em
 
+import ppse.tool
+import ppse.tool.RejectionSampler
+import shapeless.Lazy
+
 import scala.reflect.ClassTag
 import scala.util.Random
 
@@ -41,7 +45,7 @@ object EMPPSE {
   type ProbabilityMap = Map[Vector[Int], Double]
   @Lenses case class EMPPSEState(
     hitmap: HitMap = Map(),
-    gmm: Option[GMM] = None,
+    gmm: Option[(GMM, RejectionSampler.State)] = None,
     probabilityMap: ProbabilityMap = Map())
 
  case class Result(continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual)
@@ -100,7 +104,8 @@ object EMPPSE {
     components: Int,
     iterations: Int,
     tolerance: Double,
-    lowest: Int) =
+    lowest: Int,
+    warmupSampler: Int) =
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual, Vector[Double]](
       continuous = continuous,
       values = Individual.genome.get,
@@ -112,7 +117,8 @@ object EMPPSE {
       components = components,
       iterations = iterations,
       tolerance = tolerance,
-      lowest = lowest
+      lowest = lowest,
+      warmupSampler = warmupSampler
     )
 
 
@@ -185,11 +191,23 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression(t.phenotype, t.continuous),
-          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest),
+          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.warmupSampler),
           EvolutionState.generation)(s, pop, rng)
 
   }
 
+  def acceptPoint(x: Vector[Double]) =
+    x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
+
+  def toSampler(gmm: GMM, rng: Random) = {
+    val distribution = EMGMM.toDistribution(gmm, rng)
+
+    def sample() = {
+      val x = distribution.sample()
+      (x.toVector, Lazy(distribution.density(x)))
+    }
+    new tool.RejectionSampler(sample _, EMPPSE.acceptPoint)
+  }
 }
 
 case class EMPPSE(
@@ -200,7 +218,8 @@ case class EMPPSE(
     components: Int = 20,
     iterations: Int = 10,
     tolerance: Double = 0.0001,
-    lowest: Int = 100)
+    lowest: Int = 100,
+    warmupSampler: Int = 1000)
 
 object PPSE2Operations {
 
@@ -211,7 +230,7 @@ object PPSE2Operations {
     buildGenome: Vector[Double] => G,
     lambda: Int,
     //reject: Option[G => Boolean],
-    gmm: S => Option[GMM]
+    gmm: S => Option[(GMM, RejectionSampler.State)]
  ): Breeding[S, I, G] =
     (s, population, rng) => {
 
@@ -220,10 +239,13 @@ object PPSE2Operations {
       gmm(s) match {
         case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng))).toVector
         case Some(gmm) =>
-          EMGMM.toDistribution(gmm, rng).
-            sample(lambda).toVector.
-            map(g => g.map(v => mgo.tools.clamp(v))).
-            map(g => buildGenome(g.toVector))
+          val sampler = EMPPSE.toSampler(gmm._1, rng)
+
+
+
+          sampler.sampleVector(lambda, gmm._2)._2.
+            map(_._1).
+            map(g => buildGenome(g))
       }
     }
 
@@ -234,11 +256,12 @@ object PPSE2Operations {
       pattern: P => Vector[Int],
       probabilities: monocle.Lens[S, ProbabilityMap],
       hitmap: monocle.Lens[S, HitMap],
-      gmm: monocle.Lens[S, Option[GMM]],
+      gmm: monocle.Lens[S, Option[(GMM, RejectionSampler.State)]],
       components: Int,
       iterations: Int,
       tolerance: Double,
-      lowest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+      lowest: Int,
+      warmupSampler: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def noNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
@@ -262,7 +285,9 @@ object PPSE2Operations {
                 rng
               )
 
-            def state2 = (gmm.set(Some(gmmValue)))(state)
+
+            def state2 = (
+              gmm.set(Some((gmmValue, EMPPSE.toSampler(gmmValue, rng).warmup(warmupSampler)))))(state)
 
             (state2, population2)
           case Some(gmmValue) =>
@@ -272,7 +297,7 @@ object PPSE2Operations {
 
             def lowestHitIndividual = sortedPopulation2.take(lowest)
 
-            val distribution = EMGMM.toDistribution(gmmValue, rng)
+            val distribution = EMGMM.toDistribution(gmmValue._1, rng)
 
             def densities =
               noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
@@ -318,7 +343,7 @@ object PPSE2Operations {
             }
 
             def state2 =
-              (gmm.set(Some(gmmValue2)) andThen
+              (gmm.set(Some((gmmValue2, EMPPSE.toSampler(gmmValue2, rng).warmup(warmupSampler)))) andThen
                 probabilities.set(pm2) andThen
                 hitmap.set(hm2))(state)
 
