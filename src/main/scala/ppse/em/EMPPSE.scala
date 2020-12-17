@@ -52,6 +52,8 @@ object EMPPSE {
 
   def result(population: Vector[Individual], state: EvolutionState[EMPPSEState], continuous: Vector[C], pattern: Vector[Double] => Vector[Int]) = {
     val densityMap = (EvolutionState.s composeLens EMPPSEState.probabilityMap).get(state)
+    val max = densityMap.map(_._2).maxOption.getOrElse(0.0)
+    val total = densityMap.map(_._2).sum
 
     population.map { i =>
       val p = pattern(i.phenotype.toVector)
@@ -59,7 +61,7 @@ object EMPPSE {
       Result(
         scaleContinuousValues(i.genome, continuous),
         p,
-        densityMap.getOrElse(p, 0.0),
+        (max - densityMap.getOrElse(p, 0.0)) / total,
         i.phenotype.toVector,
         i)
     }
@@ -105,6 +107,7 @@ object EMPPSE {
     iterations: Int,
     tolerance: Double,
     lowest: Int,
+    dilation: Double,
     warmupSampler: Int) =
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual, Vector[Double]](
       continuous = continuous,
@@ -118,6 +121,7 @@ object EMPPSE {
       iterations = iterations,
       tolerance = tolerance,
       lowest = lowest,
+      dilation = dilation,
       warmupSampler = warmupSampler
     )
 
@@ -191,7 +195,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression(t.phenotype, t.continuous),
-          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.warmupSampler),
+          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.dilation, t.warmupSampler),
           EvolutionState.generation)(s, pop, rng)
 
   }
@@ -219,7 +223,8 @@ case class EMPPSE(
     iterations: Int = 10,
     tolerance: Double = 0.0001,
     lowest: Int = 100,
-    warmupSampler: Int = 1000)
+    warmupSampler: Int = 1000,
+    dilation: Double = 2.0)
 
 object PPSE2Operations {
 
@@ -241,8 +246,6 @@ object PPSE2Operations {
         case Some(gmm) =>
           val sampler = EMPPSE.toSampler(gmm._1, rng)
 
-
-
           sampler.sampleVector(lambda, gmm._2)._2.
             map(_._1).
             map(g => buildGenome(g))
@@ -261,6 +264,7 @@ object PPSE2Operations {
       iterations: Int,
       tolerance: Double,
       lowest: Int,
+      dilation: Double,
       warmupSampler: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def noNan = filterNaN(candidates, phenotype)
@@ -285,9 +289,10 @@ object PPSE2Operations {
                 rng
               )
 
+            val dilatedGMMValue = EMGMM.dilate(gmmValue, dilation)
 
             def state2 = (
-              gmm.set(Some((gmmValue, EMPPSE.toSampler(gmmValue, rng).warmup(warmupSampler)))))(state)
+              gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
 
             (state2, population2)
           case Some(gmmValue) =>
@@ -342,8 +347,10 @@ object PPSE2Operations {
               }
             }
 
+            val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
+
             def state2 =
-              (gmm.set(Some((gmmValue2, EMPPSE.toSampler(gmmValue2, rng).warmup(warmupSampler)))) andThen
+              (gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
                 probabilities.set(pm2) andThen
                 hitmap.set(hm2))(state)
 

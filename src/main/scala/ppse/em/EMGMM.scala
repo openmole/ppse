@@ -174,6 +174,9 @@ object EMGMM  {
     Array.tabulate(A.length)(i=>B.indices.map(j=>B(j).map(_*A(i)(j))).transpose.map(_.sum).toArray)
   }
 
+  def dilate(gmm: GMM, f: Double) =
+    gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
+
 }
 
 case class GMM(

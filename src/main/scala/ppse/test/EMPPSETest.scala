@@ -20,7 +20,7 @@ object EMPPSETest extends App {
 
   def evolution =
     ppse.
-      until(afterGeneration(100)).
+      until(afterGeneration(500)).
       trace((s, is) => println(s.generation))
 
   val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
