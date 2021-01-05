@@ -1,15 +1,15 @@
 package ppse.em
 
-import java.util.Calendar
-
 import better.files.File
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution}
-import org.apache.commons.math3.random.Well19937c
-import org.apache.commons.math3.util.Pair
 
-import scala.jdk.CollectionConverters._
+import scala.annotation.tailrec
 import scala.util.Random
 
+/**
+ * EM-GMM implementation.
+ * Inspired by the work of Maël Fabien: https://github.com/maelfabien/EM_GMM_HMM
+ */
 object EMGMM  {
 
   /**
@@ -24,13 +24,10 @@ object EMGMM  {
     tolerance: Double,
     x: Array[Array[Double]],
     columns: Int,
-    random: Random) = {
-    // data's dimensionality and responsibility vector
-    val n_row = x.length
+    random: Random): (GMM, Seq[Double]) = {
     // initialize parameters
     // chose Random means in data points
-    val chosen = random.shuffle(x.indices.toArray[Int]).take(components).toArray
-    val means = chosen.map(c => x(c))
+    val means = random.shuffle(x.indices.toArray[Int]).take(components).map(c => x(c)).toArray
     // set equal weights to all components
     val weights = Array.fill(components)(1.0 / components)
     // compute covariances
@@ -41,7 +38,6 @@ object EMGMM  {
         means = means,
         covariances = covariances,
         weights = weights,
-        logLikelihood = 0.0,
         components = components,
         iterations = iterations,
         tolerance = tolerance,
@@ -52,9 +48,10 @@ object EMGMM  {
   }
 
 
-  def toDistribution(gmm: GMM, random: Random) = {
+  def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
     import org.apache.commons.math3.distribution._
     import org.apache.commons.math3.util._
+
     import scala.jdk.CollectionConverters._
 
     def dist = (gmm.means zip gmm.covariances).map { case (m, c) =>  new MultivariateNormalDistribution(m, c) }
@@ -63,6 +60,7 @@ object EMGMM  {
     new MixtureMultivariateNormalDistribution(mgo.tools.apacheRandom(random), pairs.asJava)
   }
 
+  @tailrec
   def fit(
     x: Array[Array[Double]],
     means: Array[Array[Double]],
@@ -103,9 +101,9 @@ object EMGMM  {
   /**
    * Estimate a covariance matrix, given data.
    * @param x data points
-   * @param columns number of columns f the points
+   * @param columns number of columns of the points
    */
-  def cov(x: Array[Array[Double]], columns: Int) = {
+  def cov(x: Array[Array[Double]], columns: Int): Array[Array[Double]] = {
     val mean = Array.tabulate(columns){ i => x.map(_ (i)).sum / x.length }
     val m = x.map(_.zipWithIndex.map(v => v._1 - mean(v._2)))
     val p = m.map(v => v.map(x => v.map(_ * x)))
@@ -122,7 +120,8 @@ object EMGMM  {
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def eStep(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]) = {
+  def eStep(x: Array[Array[Double]], means: Array[Array[Double]],
+            covariances: Array[Array[Array[Double]]], weights: Array[Double]): (Double, Array[Array[Double]]) = {
     // resp matrix
     val resp = compute_log_likelihood(x, means, covariances, weights)
     val sum = resp.map(_.sum)
@@ -138,7 +137,7 @@ object EMGMM  {
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]) = {
+  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] = {
     weights.zipWithIndex.map { case (prior, k) => x.map(x => new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior) }.transpose
   }
 
@@ -146,7 +145,7 @@ object EMGMM  {
    * M-step, update parameters.
    * @param X data points
    */
-  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int) = {
+  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int): (Array[Double], Array[Array[Double]], Array[Array[Array[Double]]]) = {
     // sum the columns to get total responsibility assigned to each cluster, N^{soft}
     val resp_weights = Array.tabulate(components)(i => resp.map(_ (i)).sum)
     // normalized weights
@@ -170,11 +169,11 @@ object EMGMM  {
    * @param A matrix A
    * @param B matrix B
    */
-  def dot(A: Array[Array[Double]], B: Array[Array[Double]]) = {
+  def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] = {
     Array.tabulate(A.length)(i=>B.indices.map(j=>B(j).map(_*A(i)(j))).transpose.map(_.sum).toArray)
   }
 
-  def dilate(gmm: GMM, f: Double) =
+  def dilate(gmm: GMM, f: Double): GMM =
     gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
 
 }
