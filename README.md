@@ -31,3 +31,4 @@ It doesn't seem to be a solution to this problem since the distribution that is 
 
 Extend CMAES evolutionnary strategy to sample in gaussian mixutres: https://hal.inria.fr/hal-01420342
 GCES  is  a  stochastic  method  for  multimodal  optimization  of  nonlinear  nonconvex functions: https://sci-hub.se/https://ieeexplore.ieee.org/document/6729097
+
