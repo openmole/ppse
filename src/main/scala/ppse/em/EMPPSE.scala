@@ -220,7 +220,7 @@ case class EMPPSE(
     phenotype: Vector[Double] => Vector[Double],
     pattern: Vector[Double] => Vector[Int],
     continuous: Vector[C],
-    components: Int = 20,
+    components: Int = 5,
     iterations: Int = 10,
     tolerance: Double = 0.0001,
     lowest: Int = 100,
@@ -286,7 +286,7 @@ object PPSE2Operations {
                 iterations = iterations,
                 tolerance = tolerance,
                 x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray),
-                dataWeights = DenseVector(lowestHitIndividual.map(_=>1.0)),
+                dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
                 rng
               )
 
@@ -328,7 +328,7 @@ object PPSE2Operations {
                   iterations = iterations,
                   tolerance = tolerance,
                   x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray),
-                  dataWeights = DenseVector(lowestHitIndividual.map(_=>1.0)),
+                  dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
                   rng
                 )
 
