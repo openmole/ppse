@@ -205,7 +205,7 @@ object EMPPSE {
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
 
   def toSampler(gmm: GMM, rng: Random) = {
-    val distribution = WDFEMGMM.toDistribution(gmm, rng)
+    val distribution = EMGMM.toDistribution(gmm, rng)
 
     def sample() = {
       val x = distribution.sample()
@@ -285,12 +285,14 @@ object PPSE2Operations {
                 components = components,
                 iterations = iterations,
                 tolerance = tolerance,
-                x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray),
+//                x = lowestHitIndividual.map(values).map(_.toArray).toArray,
+//                columns = continuous.size,
+                x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray.transpose),
                 dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
                 rng
               )
 
-            val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
+            val dilatedGMMValue = EMGMM.dilate(gmmValue, dilation)
 
             def state2 = (
               gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
@@ -303,7 +305,7 @@ object PPSE2Operations {
 
             def lowestHitIndividual = sortedPopulation2.take(lowest)
 
-            val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
+            val distribution = EMGMM.toDistribution(gmmValue._1, rng)
 
             def densities =
               noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
@@ -327,7 +329,9 @@ object PPSE2Operations {
                   components = components,
                   iterations = iterations,
                   tolerance = tolerance,
-                  x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray),
+//                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
+//                  columns = continuous.size,
+                  x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray.transpose),
                   dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
                   rng
                 )
@@ -338,7 +342,7 @@ object PPSE2Operations {
               }
             }
 
-            val dilatedGMMValue = WDFEMGMM.dilate(gmmValue2, dilation)
+            val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
 
             def state2 =
               (gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen

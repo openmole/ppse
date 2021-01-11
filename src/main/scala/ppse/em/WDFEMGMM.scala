@@ -33,11 +33,6 @@ object WDFEMGMM  {
     random: Random): (GMM, Seq[Double]) = {
     // initialize parameters using KMeans
     val (means, covariances, weights) = KMeans.initializeAndFit(components, x, 100, random)
-    // set equal weights to all components
-//    val weights = DenseVector.fill(components)(1.0 / components)
-    // compute covariances
-//    val covariances = Array.fill(components)(cov(x))
-//    val covariances = Array.tabulate(components)(i=>cov(x,means(i,::).t))
     println(s"Means=\n$means")
     println(s"Weights=\n$weights")
     println(s"Covariances=\n\n${covariances.mkString("\n\n")}")
@@ -53,7 +48,6 @@ object WDFEMGMM  {
         tolerance = tolerance,
         trace = IndexedSeq()
       )
-
     (gmm, logLikelihoodTrace)
   }
 
@@ -130,9 +124,6 @@ object WDFEMGMM  {
    * @param x data points
    */
   def cov(x: DenseMatrix[Double], mean: DenseVector[Double]): DenseMatrix[Double] = {
-//    val tmp = DenseMatrix.tabulate(x.rows, x.cols)((_,j)=>mean(j))
-//    val m = (x - tmp).toDenseMatrix
-//    val p = m.t * m
     val q = DenseMatrix.tabulate(x.cols,x.cols)((j,k)=>Array.tabulate(x.rows)(i=>(x(i,j)-mean(j))*(x(i,k)-mean(k))).sum)
     (q /:/ (x.rows - 1).toDouble).toDenseMatrix
   }
@@ -186,7 +177,6 @@ object WDFEMGMM  {
   def mStep(X: DenseMatrix[Double], dataWeights: DenseVector[Double], resp: DenseMatrix[Double], components: Int): (DenseVector[Double], DenseMatrix[Double], Array[DenseMatrix[Double]]) = {
     // sum the columns to get total responsibility assigned to each cluster, N^{soft}
     val resp_t = resp.t
-//    val component_weights = Array.tabulate(components)(i => resp.map(_(i)).sum)
     val component_weights = sum(resp_t(*, ::))
     // normalized weights
     val weights = component_weights /:/ X.rows.toDouble
@@ -201,17 +191,6 @@ object WDFEMGMM  {
 
     val covariances = Array.tabulate(components) { k =>
       val mean = means(k, ::)
-//      val tmp = DenseMatrix.tabulate(X.rows, X.cols)((_,j)=>mean(j))
-//      val diff = (X - tmp).toDenseMatrix
-//      val product = diff.t * diff
-//      println(s"${product.rows} x ${product.cols}")
-//      val w_sum = DenseMatrix.tabulate(product.rows, product.cols)((i,j)=>product(i,j)*resp_t(k,i)*dataWeights(i))
-//      val w_sum = DenseMatrix.fill(X.cols, X.cols)(0.0)
-//      (0 until X.rows).foreach{i=>
-//        val product = diff(i,::).t * diff(i,::)
-//        w_sum += DenseMatrix.tabulate(product.rows, product.cols)((i,j)=>product(i,j)*resp_t(k,i)*dataWeights(i))
-//      }
-//      println(s"${w_sum.rows} x ${w_sum.cols}")
       val w_sum = DenseMatrix.tabulate(X.cols,X.cols)((j,kk)=>Array.tabulate(X.rows)(i=>(X(i,j)-mean(j))*(X(i,kk)-mean(kk))*resp_t(k,i)*dataWeights(i)).sum)
       w_sum /:/ component_weights(k)
     }
@@ -228,7 +207,6 @@ object WDFEMGMM  {
   }
 
   def dilate(gmm: GMM, f: Double): GMM =
-//    gmm.copy(covariances = gmm.covariances.map(_ *:* f))
     gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
 
 
