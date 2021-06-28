@@ -28,6 +28,9 @@ import mgo.tools._
 import mgo.tools.execution._
 import monocle.macros.Lenses
 
+import monocle._
+import monocle.syntax.all._
+
 import scala.language.higherKinds
 
 // TODO generify individual phenotype
@@ -43,7 +46,7 @@ object PPSE2 {
     population.map { i =>
       Result(
         scaleContinuousValues(continuousValues.get(i.genome), continuous),
-        Individual.genome composeLens discreteValues get i,
+        Focus[Individual](_.genome) andThen discreteValues get i,
         pattern(i.phenotype.toVector),
         i.phenotype.toVector,
         i)
@@ -52,12 +55,12 @@ object PPSE2 {
   def result(pse: PPSE2, population: Vector[Individual]): Vector[Result] =
     result(population, pse.continuous, pse.pattern)
 
-  @Lenses case class Individual(
+  case class Individual(
     genome: Genome,
     phenotype: Array[Double])
 
   def buildIndividual(g: Genome, f: Vector[Double]) = Individual(g, f.toArray)
-  def vectorPhenotype = Individual.phenotype composeLens arrayToVectorLens
+  def vectorPhenotype = Focus[Individual](_.phenotype) andThen arrayToVectorIso[Double]
 
   def initialGenomes(lambda: Int, continuous: Vector[C], discrete: Vector[D], reject: Option[Genome => Boolean], rng: scala.util.Random) =
     CDGenome.initialGenomes(lambda, continuous, discrete, reject, rng)
@@ -69,7 +72,7 @@ object PPSE2 {
     pattern: Vector[Double] => Vector[Int],
     reject: Option[Genome => Boolean]): Breeding[PPSE2State, Individual, Genome] =
     PPSE2Operations.adaptiveBreeding[PPSE2State, Individual, Genome](
-      Individual.genome.get,
+      Focus[Individual](_.genome).get,
       continuousValues.get,
       continuousOperator.get,
       discreteValues.get,
@@ -80,14 +83,14 @@ object PPSE2 {
       lambda,
       reject,
       operatorExploration,
-      EvolutionState.s[HitMap])
+      Focus[PPSE2State](_.s))
 
   def elitism(pattern: Vector[Double] => Vector[Int], continuous: Vector[C]) =
     PPSE2Operations.elitism[PPSE2State, Individual, Vector[Double]](
-      i => values(Individual.genome.get(i), continuous),
+      i => values(i.focus(_.genome).get, continuous),
       vectorPhenotype.get,
       pattern,
-      EvolutionState.s[HitMap])
+      Focus[PPSE2State](_.s))
 
   def expression(phenotype: (Vector[Double], Vector[Int]) => Vector[Double], continuous: Vector[C]): Genome => Individual =
     deterministic.expression[Genome, Vector[Double], Individual](
@@ -111,7 +114,8 @@ object PPSE2 {
           PPSE2.adaptiveBreeding(t.lambda, t.operatorExploration, t.discrete, t.pattern, reject(t)),
           PPSE2.expression(t.phenotype, t.continuous),
           PPSE2.elitism(t.pattern, t.continuous),
-          EvolutionState.generation)(s, pop, rng)
+          Focus[PPSE2State](_.generation),
+          Focus[PPSE2State](_.evaluated))(s, pop, rng)
 
   }
 

@@ -10,7 +10,6 @@ import scala.util.Random
 
 
 
-
 /*
  * Copyright (C) 09/11/2020 Romain Reuillon
  *
@@ -39,12 +38,15 @@ import mgo.tools._
 import mgo.tools.execution._
 import monocle.macros.Lenses
 
+import monocle._
+import monocle.syntax.all._
+
 import scala.language.higherKinds
 
 object EMPPSE {
 
   type ProbabilityMap = Map[Vector[Int], Double]
-  @Lenses case class EMPPSEState(
+  case class EMPPSEState(
     hitmap: HitMap = Map(),
     gmm: Option[(GMM, RejectionSampler.State)] = None,
     probabilityMap: ProbabilityMap = Map())
@@ -52,7 +54,7 @@ object EMPPSE {
  case class Result(continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual)
 
   def result(population: Vector[Individual], state: EvolutionState[EMPPSEState], continuous: Vector[C], pattern: Vector[Double] => Vector[Int]) = {
-    val densityMap = (EvolutionState.s composeLens EMPPSEState.probabilityMap).get(state)
+    val densityMap = state.focus(_.s) andThen Focus[EMPPSEState](_.probabilityMap) get
     val max = densityMap.map(_._2).maxOption.getOrElse(0.0)
     val total = densityMap.map(_._2).sum
 
@@ -78,7 +80,7 @@ object EMPPSE {
     phenotype: Array[Double])
 
   def buildIndividual(g: Genome, f: Vector[Double]) = Individual(g, f.toArray)
-  def vectorPhenotype = Individual.phenotype composeLens arrayToVectorLens
+  def vectorPhenotype = Focus[Individual](_.phenotype) andThen arrayToVectorIso[Double]
 
   def initialGenomes(number: Int, continuous: Vector[C], reject: Option[Genome => Boolean], rng: scala.util.Random) = {
     def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Vector.fill(genomeLength)(() => rng.nextDouble()).map(_())
@@ -99,7 +101,7 @@ object EMPPSE {
   def breeding(
     continuous: Vector[C],
     lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual, Genome] =
-    PPSE2Operations.breeding(continuous, identity, lambda, (EvolutionState.s composeLens EMPPSEState.gmm).get)
+    PPSE2Operations.breeding(continuous, identity, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
 
   def elitism(
     continuous: Vector[C],
@@ -113,11 +115,11 @@ object EMPPSE {
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual, Vector[Double]](
       continuous = continuous,
       values = Individual.genome.get,
-      phenotype = Individual.phenotype composeLens arrayToVectorLens get,
+      phenotype = Focus[Individual](_.phenotype) andThen arrayToVectorIso[Double] get,
       pattern = pattern,
-      probabilities = EvolutionState.s composeLens EMPPSEState.probabilityMap,
-      hitmap = EvolutionState.s composeLens EMPPSEState.hitmap,
-      gmm = EvolutionState.s composeLens EMPPSEState.gmm,
+      probabilities = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.probabilityMap),
+      hitmap = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.hitmap),
+      gmm = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm),
       components = components,
       iterations = iterations,
       tolerance = tolerance,
@@ -197,7 +199,9 @@ object EMPPSE {
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression(t.phenotype, t.continuous),
           EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.dilation, t.warmupSampler),
-          EvolutionState.generation)(s, pop, rng)
+          Focus[EvolutionState[EMPPSEState]](_.generation),
+          Focus[EvolutionState[EMPPSEState]](_.evaluated)
+        )(s, pop, rng)
 
   }
 
