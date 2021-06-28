@@ -6,6 +6,7 @@ import breeze.linalg.Vector._
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
+import org.apache.commons.math3.linear.SingularMatrixException
 import org.apache.commons.math3.util.Pair
 
 import scala.annotation.tailrec
@@ -30,25 +31,40 @@ object WDFEMGMM  {
     tolerance: Double,
     x: DenseMatrix[Double],
     dataWeights: DenseVector[Double],
-    random: Random): (GMM, Seq[Double]) = {
-    // initialize parameters using KMeans
-    val (means, covariances, weights) = KMeans.initializeAndFit(components, x, 100, random)
-    println(s"Means=\n$means")
-    println(s"Weights=\n$weights")
-    println(s"Covariances=\n\n${covariances.mkString("\n\n")}")
-    val (gmm, logLikelihoodTrace) =
-      fit(
-        x = x,
-        dataWeights = dataWeights,
-        means = means,
-        covariances = covariances,
-        weights = weights,
-        components = components,
-        iterations = iterations,
-        tolerance = tolerance,
-        trace = IndexedSeq()
-      )
-    (gmm, logLikelihoodTrace)
+    random: Random,
+    retry: Int): (GMM, Seq[Double]) = {
+
+    def compute(t: Int): (GMM, Seq[Double]) =
+      try {
+        // initialize parameters using KMeans
+        val (means, covariances, weights) = KMeans.initializeAndFit(components, x, 100, random)
+//        println(s"Means=\n$means")
+//        println(s"Weights=\n$weights")
+//        println(s"Covariances=\n\n${covariances.mkString("\n\n")}")
+        val (gmm, logLikelihoodTrace) =
+          fit(
+            x = x,
+            dataWeights = dataWeights,
+            means = means,
+            covariances = covariances,
+            weights = weights,
+            components = components,
+            iterations = iterations,
+            tolerance = tolerance,
+            trace = IndexedSeq()
+          )
+        (gmm, logLikelihoodTrace)
+      } catch {
+        case e: SingularMatrixException  =>
+          println("retry " + retry)
+          if(t > 0) compute(t - 1) else throw e
+        case e: org.apache.commons.math3.exception.MaxCountExceededException =>
+        println("retry max count " + retry)
+        if(t > 0) compute(t - 1) else throw e
+      }
+
+    compute(retry)
+
   }
 
 
@@ -90,11 +106,11 @@ object WDFEMGMM  {
       case 0 => (gmm, trace)
       case i =>
         val (updatedLogLikelihood, resp) = eStep(x, dataWeights, means, covariances, weights)
-        println(s"logLikelihood=\n$updatedLogLikelihood")
+//        println(s"logLikelihood=\n$updatedLogLikelihood")
         val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, dataWeights, resp, components)
-        println(s"Means=\n$updatedMeans")
-        println(s"Weights=\n$updatedWeights")
-        println(s"Covariances=\n\n${updatedCovariances.mkString("\n\n")}")
+//        println(s"Means=\n$updatedMeans")
+//        println(s"Weights=\n$updatedWeights")
+//        println(s"Covariances=\n\n${updatedCovariances.mkString("\n\n")}")
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
           x = x,
@@ -203,7 +219,7 @@ object WDFEMGMM  {
     val weighted_resp = resp_t * dataWeights.toDenseMatrix.t
     val means = DenseMatrix.tabulate(weighted_sum.rows, weighted_sum.cols)((i,j)=>weighted_sum(i,j)/weighted_resp(i,0))
     // covariance
-    println(s"components = $components")
+//    println(s"components = $components")
 
     val covariances = Array.tabulate(components) { k =>
       val mean = means(k, ::)
@@ -268,7 +284,8 @@ object WDFEMGMMTest extends App {
       tolerance = 0.0000001,
       x = DenseMatrix.create(data.length, 2, data.transpose.flatten),
       dataWeights = DenseVector(dataWeights),
-      random = rng)
+      random = rng,
+      retry = 10)
 
   println("finished")
   println(s"Means=\n${toString2dArray(gmm.means)}")

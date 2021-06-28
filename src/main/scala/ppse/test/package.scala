@@ -3,15 +3,11 @@ package ppse
 import better.files._
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution}
 import org.apache.commons.math3.util.Pair
-import ppse.Sampling.DensityMap
 import scala.jdk.CollectionConverters._
 
 package object test {
   def toCSV(v: Vector[Vector[Double]]) =
     v.map(_.mkString(", ")).mkString("\n")
-
-  def write(file: File, densities: DensityMap) =
-    file.write(densities.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
   def mixture() = {
     val g1 = new MultivariateNormalDistribution(Array(0.1, 0.1), Array(Array(0.1, 0.0), Array(0.0, 0.1)))
