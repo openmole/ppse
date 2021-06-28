@@ -61,7 +61,10 @@ object WDFEMGMM  {
     def dist = (gmm.means zip gmm.covariances).map { case (m, c) =>  new MultivariateNormalDistribution(m, c) }
     def pairs = (dist zip gmm.weights).map { case (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
 
-    new MixtureMultivariateNormalDistribution(mgo.tools.apacheRandom(random), pairs.asJava)
+    new MixtureMultivariateNormalDistribution(
+      mgo.tools.apacheRandom(random),
+      pairs.asJava
+    )
   }
 
   @tailrec
@@ -137,8 +140,12 @@ object WDFEMGMM  {
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def eStep(x: DenseMatrix[Double], dataWeights: DenseVector[Double], means: DenseMatrix[Double],
-            covariances: Array[DenseMatrix[Double]], weights: DenseVector[Double]): (Double, DenseMatrix[Double]) = {
+  def eStep(
+    x: DenseMatrix[Double],
+    dataWeights: DenseVector[Double],
+    means: DenseMatrix[Double],
+    covariances: Array[DenseMatrix[Double]],
+    weights: DenseVector[Double]): (Double, DenseMatrix[Double]) = {
     // for each point and each component
     // the matrix containing the probability of point i for component k multiplied by the weight (coefficient) of component k
     val resp = compute_log_likelihood(x, dataWeights, means, covariances, weights)
@@ -165,9 +172,18 @@ object WDFEMGMM  {
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def compute_log_likelihood(x: DenseMatrix[Double], dataWeights: DenseVector[Double], means: DenseMatrix[Double],
-                             covariances: Array[DenseMatrix[Double]], weights: DenseVector[Double]): DenseMatrix[Double] = {
-    DenseMatrix.tabulate(x.rows, weights.length)((i,k)=>new MultivariateNormalDistribution(means(k,::).inner.toArray, toArray(covariances(k) /:/ dataWeights(i))).density(x(i,::).inner.toArray) * weights(k))
+  def compute_log_likelihood(
+    x: DenseMatrix[Double],
+    dataWeights: DenseVector[Double],
+    means: DenseMatrix[Double],
+    covariances: Array[DenseMatrix[Double]],
+    weights: DenseVector[Double]): DenseMatrix[Double] = {
+    DenseMatrix.tabulate(x.rows, weights.length) { (i, k) =>
+      new MultivariateNormalDistribution(
+        means(k, ::).inner.toArray,
+        toArray(covariances(k) /:/ dataWeights(i))
+      ).density(x(i, ::).inner.toArray) * weights(k)
+    }
   }
 
   /**
