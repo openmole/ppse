@@ -231,7 +231,7 @@ case class EMPPSE(
     tolerance: Double = 0.0001,
     lowest: Int = 100,
     warmupSampler: Int = 1000,
-    dilation: Double = 2.0,
+    dilation: Double = 1.0,
     retryGMM: Int = 10)
 
 object PPSE2Operations {
@@ -286,7 +286,9 @@ object PPSE2Operations {
           case None =>
             // TODO count hits and update densities
 
-            def lowestHitIndividual = population2.take(lowest)
+            //def lowestHitIndividual = population2.take(lowest)
+
+            def lowestHitIndividual = population2
 
             val (gmmValue, _) =
               WDFEMGMM.initializeAndFit(
@@ -304,15 +306,21 @@ object PPSE2Operations {
             val dilatedGMMValue = EMGMM.dilate(gmmValue, dilation)
 
             def state2 = (
-              gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
+              gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
 
             (state2, population2)
           case Some(gmmValue) =>
 
             val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
-            val sortedPopulation2 = population2.sortBy(i => hm2.getOrElse(pattern(phenotype(i)), 1))
 
-            def lowestHitIndividual = sortedPopulation2.take(lowest)
+            def hits(i: I) = hm2.get(pattern(phenotype(i))).getOrElse(1)
+//            val sortedPopulation2 = population2.sortBy(hits)
+//            val lowestHitIndividual = sortedPopulation2.take(lowest)
+
+            val lowestHitIndividual = population2
+
+
+            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
 
             val distribution = EMGMM.toDistribution(gmmValue._1, rng)
 
@@ -340,8 +348,12 @@ object PPSE2Operations {
                   tolerance = tolerance,
 //                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
 //                  columns = continuous.size,
-                  x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray.transpose),
-                  dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
+                  x = WDFEMGMM.toDenseMatrix(
+                    rows = lowestHitIndividual.length,
+                    cols = continuous.size,
+                    lowestHitIndividual.map(values).map(_.toArray).toArray.transpose
+                  ),
+                  dataWeights = DenseVector(weights: _*), //DenseVector.fill(lowestHitIndividual.size, 1.0),
                   random = rng,
                   retry = retryGMM
                 )
@@ -359,7 +371,7 @@ object PPSE2Operations {
                 probabilities.set(pm2) andThen
                 hitmap.set(hm2))(state)
 
-            (state2, sortedPopulation2)
+            (state2, population2)
         }
 
       } else (state, population2)

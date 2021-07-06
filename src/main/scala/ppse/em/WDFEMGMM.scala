@@ -55,12 +55,8 @@ object WDFEMGMM  {
           )
         (gmm, logLikelihoodTrace)
       } catch {
-        case e: SingularMatrixException  =>
-          println("retry " + retry)
-          if(t > 0) compute(t - 1) else throw e
-        case e: org.apache.commons.math3.exception.MaxCountExceededException =>
-        println("retry max count " + retry)
-        if(t > 0) compute(t - 1) else throw e
+        case e: org.apache.commons.math3.linear.SingularMatrixException => if(t > 0) compute(t - 1) else throw e
+        case e: org.apache.commons.math3.exception.MaxCountExceededException => if(t > 0) compute(t - 1) else throw e
       }
 
     compute(retry)

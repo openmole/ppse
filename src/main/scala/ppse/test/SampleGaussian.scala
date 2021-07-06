@@ -14,10 +14,10 @@ object SampleGaussian {
   def run = {
 
 
-    val points = 500000
+    val points = 100000
     val size = 50
 
-    val gm = mixture()
+    val gm = mixture(10)
 
     //  def pattern(p: Vector[Double]): Vector[Int] = {
     //    p.map(x => math.floor(x * size).toInt)
@@ -38,7 +38,7 @@ object SampleGaussian {
     drawn.
       groupBy(p => patternFunction(p._1)).
       view.
-      mapValues(_.map(_._2).sum / total.toDouble).
+      mapValues(_.map(_._2).sum / total).
       toMap
 
   }

@@ -14,7 +14,9 @@ object EMPPSETest extends App {
 
   case class Config(
     map: Option[File] = None,
-    trace: Option[File] = None)
+    trace: Option[File] = None,
+    traceGMM: Option[File] = None,
+    traceHit: Option[File] = None)
 
   val builder = OParser.builder[Config]
 
@@ -24,7 +26,9 @@ object EMPPSETest extends App {
       programName("ppsetest"),
       head("scopt", "4.x"),
       opt[String]('m', "map").action((x, c) => c.copy(map = Some(File(x)))),
-      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x))))
+      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x)))),
+      opt[String]('g', "trace-gmm").action((x, c) => c.copy(traceGMM = Some(File(x)))),
+      opt[String]('h', "trace-hit").action((x, c) => c.copy(traceHit = Some(File(x))))
     )
   }
 
@@ -41,18 +45,21 @@ object EMPPSETest extends App {
             definition = Vector(50, 50)),
         continuous = Vector.fill(2)(C(0.0, 1.0)))
 
-      case class Converge(evaluated: Long, discovered: Int)
+      case class Converge(evaluated: Long, hitMap: algorithm.HitMap)
       val converge = ListBuffer[Converge]()
+
+      case class GMMConverge(evaluated: Long, gmm: Option[GMM])
+      val gmms = ListBuffer[GMMConverge]()
 
       def evolution =
         ppse.
-          until(afterGeneration(1000)).
+          until(afterGeneration(200)).
           trace { (s, is) =>
-            val c = Converge(s.evaluated, s.s.hitmap.size)
+            val c = Converge(s.evaluated, s.s.hitmap)
             converge += c
+            gmms += GMMConverge(s.evaluated, s.s.gmm.map(_._1))
             println(s"Generation ${s.generation}")
           }
-
 
       val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
 
@@ -62,7 +69,30 @@ object EMPPSETest extends App {
       config.map.foreach { m => m.write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
       config.trace.foreach { m =>
         m.delete(swallowIOExceptions = true)
-        for (c <- converge) m.appendLine(s"${c.evaluated}, ${c.discovered}")
+        for (c <- converge) m.appendLine(s"${c.evaluated}, ${c.hitMap.size}")
+      }
+
+      config.traceGMM.foreach { m =>
+        m.delete(swallowIOExceptions = true)
+        m.createDirectories()
+        for (c <- gmms) {
+          c.gmm match {
+            case Some(gmm) =>
+              (m / "weights.csv").appendLine(s"${c.evaluated}, ${gmm.weights.mkString(",")}")
+              (m / "means.csv").appendLine(s"${c.evaluated}, ${gmm.means.flatten.mkString(",")}")
+              (m / "covariances.csv").appendLine(s"${c.evaluated}, ${gmm.covariances.flatten.flatten.mkString(",")}")
+            case _ =>
+          }
+        }
+      }
+
+      config.traceHit.foreach { m =>
+        import _root_.ppse.tool.Display._
+        m.delete(swallowIOExceptions = true)
+
+        for (c <- converge) {
+          m.appendLine(s"${c.evaluated}, ${arrayToString(c.hitMap)}")
+        }
       }
 
     case _ =>
