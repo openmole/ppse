@@ -111,7 +111,8 @@ object EMPPSE {
     tolerance: Double,
     lowest: Int,
     dilation: Double,
-    warmupSampler: Int) =
+    warmupSampler: Int,
+    retryGMM: Int) =
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual, Vector[Double]](
       continuous = continuous,
       values = Individual.genome.get,
@@ -125,7 +126,8 @@ object EMPPSE {
       tolerance = tolerance,
       lowest = lowest,
       dilation = dilation,
-      warmupSampler = warmupSampler
+      warmupSampler = warmupSampler,
+      retryGMM = retryGMM
     )
 
 
@@ -198,7 +200,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression(t.phenotype, t.continuous),
-          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.dilation, t.warmupSampler),
+          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.dilation, t.warmupSampler, t.retryGMM),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -225,11 +227,12 @@ case class EMPPSE(
     pattern: Vector[Double] => Vector[Int],
     continuous: Vector[C],
     components: Int = 5,
-    iterations: Int = 10,
+    iterations: Int = 100,
     tolerance: Double = 0.0001,
     lowest: Int = 100,
     warmupSampler: Int = 1000,
-    dilation: Double = 2.0)
+    dilation: Double = 1.0,
+    retryGMM: Int = 10)
 
 object PPSE2Operations {
 
@@ -270,7 +273,8 @@ object PPSE2Operations {
       tolerance: Double,
       lowest: Int,
       dilation: Double,
-      warmupSampler: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+      warmupSampler: Int,
+      retryGMM: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def noNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
@@ -282,7 +286,9 @@ object PPSE2Operations {
           case None =>
             // TODO count hits and update densities
 
-            def lowestHitIndividual = population2.take(lowest)
+            //def lowestHitIndividual = population2.take(lowest)
+
+            def lowestHitIndividual = population2
 
             val (gmmValue, _) =
               WDFEMGMM.initializeAndFit(
@@ -293,21 +299,28 @@ object PPSE2Operations {
 //                columns = continuous.size,
                 x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray.transpose),
                 dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
-                rng
+                random = rng,
+                retry = retryGMM
               )
 
             val dilatedGMMValue = EMGMM.dilate(gmmValue, dilation)
 
             def state2 = (
-              gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
+              gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
 
             (state2, population2)
           case Some(gmmValue) =>
 
             val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
-            val sortedPopulation2 = population2.sortBy(i => hm2.getOrElse(pattern(phenotype(i)), 1))
 
-            def lowestHitIndividual = sortedPopulation2.take(lowest)
+            def hits(i: I) = hm2.get(pattern(phenotype(i))).getOrElse(1)
+//            val sortedPopulation2 = population2.sortBy(hits)
+//            val lowestHitIndividual = sortedPopulation2.take(lowest)
+
+            val lowestHitIndividual = population2
+
+
+            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
 
             val distribution = EMGMM.toDistribution(gmmValue._1, rng)
 
@@ -335,9 +348,14 @@ object PPSE2Operations {
                   tolerance = tolerance,
 //                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
 //                  columns = continuous.size,
-                  x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray.transpose),
-                  dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
-                  rng
+                  x = WDFEMGMM.toDenseMatrix(
+                    rows = lowestHitIndividual.length,
+                    cols = continuous.size,
+                    lowestHitIndividual.map(values).map(_.toArray).toArray.transpose
+                  ),
+                  dataWeights = DenseVector(weights: _*), //DenseVector.fill(lowestHitIndividual.size, 1.0),
+                  random = rng,
+                  retry = retryGMM
                 )
 
               } catch {
@@ -353,7 +371,7 @@ object PPSE2Operations {
                 probabilities.set(pm2) andThen
                 hitmap.set(hm2))(state)
 
-            (state2, sortedPopulation2)
+            (state2, population2)
         }
 
       } else (state, population2)

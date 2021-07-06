@@ -35,7 +35,7 @@ class RejectionSampler(_sample: () => (Vector[Double], Lazy[Double]), val accept
     if(n > 0) {
       val (x, _) = _sample()
       if (!accept(x)) warmup(n - 1, fail(state))
-      else warmup(n -1, success(state))
+      else warmup(n - 1, success(state))
     } else state
 
   def sample(state: State = State()): (State, (Vector[Double], Double)) = {
@@ -46,7 +46,7 @@ class RejectionSampler(_sample: () => (Vector[Double], Lazy[Double]), val accept
     } else {
       val newState = success(state)
       // if the sample is accepted, return the state, the sample pattern and the adjusted density
-      (newState, (x, 1 / (density.value * newState.inverseProbability())))
+      (newState, (x, density.value / newState.inverseProbability()))
     }
   }
 
@@ -55,6 +55,6 @@ class RejectionSampler(_sample: () => (Vector[Double], Lazy[Double]), val accept
       val (newState, newSample) = sample(state)
       sampleVector(n - 1, newState, newSample :: res)
     } else (state, res.reverse.toVector)
-
   }
+
 }

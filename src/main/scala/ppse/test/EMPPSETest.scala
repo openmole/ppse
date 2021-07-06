@@ -6,28 +6,98 @@ import mgo.evolution._
 import niche._
 import better.files._
 
+import scopt._
+
+import scala.collection.mutable.ListBuffer
+
 object EMPPSETest extends App {
 
-  val ppse = EMPPSE(
-    lambda = 10,
-    phenotype = Benchmark.sample,
-    pattern =
-      boundedGrid(
-        lowBound = Vector(0.0, 0.0),
-        highBound = Vector(1.0, 1.0),
-        definition = Vector(50, 50)),
-    continuous = Vector.fill(2)(C(0.0, 1.0)))
+  case class Config(
+    map: Option[File] = None,
+    trace: Option[File] = None,
+    traceGMM: Option[File] = None,
+    traceHit: Option[File] = None)
 
-  def evolution =
-    ppse.
-      until(afterGeneration(300)).
-      trace((s, is) => println(s"Generation ${s.generation}"))
+  val builder = OParser.builder[Config]
 
-  val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
+  val parser = {
+    import builder._
+    OParser.sequence(
+      programName("ppsetest"),
+      head("scopt", "4.x"),
+      opt[String]('m', "map").action((x, c) => c.copy(map = Some(File(x)))),
+      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x)))),
+      opt[String]('g', "trace-gmm").action((x, c) => c.copy(traceGMM = Some(File(x)))),
+      opt[String]('h', "trace-hit").action((x, c) => c.copy(traceHit = Some(File(x))))
+    )
+  }
 
-  //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
-  def result = EMPPSE.result(ppse, finalPopulation, finalState)
 
-  File(args(0)).write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n"))
+  OParser.parse(parser, args, Config()) match {
+    case Some(config) =>
+      val ppse = EMPPSE(
+        lambda = 10,
+        phenotype = Benchmark.sample,
+        pattern =
+          boundedGrid(
+            lowBound = Vector(0.0, 0.0),
+            highBound = Vector(1.0, 1.0),
+            definition = Vector(50, 50)),
+        continuous = Vector.fill(2)(C(0.0, 1.0)))
+
+      case class Converge(evaluated: Long, hitMap: algorithm.HitMap)
+      val converge = ListBuffer[Converge]()
+
+      case class GMMConverge(evaluated: Long, gmm: Option[GMM])
+      val gmms = ListBuffer[GMMConverge]()
+
+      def evolution =
+        ppse.
+          until(afterGeneration(200)).
+          trace { (s, is) =>
+            val c = Converge(s.evaluated, s.s.hitmap)
+            converge += c
+            gmms += GMMConverge(s.evaluated, s.s.gmm.map(_._1))
+            println(s"Generation ${s.generation}")
+          }
+
+      val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
+
+      //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
+      def result = EMPPSE.result(ppse, finalPopulation, finalState)
+
+      config.map.foreach { m => m.write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
+      config.trace.foreach { m =>
+        m.delete(swallowIOExceptions = true)
+        for (c <- converge) m.appendLine(s"${c.evaluated}, ${c.hitMap.size}")
+      }
+
+      config.traceGMM.foreach { m =>
+        m.delete(swallowIOExceptions = true)
+        m.createDirectories()
+        for (c <- gmms) {
+          c.gmm match {
+            case Some(gmm) =>
+              (m / "weights.csv").appendLine(s"${c.evaluated}, ${gmm.weights.mkString(",")}")
+              (m / "means.csv").appendLine(s"${c.evaluated}, ${gmm.means.flatten.mkString(",")}")
+              (m / "covariances.csv").appendLine(s"${c.evaluated}, ${gmm.covariances.flatten.flatten.mkString(",")}")
+            case _ =>
+          }
+        }
+      }
+
+      config.traceHit.foreach { m =>
+        import _root_.ppse.tool.Display._
+        m.delete(swallowIOExceptions = true)
+
+        for (c <- converge) {
+          m.appendLine(s"${c.evaluated}, ${arrayToString(c.hitMap)}")
+        }
+      }
+
+    case _ =>
+  }
+
+
 
 }

@@ -1,3 +1,3 @@
 
-sbt "runMain ppse.test.SampleUniformApp /tmp/map.csv"
+sbt "runMain ppse.test.SampleUniformApp --map /tmp/map.csv"
 gnuplot -s map.gp -p
