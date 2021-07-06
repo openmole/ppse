@@ -38,6 +38,9 @@ object WDFEMGMM  {
       try {
         // initialize parameters using KMeans
         val (means, covariances, weights) = KMeans.initializeAndFit(components, x, 100, random)
+
+        assert(covariances.forall(_.forall(!_.isNaN)))
+
 //        println(s"Means=\n$means")
 //        println(s"Weights=\n$weights")
 //        println(s"Covariances=\n\n${covariances.mkString("\n\n")}")
