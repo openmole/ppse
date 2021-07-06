@@ -39,7 +39,7 @@ object WDFEMGMM  {
     val (gmm, logLikelihoodTrace) =
       fit(
         x = x,
-        dataWeights = dataWeights,
+        dataWeights = dataWeights /:/ sum(dataWeights),
         means = means,
         covariances = covariances,
         weights = weights,
