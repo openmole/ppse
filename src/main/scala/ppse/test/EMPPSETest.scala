@@ -1,16 +1,17 @@
 package ppse.test
 
-import mgo._
+import mgo.{evolution, _}
 import ppse.em._
 import mgo.evolution._
 import niche._
 import better.files._
-
+import ppse.em.EMPPSE.Individual
 import scopt._
 
 import scala.collection.mutable.ListBuffer
 
 object EMPPSETest extends App {
+
 
   case class Config(
     map: Option[File] = None,
@@ -45,19 +46,15 @@ object EMPPSETest extends App {
             definition = Vector(50, 50)),
         continuous = Vector.fill(2)(C(0.0, 1.0)))
 
-      case class Converge(evaluated: Long, hitMap: algorithm.HitMap)
+      case class Converge(evaluated: Long, hitMap: algorithm.HitMap, gmm: Option[GMM], individuals: Vector[Individual])
       val converge = ListBuffer[Converge]()
-
-      case class GMMConverge(evaluated: Long, gmm: Option[GMM])
-      val gmms = ListBuffer[GMMConverge]()
 
       def evolution =
         ppse.
-          until(afterGeneration(200)).
+          until(afterGeneration(50)).
           trace { (s, is) =>
-            val c = Converge(s.evaluated, s.s.hitmap)
+            val c = Converge(s.evaluated, s.s.hitmap, s.s.gmm.map(_._1), is)
             converge += c
-            gmms += GMMConverge(s.evaluated, s.s.gmm.map(_._1))
             println(s"Generation ${s.generation}")
           }
 
@@ -75,12 +72,21 @@ object EMPPSETest extends App {
       config.traceGMM.foreach { m =>
         m.delete(swallowIOExceptions = true)
         m.createDirectories()
-        for (c <- gmms) {
+        for (c <- converge) {
           c.gmm match {
             case Some(gmm) =>
               (m / "weights.csv").appendLine(s"${c.evaluated}, ${gmm.weights.mkString(",")}")
               (m / "means.csv").appendLine(s"${c.evaluated}, ${gmm.means.flatten.mkString(",")}")
               (m / "covariances.csv").appendLine(s"${c.evaluated}, ${gmm.covariances.flatten.flatten.mkString(",")}")
+
+              def hits(i: Individual) = c.hitMap.get(ppse.pattern(i.phenotype.toVector)).getOrElse(1)
+
+              for {
+                i <- c.individuals
+              } {
+                val genome = _root_.mgo.evolution.algorithm.scaleContinuousValues(i.genome, ppse.continuous)
+                (m / "points.csv").appendLine(s"${genome(0)},${genome(1)},${hits(i)}")
+              }
             case _ =>
           }
         }

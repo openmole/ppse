@@ -51,7 +51,7 @@ object EMPPSE {
     gmm: Option[(GMM, RejectionSampler.State)] = None,
     probabilityMap: ProbabilityMap = Map())
 
- case class Result(continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual)
+  case class Result(continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual)
 
   def result(population: Vector[Individual], state: EvolutionState[EMPPSEState], continuous: Vector[C], pattern: Vector[Double] => Vector[Int]) = {
     val densityMap = state.focus(_.s) andThen Focus[EMPPSEState](_.probabilityMap) get
@@ -310,16 +310,13 @@ object PPSE2Operations {
 
             (state2, population2)
           case Some(gmmValue) =>
-
             val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
+            def hits(i: I) = hm2.get(phenotype andThen pattern apply i).get
 
-            def hits(i: I) = hm2.get(pattern(phenotype(i))).getOrElse(1)
 //            val sortedPopulation2 = population2.sortBy(hits)
 //            val lowestHitIndividual = sortedPopulation2.take(lowest)
 
-            val lowestHitIndividual = population2
-
-
+            val lowestHitIndividual = noNan
             val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
 
             val distribution = EMGMM.toDistribution(gmmValue._1, rng)
@@ -367,9 +364,9 @@ object PPSE2Operations {
             val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
 
             def state2 =
-              (gmm.set(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
-                probabilities.set(pm2) andThen
-                hitmap.set(hm2))(state)
+              (gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
+                probabilities.replace(pm2) andThen
+                hitmap.replace(hm2))(state)
 
             (state2, population2)
         }
