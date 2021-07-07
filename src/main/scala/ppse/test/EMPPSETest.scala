@@ -51,7 +51,7 @@ object EMPPSETest extends App {
 
       def evolution =
         ppse.
-          until(afterGeneration(50)).
+          until(afterGeneration(500)).
           trace { (s, is) =>
             val c = Converge(s.evaluated, s.s.hitmap, s.s.gmm.map(_._1), is)
             converge += c
@@ -85,7 +85,7 @@ object EMPPSETest extends App {
                 i <- c.individuals
               } {
                 val genome = _root_.mgo.evolution.algorithm.scaleContinuousValues(i.genome, ppse.continuous)
-                (m / "points.csv").appendLine(s"${genome(0)},${genome(1)},${hits(i)}")
+                (m / "points.csv").appendLine(s"${c.evaluated}, ${genome(0)},${genome(1)},${hits(i)}")
               }
             case _ =>
           }

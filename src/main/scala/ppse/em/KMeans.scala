@@ -14,23 +14,16 @@ import smile.clustering._
  * Simplistic implementation of K-Means.
  */
 object KMeans {
-  def initializeAndFit(components: Int, x: DenseMatrix[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
-    val clusters = GMeans.fit(WDFEMGMM.toArray(x), math.max(components,10))
+  def initializeAndFit(components: Int, x: DenseMatrix[Double], dataWeights: DenseVector[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+    val points = WDFEMGMM.toArray(x, dataWeights.map(w=>if (w.toInt > 0) w.toInt else 1))
+    val clusters = GMeans.fit(points, math.max(components,10))
     val means = WDFEMGMM.toDenseMatrix(clusters.k, x.cols, clusters.centroids)
     val covariances = clusters.centroids.indices.map{i=>
       val pointsIndices = clusters.y.zipWithIndex.filter(_._1 == i).map(_._2)
-      cov(DenseMatrix.tabulate(pointsIndices.size, x.cols)((i,j)=>x(pointsIndices(i),j)),means(i,::).t)
+      cov(DenseMatrix.tabulate(pointsIndices.length, x.cols)((i, j)=>points(pointsIndices(i))(j)),means(i,::).t)
     }.toArray
-    val weights = new DenseVector(clusters.size.take(clusters.k).map(_.toDouble/x.rows))
-//    val clusterer = new MultiKMeansPlusPlusClusterer(new KMeansPlusPlusClusterer[Clusterable](components, maxIterations, new EuclideanDistance(), apacheRandom(random)), replications)
-//    def toClusterable(d: DenseVector[Double]): Clusterable = () => d.toArray
-//    val clusters = clusterer.cluster((0 until x.rows).map(r=>toClusterable(x(r, ::).t)).asJavaCollection).asScala
-//    val means = DenseMatrix.tabulate(components, x.cols)((i,j)=>clusters(i).getCenter.getPoint.apply(j))
-//    val covariances = clusters.indices.map{i=>
-//      val points = clusters(i).getPoints.asScala
-//      cov(DenseMatrix.tabulate(points.size, x.cols)((i,j)=>points(i).getPoint.apply(j)), means(i,::).t)
-//    }.toArray
-//    val weights = new DenseVector(clusters.map(_.getPoints.size().toDouble / x.rows).toArray)
+    println(s"GMeans = ${clusters.k}\n\tsize=${clusters.size.take(clusters.k).mkString(",")}\n\tclusters=\n\t\t${clusters.centroids.map(_.mkString(",")).mkString("\n\t\t")}\n\tcovariances=\n\t\t${covariances.mkString("\n\t\t")}")
+    val weights = new DenseVector(clusters.size.take(clusters.k).map(_.toDouble/points.length))
     (means, covariances, weights)
   }
   def cov(x: DenseMatrix[Double], mean: DenseVector[Double]): DenseMatrix[Double] = {

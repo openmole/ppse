@@ -232,7 +232,7 @@ case class EMPPSE(
     lowest: Int = 100,
     warmupSampler: Int = 1000,
     dilation: Double = 2.0,
-    retryGMM: Int = 10)
+    retryGMM: Int = 1000)
 
 object PPSE2Operations {
 
@@ -317,11 +317,11 @@ object PPSE2Operations {
 //            val lowestHitIndividual = sortedPopulation2.take(lowest)
 
             val lowestHitIndividual = noNan
-            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
-//            val weights = {
-//              val w = lowestHitIndividual.map(i => hits(i).toDouble)
-//              w.map(h => w.max + 1.0 - h)
-//            }
+//            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
+            val weights = {
+              val w = lowestHitIndividual.map(i => hits(i).toDouble)
+              w.map(h => w.max + 1.0 - h)
+            }
             val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
             def densities =

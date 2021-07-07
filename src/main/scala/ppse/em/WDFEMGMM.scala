@@ -37,13 +37,13 @@ object WDFEMGMM  {
     def compute(t: Int): (GMM, Seq[Double]) =
       try {
         // initialize parameters using KMeans
-        val (means, covariances, weights) = KMeans.initializeAndFit(components, x, 100, random)
+        val (means, covariances, weights) = KMeans.initializeAndFit(components, x, dataWeights, 100, random)
         val newComponents = means.rows
-        println(s"newComponents=$newComponents")
-        println(s"X=$x")
-        println(s"means=$means")
-        covariances.foreach(m=>println(s"covariances=$m"))
-        assert(covariances.forall(_.forall(!_.isNaN)))
+//        println(s"newComponents=$newComponents")
+//        println(s"X=$x")
+//        println(s"means=$means")
+//        covariances.foreach(m=>println(s"covariances=$m"))
+        assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
 //        println(s"Means=\n$means")
 //        println(s"Weights=\n$weights")
@@ -191,6 +191,10 @@ object WDFEMGMM  {
   def toArray(m: DenseMatrix[Double]): Array[Array[Double]] = {
     Array.tabulate(m.rows,m.cols)((i,j)=>m(i,j))
   }
+  def toArray(m: DenseMatrix[Double], w: DenseVector[Int]): Array[Array[Double]] = {
+    toArray(m).zipWithIndex.flatMap{case (v,i)=>Array.fill(w(i))(v)}
+  }
+
   /**
    * Compute the log likelihood (used for e step).
    * @param x data points
@@ -289,8 +293,9 @@ object WDFEMGMMTest extends App {
     val s = dist.sample()
     if (s > 0) s else samplePositive(dist)
   }
+  val (data, dataWeights) = (0 until 100000).map(_=> if (rng.nextDouble() < 0.8) (g1.sample(), 1.0) else (g2.sample(), 1.0)).toArray.unzip
 //  val (data, dataWeights) = (0 until 100000).map(_=> if (rng.nextDouble() < 0.8) (g1.sample(), samplePositive(gw1)) else (g2.sample(), samplePositive(gw1))).toArray.unzip
-  val (data, dataWeights) = (0 until 100000).map(_=> (g1.sample(), samplePositive(gw1))).toArray.unzip
+//  val (data, dataWeights) = (0 until 100000).map(_=> (g1.sample(), 1.0)).toArray.unzip
   val (gmm, logLikelihoodTrace) =
     WDFEMGMM.initializeAndFit(
       components = n_components,
@@ -299,7 +304,7 @@ object WDFEMGMMTest extends App {
       x = DenseMatrix.create(data.length, 2, data.transpose.flatten),
       dataWeights = DenseVector(dataWeights),
       random = rng,
-      retry = 10)
+      retry = 20)
 
   println("finished")
   println(s"Means=\n${toString2dArray(gmm.means)}")
