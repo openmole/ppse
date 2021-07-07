@@ -17,6 +17,8 @@ libraryDependencies ++= Seq(
   "org.scalanlp" %% "breeze-natives" % breezeVersion
 )
 
+libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9"
+
 scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps")
 
 
