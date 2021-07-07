@@ -3,7 +3,7 @@ name := "ppse"
 version := "1.0-SNAPSHOT"
 
 scalaVersion := "2.13.6"
-val breezeVersion = "1.1"
+val breezeVersion = "1.2"
 
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1"
 libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
