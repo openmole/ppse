@@ -106,12 +106,12 @@ object WDFEMGMM  {
       case 0 => (gmm, trace)
       case i =>
         val (updatedLogLikelihood, resp) = eStep(x, dataWeights, means, covariances, weights)
-        println(s"logLikelihood=\n$updatedLogLikelihood")
+//        println(s"logLikelihood=\n$updatedLogLikelihood")
         val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, dataWeights, resp, components)
-        println(s"Means=\n$updatedMeans")
-        println(s"Weights=\n$updatedWeights")
+//        println(s"Means=\n$updatedMeans")
+//        println(s"Weights=\n$updatedWeights")
 //        println(s"Covariances=\n\n${updatedCovariances.mkString("\n\n")}")
-        assert(math.exp(updatedLogLikelihood) < 1.0, s"Shitting log likelihood = $updatedLogLikelihood => ${math.exp(updatedLogLikelihood)}\n${GMM.toString(gmm)}")
+        assert(math.exp(updatedLogLikelihood) < 1.0, s"Shitty log likelihood = $updatedLogLikelihood => ${math.exp(updatedLogLikelihood)}\n${GMM.toString(gmm)}")
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
           x = x,

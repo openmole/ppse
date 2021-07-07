@@ -318,7 +318,10 @@ object PPSE2Operations {
 
             val lowestHitIndividual = noNan
             val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
-
+//            val weights = {
+//              val w = lowestHitIndividual.map(i => hits(i).toDouble)
+//              w.map(h => w.max + 1.0 - h)
+//            }
             val distribution = EMGMM.toDistribution(gmmValue._1, rng)
 
             def densities =
