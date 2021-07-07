@@ -38,7 +38,11 @@ object WDFEMGMM  {
       try {
         // initialize parameters using KMeans
         val (means, covariances, weights) = KMeans.initializeAndFit(components, x, 100, random)
-
+        val newComponents = means.rows
+        println(s"newComponents=$newComponents")
+        println(s"X=$x")
+        println(s"means=$means")
+        covariances.foreach(m=>println(s"covariances=$m"))
         assert(covariances.forall(_.forall(!_.isNaN)))
 
 //        println(s"Means=\n$means")
@@ -51,7 +55,7 @@ object WDFEMGMM  {
             means = means,
             covariances = covariances,
             weights = weights,
-            components = components,
+            components = newComponents,
             iterations = iterations,
             tolerance = tolerance,
             trace = IndexedSeq()
@@ -111,7 +115,7 @@ object WDFEMGMM  {
 //        println(s"Means=\n$updatedMeans")
 //        println(s"Weights=\n$updatedWeights")
 //        println(s"Covariances=\n\n${updatedCovariances.mkString("\n\n")}")
-        assert(math.exp(updatedLogLikelihood) < 1.0, s"Shitty log likelihood = $updatedLogLikelihood => ${math.exp(updatedLogLikelihood)}\n${GMM.toString(gmm)}")
+//        assert(math.exp(updatedLogLikelihood) < 1.0, s"Shitty log likelihood = $updatedLogLikelihood => ${math.exp(updatedLogLikelihood)}\n${GMM.toString(gmm)}")
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
           x = x,
@@ -170,6 +174,7 @@ object WDFEMGMM  {
 //    assert(resp.forall(p=> p < 1.0 && p >= 0), s"RESP=${resp}")
     // for each point, the sum of all likelihoods for all components
     val resp_sum = sum(resp(*, ::))
+//    println(s"resp_sum=$resp_sum")
     val log_likelihood = sum(log(resp_sum))
     // divide the responsibility by the sum for each point
     val updatedResp = DenseMatrix.tabulate(resp.rows, resp.cols)((i,j)=>resp(i,j) / resp_sum(i))

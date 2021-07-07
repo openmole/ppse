@@ -11,7 +11,7 @@ libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1"
 libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
 libraryDependencies += "org.openmole" %% "mgo" % "3.50"
 libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1"
-
+libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0"
 libraryDependencies ++= Seq(
   "org.scalanlp" %% "breeze" % breezeVersion,
   "org.scalanlp" %% "breeze-natives" % breezeVersion

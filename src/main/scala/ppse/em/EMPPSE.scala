@@ -231,7 +231,7 @@ case class EMPPSE(
     tolerance: Double = 0.0001,
     lowest: Int = 100,
     warmupSampler: Int = 1000,
-    dilation: Double = 1.0,
+    dilation: Double = 2.0,
     retryGMM: Int = 10)
 
 object PPSE2Operations {
@@ -303,7 +303,7 @@ object PPSE2Operations {
                 retry = retryGMM
               )
 
-            val dilatedGMMValue = EMGMM.dilate(gmmValue, dilation)
+            val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
 
             def state2 = (
               gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
@@ -322,7 +322,7 @@ object PPSE2Operations {
 //              val w = lowestHitIndividual.map(i => hits(i).toDouble)
 //              w.map(h => w.max + 1.0 - h)
 //            }
-            val distribution = EMGMM.toDistribution(gmmValue._1, rng)
+            val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
             def densities =
               noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
@@ -343,7 +343,7 @@ object PPSE2Operations {
             val (gmmValue2, _) = {
               try {
                 WDFEMGMM.initializeAndFit(
-                  components = components,
+                  components = gmmValue._1.means.length,
                   iterations = iterations,
                   tolerance = tolerance,
 //                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
