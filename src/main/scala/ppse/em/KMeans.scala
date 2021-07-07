@@ -1,20 +1,40 @@
 package ppse.em
 
 import breeze.linalg.{DenseMatrix, DenseVector, norm, sum}
+import org.apache.commons.math3.ml.clustering.{Clusterable, KMeansPlusPlusClusterer, MultiKMeansPlusPlusClusterer}
+import org.apache.commons.math3.ml.distance.EuclideanDistance
+import org.apache.commons.math3.random.JDKRandomGenerator
 
 import scala.annotation.tailrec
 import scala.util.Random
-
+import scala.jdk.CollectionConverters._
+import mgo.tools.apacheRandom
 /**
  * Simplistic implementation of K-Means.
  */
 object KMeans {
-  def initializeAndFit(components: Int, x: DenseMatrix[Double], maxIterations: Int, random: Random): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+  def initializeAndFit(components: Int, x: DenseMatrix[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+    val clusterer = new MultiKMeansPlusPlusClusterer(new KMeansPlusPlusClusterer[Clusterable](components, maxIterations, new EuclideanDistance(), apacheRandom(random)), replications)
+    def toClusterable(d: DenseVector[Double]): Clusterable = () => d.toArray
+    val clusters = clusterer.cluster((0 until x.rows).map(r=>toClusterable(x(r, ::).t)).asJavaCollection).asScala
+    val means = DenseMatrix.tabulate(components, x.cols)((i,j)=>clusters(i).getCenter.getPoint.apply(j))
+    val covariances = clusters.indices.map{i=>
+      val points = clusters(i).getPoints.asScala
+      cov(DenseMatrix.tabulate(points.size, x.cols)((i,j)=>points(i).getPoint.apply(j)), means(i,::).t)
+    }.toArray
+    val weights = new DenseVector(clusters.map(_.getPoints.size().toDouble / x.rows).toArray)
+    (means, covariances, weights)
     // chose Random means in data points
-    val choices = random.shuffle((0 until x.rows).toArray[Int]).take(components)
-    val means = DenseMatrix.tabulate(components,x.cols)((i,j)=>x(choices(i),j))
-    fit(components=components, x=x, means = means, maxIterations = maxIterations)
+//    (0 until replications).map { _ =>
+//      val choices = random.shuffle((0 until x.rows).toArray[Int]).take(components)
+//      val means = DenseMatrix.tabulate(components, x.cols)((i, j) => x(choices(i), j))
+//      val res = fit(components = components, x = x, means = means, maxIterations = maxIterations)
+//      (res, minimumSumOfSquares(res._1))
+//    }.minBy(_._2)._1
   }
+//  def minimumSumOfSquares(means: DenseMatrix[Double]): Double = {
+//    1.0
+//  }
   @tailrec
   def fit(components: Int, x: DenseMatrix[Double], means: DenseMatrix[Double], maxIterations: Int): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
     val norms = DenseMatrix.tabulate(x.rows, components)((i,j)=>norm(x(i,::).t - means(j,::).t))
