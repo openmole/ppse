@@ -65,6 +65,9 @@ object SampleUniformApp extends App {
           file.write(densities.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
         val p = SampleUniform.uniform2D(pattern, max)
+
+        println(s"Delta to uniform for $max points ${Benchmark.compareToUniformBenchmark(pattern, p._1.toVector)}")
+
         f.delete(swallowIOExceptions = true)
         write(f, p._2)
       }
