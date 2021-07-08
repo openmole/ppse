@@ -12,13 +12,7 @@ object SampleUniform {
   type DensityMap = Map[Pattern, Double]
   type PatternFunction = Vector[Double] => Pattern
 
-  def uniform2D(points: Int, random: Random = new Random(42)) = {
-    val size = 50
-
-    def pattern = boundedGrid(
-      lowBound = Vector(0.0, 0.0),
-      highBound = Vector(1.0, 1.0),
-      definition = Vector(size, size))(_)
+  def uniform2D(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
 
     val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.pow2)
 
@@ -57,7 +51,12 @@ object SampleUniformApp extends App {
     )
   }
 
+  val size = 50
 
+  def pattern = boundedGrid(
+    lowBound = Vector(0.0, 0.0),
+    highBound = Vector(1.0, 1.0),
+    definition = Vector(size, size))(_)
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
@@ -65,9 +64,9 @@ object SampleUniformApp extends App {
         def write(file: File, densities: Seq[(Vector[Double], Double)]) =
           file.write(densities.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
-        val pattern = SampleUniform.uniform2D(max)
+        val p = SampleUniform.uniform2D(pattern, max)
         f.delete(swallowIOExceptions = true)
-        write(f, pattern._2)
+        write(f, p._2)
       }
 
       config.trace.foreach { f =>
@@ -76,8 +75,8 @@ object SampleUniformApp extends App {
         for {
           points <- 100 to 10000 by 100
         } {
-          val pattern = SampleUniform.uniform2D(points)._1
-          f.appendLine(s"$points, ${pattern.size}")
+          val p = SampleUniform.uniform2D(pattern, points)._1
+          f.appendLine(s"$points, ${p.size}")
         }
       }
     case None =>

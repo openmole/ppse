@@ -10,6 +10,7 @@ import scopt._
 
 import scala.collection.mutable.ListBuffer
 
+
 object EMPPSETest extends App {
 
 
@@ -51,7 +52,7 @@ object EMPPSETest extends App {
 
       def evolution =
         ppse.
-          until(afterGeneration(500)).
+          until(afterGeneration(1000)).
           trace { (s, is) =>
             val c = Converge(s.evaluated, s.s.hitmap, s.s.gmm.map(_._1), is)
             converge += c
@@ -60,8 +61,30 @@ object EMPPSETest extends App {
 
       val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
 
+
+
+
+
       //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
       def result = EMPPSE.result(ppse, finalPopulation, finalState)
+
+      def uniformBenchmark = {
+        val aLot = 1000000
+
+        val (uniformDensity, _) = SampleUniform.uniform2D(ppse.pattern, aLot)
+        val ppseDensity = result.map(r => r.pattern -> r.density)
+
+        val deltas =
+          for {
+            (pp, dp) <- ppseDensity
+            du = uniformDensity.getOrElse(pp, 0.0)
+          } yield math.abs(dp - du)
+
+        deltas.sum
+      }
+
+
+      println(s"Delta to uniform ${uniformBenchmark}")
 
       config.map.foreach { m => m.write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
       config.trace.foreach { m =>
