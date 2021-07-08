@@ -302,8 +302,8 @@ object PPSE2Operations {
             val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
             def hits(i: I) = hm2(phenotype andThen pattern apply i)
 
-            //val sortedPopulation2 = noNan.sortBy(hits)
-            val lowestHitIndividual = noNan //sortedPopulation2.take(50)
+           // val sortedPopulation2 = noNan.sortBy(hits)
+            val lowestHitIndividual = noNan
 
 //            val lowestHitIndividual = noNan
 //            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
