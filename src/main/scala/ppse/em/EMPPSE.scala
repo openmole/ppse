@@ -64,7 +64,7 @@ object EMPPSE {
       Result(
         scaleContinuousValues(i.genome, continuous),
         p,
-        (max - densityMap.getOrElse(p, 0.0)) / total,
+        densityMap.getOrElse(p, 0.0) / total,
         i.phenotype.toVector,
         i)
     }
@@ -308,27 +308,27 @@ object PPSE2Operations {
             def hits(i: I) = hm2(phenotype andThen pattern apply i)
 
             val sortedPopulation2 = noNan.sortBy(hits)
-            val lowestHitIndividual = sortedPopulation2.take(50)
+            val lowestHitIndividual = sortedPopulation2.take(100)
 
 //            val lowestHitIndividual = noNan
 //            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
             val weights = {
               val w = lowestHitIndividual.map(i => hits(i).toDouble)
-              w.map(h => w.max / h)
+              val wMax = w.max
+              w.map(h => wMax - h + 1)
             }
             val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
             def densities =
               noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
-                mapValues { v => v.map(values).map(p => distribution.density(p.toArray))}.toSeq
+                mapValues { v => v.map(values).map(p => 1 / distribution.density(p.toArray))}.toSeq
 
             val hm = hitmap.get(state)
             val pm: ProbabilityMap = probabilities.get(state)
 
             def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
               val (pattern, densities) = p
-              val hits = hm.getOrElse(pattern, 0)
-              val newDensity = (pm.getOrElse(pattern, 0.0) * hits + densities.sum) / (hits + densities.size)
+              val newDensity = pm.getOrElse(pattern, 0.0) + densities.sum
               pattern -> newDensity
             }
 
