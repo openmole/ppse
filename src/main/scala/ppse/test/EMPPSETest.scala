@@ -7,6 +7,7 @@ import niche._
 import better.files._
 import ppse.em.EMPPSE.Individual
 import scopt._
+import squants.mass.Density
 
 import scala.collection.mutable.ListBuffer
 
@@ -61,30 +62,10 @@ object EMPPSETest extends App {
 
       val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
 
-
-
-
-
       //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
       def result = EMPPSE.result(ppse, finalPopulation, finalState)
 
-      def uniformBenchmark = {
-        val aLot = 1000000
-
-        val (uniformDensity, _) = SampleUniform.uniform2D(ppse.pattern, aLot)
-        val ppseDensity = result.map(r => r.pattern -> r.density)
-
-        val deltas =
-          for {
-            (pp, dp) <- ppseDensity
-            du = uniformDensity.getOrElse(pp, 0.0)
-          } yield math.abs(dp - du)
-
-        deltas.sum
-      }
-
-
-      println(s"Delta to uniform ${uniformBenchmark}")
+      println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
 
       config.map.foreach { m => m.write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
       config.trace.foreach { m =>
