@@ -268,17 +268,17 @@ object PPSE2Operations {
       warmupSampler: Int,
       retryGMM: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
-      def noNan = filterNaN(candidates, phenotype)
+      def offSpringWithNoNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
 
-      val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
-      val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
+      val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ offSpringWithNoNan)
+      val hm2 = addHits(phenotype andThen pattern, offSpringWithNoNan, hitmap.get(state))
 
+      def hits(i: I) = hm2.getOrElse(phenotype andThen pattern apply i, 0)
       def weights(pop: Vector[I]) = {
-        def hits(i: I) = hm2(phenotype andThen pattern apply i)
         val w = pop.map(i => hits(i).toDouble)
         val wMax = w.max
-        w.map(h => wMax - h + 1)
+        w.map(h => wMax - h + 1) //.map(math.pow(_, 2))
       }
 
       // TODO: Consider density in boostraping steps ?
@@ -308,7 +308,7 @@ object PPSE2Operations {
           val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
           def densities =
-            noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
+            offSpringWithNoNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
               mapValues { v => v.map(values).map(p => 1 / distribution.density(p.toArray))}.toSeq
 
           val pm: ProbabilityMap = probabilities.get(state)
@@ -320,6 +320,7 @@ object PPSE2Operations {
           }
 
           def pm2 = pm ++ densities.map(probabilityUpdate)
+          def bestIndividualsOfPopulation = population2.sortBy(hits).take(100)
 
           val (gmmValue2, _) = {
             try {
@@ -327,11 +328,11 @@ object PPSE2Operations {
                 iterations = iterations,
                 tolerance = tolerance,
                 x = WDFEMGMM.toDenseMatrix(
-                  rows = population2.length,
+                  rows = bestIndividualsOfPopulation.length,
                   cols = continuous.size,
-                  population2.map(values).map(_.toArray).toArray.transpose
+                  bestIndividualsOfPopulation.map(values).map(_.toArray).toArray.transpose
                 ),
-                dataWeights = DenseVector(weights(population2): _*),
+                dataWeights = DenseVector(weights(bestIndividualsOfPopulation): _*),
                 random = rng,
                 retry = retryGMM
               )
