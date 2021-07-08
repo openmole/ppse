@@ -274,6 +274,8 @@ object PPSE2Operations {
 
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
 
+      // Count hits into account in any case
+
       gmm.get(state) match {
         case None if population2.size > 1 =>
           val (gmmValue, _) =
@@ -293,7 +295,6 @@ object PPSE2Operations {
           (state2, population2)
         case None => (state, population2)
         case Some(gmmValue) =>
-
           val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
           def hits(i: I) = hm2(phenotype andThen pattern apply i)
 
