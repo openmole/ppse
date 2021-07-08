@@ -150,7 +150,7 @@ object Benchmark {
       val v1 = (p(1) - p1.y - v2 * f1) / e1
       val r1 = v1 * v1
       val r2 = v2 / v1
-      val ind = triangles.indexOf(triangle)
+      val ind = triangles.indexOf(triangle.get)
       val prev = areas.take(ind).sum
       val d = (r1 * areas(ind) + prev) / areas.sum
       Vector(d, if (r2.isNaN) 0.0 else r2)

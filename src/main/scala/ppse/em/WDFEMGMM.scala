@@ -170,6 +170,8 @@ object WDFEMGMM  {
     // for each point and each component
     // the matrix containing the probability of point i for component k multiplied by the weight (coefficient) of component k
     assert(weights.forall(p=> p <= 1.0 && p >= 0), s"weights=${weights}")
+    assert(dataWeights.forall(p=> p >= 1.0), s"dataweights=${dataWeights}")
+    //assert(x.rows>10,s"data=$x")
     val resp = compute_log_likelihood(x, dataWeights, means, covariances, weights)
 //    assert(resp.forall(p=> p < 1.0 && p >= 0), s"RESP=${resp}")
     // for each point, the sum of all likelihoods for all components
