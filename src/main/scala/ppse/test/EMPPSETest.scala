@@ -39,7 +39,7 @@ object EMPPSETest extends App {
     case Some(config) =>
       val ppse = EMPPSE(
         lambda = 10,
-        phenotype = Benchmark.flower(),//Benchmark.pow2,
+        phenotype = Benchmark.inverseFlower(),//Benchmark.pow2,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
