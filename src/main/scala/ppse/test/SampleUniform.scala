@@ -50,7 +50,7 @@ object SampleUniformApp extends App {
     val size = 50
 
     def patternFunction(x: Vector[Double]) =
-      Benchmark.pattern(Benchmark.sample(x), Vector(size, size))
+      Benchmark.pattern(Benchmark.pow2(x), Vector(size, size))
 
     uniform2D(patternFunction, points, new Random(42))
   }

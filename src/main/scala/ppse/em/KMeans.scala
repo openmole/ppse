@@ -37,7 +37,7 @@ object KMeans {
   }
 
 
-  def initializeAndFit(components: Int, x: DenseMatrix[Double], dataWeights: DenseVector[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+  def initializeAndFit(x: DenseMatrix[Double], dataWeights: DenseVector[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
     val points = WDFEMGMM.toArray(x)
     def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
       def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum

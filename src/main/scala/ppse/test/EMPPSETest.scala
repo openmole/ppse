@@ -38,7 +38,7 @@ object EMPPSETest extends App {
     case Some(config) =>
       val ppse = EMPPSE(
         lambda = 10,
-        phenotype = Benchmark.sample,
+        phenotype = Benchmark.pow2,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
@@ -51,7 +51,7 @@ object EMPPSETest extends App {
 
       def evolution =
         ppse.
-          until(afterGeneration(1000)).
+          until(afterGeneration(500)).
           trace { (s, is) =>
             val c = Converge(s.evaluated, s.s.hitmap, s.s.gmm.map(_._1), is)
             converge += c

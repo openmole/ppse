@@ -106,7 +106,6 @@ object EMPPSE {
   def elitism(
     continuous: Vector[C],
     pattern: Vector[Double] => Vector[Int],
-    components: Int,
     iterations: Int,
     tolerance: Double,
     dilation: Double,
@@ -120,7 +119,6 @@ object EMPPSE {
       probabilities = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.probabilityMap),
       hitmap = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.hitmap),
       gmm = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm),
-      components = components,
       iterations = iterations,
       tolerance = tolerance,
       dilation = dilation,
@@ -198,7 +196,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression(t.phenotype, t.continuous),
-          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.retryGMM),
+          EMPPSE.elitism(t.continuous, t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.retryGMM),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -224,7 +222,6 @@ case class EMPPSE(
     phenotype: Vector[Double] => Vector[Double],
     pattern: Vector[Double] => Vector[Int],
     continuous: Vector[C],
-    components: Int = 5,
     iterations: Int = 100,
     tolerance: Double = 0.0001,
     warmupSampler: Int = 1000,
@@ -265,7 +262,6 @@ object PPSE2Operations {
       probabilities: monocle.Lens[S, ProbabilityMap],
       hitmap: monocle.Lens[S, HitMap],
       gmm: monocle.Lens[S, Option[(GMM, RejectionSampler.State)]],
-      components: Int,
       iterations: Int,
       tolerance: Double,
       dilation: Double,
@@ -286,7 +282,6 @@ object PPSE2Operations {
 
             val (gmmValue, _) =
               WDFEMGMM.initializeAndFit(
-                components = components,
                 iterations = iterations,
                 tolerance = tolerance,
 //                x = lowestHitIndividual.map(values).map(_.toArray).toArray,
@@ -307,8 +302,8 @@ object PPSE2Operations {
             val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
             def hits(i: I) = hm2(phenotype andThen pattern apply i)
 
-            val sortedPopulation2 = noNan.sortBy(hits)
-            val lowestHitIndividual = sortedPopulation2.take(100)
+            //val sortedPopulation2 = noNan.sortBy(hits)
+            val lowestHitIndividual = noNan //sortedPopulation2.take(50)
 
 //            val lowestHitIndividual = noNan
 //            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
@@ -323,7 +318,7 @@ object PPSE2Operations {
               noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
                 mapValues { v => v.map(values).map(p => 1 / distribution.density(p.toArray))}.toSeq
 
-            val hm = hitmap.get(state)
+            //val hm = hitmap.get(state)
             val pm: ProbabilityMap = probabilities.get(state)
 
             def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
@@ -337,7 +332,6 @@ object PPSE2Operations {
             val (gmmValue2, _) = {
               try {
                 WDFEMGMM.initializeAndFit(
-                  components = gmmValue._1.means.length,
                   iterations = iterations,
                   tolerance = tolerance,
 //                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
