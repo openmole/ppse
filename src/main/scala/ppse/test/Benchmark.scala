@@ -1,9 +1,42 @@
 package ppse.test
 
 import breeze.linalg.DenseVector
-import org.locationtech.jts.geom.{Geometry, MultiPolygon, Polygon}
+import org.locationtech.jts.geom.{Coordinate, Geometry, GeometryFactory, MultiPolygon, Polygon}
 
 object Benchmark {
+
+  def flower(w: Double = 0.01) = {
+    val fact = new GeometryFactory()
+    val polygon = fact.createMultiPolygon(Array(fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.5-w,0.75),
+      new Coordinate(0.5,1.0),
+      new Coordinate(0.5+w,0.75),
+      new Coordinate(0.5,0.5)
+    )),fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.75,0.5+w),
+      new Coordinate(1.0,0.5),
+      new Coordinate(0.75,0.5-w),
+      new Coordinate(0.5,0.5)
+    )),fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.5+w,0.25),
+      new Coordinate(0.5,0.0),
+      new Coordinate(0.5-w,0.25),
+      new Coordinate(0.5,0.5)
+    )),fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.25,0.5-w),
+      new Coordinate(0.0,0.5),
+      new Coordinate(0.25,0.5+w),
+      new Coordinate(0.5,0.5)
+    ))
+    ))
+    val prep = Benchmark.preparePolygon(polygon)
+    Benchmark.sampleInPolygon(prep._1, prep._2) _
+  }
+
 
   def preparePolygon(inputPolygon: MultiPolygon) = {
     import org.locationtech.jts.geom.GeometryCollection
@@ -16,6 +49,7 @@ object Benchmark {
     val areas = triangles.map(_.getArea)
     (triangles, areas)
   }
+
   def sampleInPolygon(triangles: IndexedSeq[Geometry], areas: IndexedSeq[Double])(p: Vector[Double]): Vector[Double] = {
     val totalArea = areas.sum
     val s = p(0) * totalArea
