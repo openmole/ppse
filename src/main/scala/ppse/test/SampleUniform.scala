@@ -29,7 +29,7 @@ object SampleUniform {
         mapValues(_.size / points.toDouble).
         toMap
 
-    drawn.map(d => d -> patterns(pattern(d)))
+    (patterns, drawn.map(d => d -> patterns(pattern(d))))
   }
 
 
@@ -67,7 +67,7 @@ object SampleUniformApp extends App {
 
         val pattern = SampleUniform.uniform2D(max)
         f.delete(swallowIOExceptions = true)
-        write(f, pattern)
+        write(f, pattern._2)
       }
 
       config.trace.foreach { f =>
@@ -76,7 +76,7 @@ object SampleUniformApp extends App {
         for {
           points <- 100 to 10000 by 100
         } {
-          val pattern = SampleUniform.uniform2D(points)
+          val pattern = SampleUniform.uniform2D(points)._1
           f.appendLine(s"$points, ${pattern.size}")
         }
       }
