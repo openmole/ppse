@@ -109,7 +109,6 @@ object EMPPSE {
     components: Int,
     iterations: Int,
     tolerance: Double,
-    lowest: Int,
     dilation: Double,
     warmupSampler: Int,
     retryGMM: Int) =
@@ -124,7 +123,6 @@ object EMPPSE {
       components = components,
       iterations = iterations,
       tolerance = tolerance,
-      lowest = lowest,
       dilation = dilation,
       warmupSampler = warmupSampler,
       retryGMM = retryGMM
@@ -200,7 +198,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression(t.phenotype, t.continuous),
-          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.lowest, t.dilation, t.warmupSampler, t.retryGMM),
+          EMPPSE.elitism(t.continuous, t.pattern, t.components, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.retryGMM),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -211,7 +209,7 @@ object EMPPSE {
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
 
   def toSampler(gmm: GMM, rng: Random) = {
-    val distribution = EMGMM.toDistribution(gmm, rng)
+    val distribution = WDFEMGMM.toDistribution(gmm, rng)
 
     def sample() = {
       val x = distribution.sample()
@@ -229,9 +227,8 @@ case class EMPPSE(
     components: Int = 5,
     iterations: Int = 100,
     tolerance: Double = 0.0001,
-    lowest: Int = 100,
     warmupSampler: Int = 1000,
-    dilation: Double = 2.0,
+    dilation: Double = 1.0,
     retryGMM: Int = 1000)
 
 object PPSE2Operations {
@@ -271,7 +268,6 @@ object PPSE2Operations {
       components: Int,
       iterations: Int,
       tolerance: Double,
-      lowest: Int,
       dilation: Double,
       warmupSampler: Int,
       retryGMM: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
@@ -279,8 +275,6 @@ object PPSE2Operations {
       def noNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
-
-      if(population2.size >= lowest) {
 
         gmm.get(state) match {
           case None =>
@@ -311,16 +305,16 @@ object PPSE2Operations {
             (state2, population2)
           case Some(gmmValue) =>
             val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
-            def hits(i: I) = hm2.get(phenotype andThen pattern apply i).get
+            def hits(i: I) = hm2(phenotype andThen pattern apply i)
 
-//            val sortedPopulation2 = population2.sortBy(hits)
-//            val lowestHitIndividual = sortedPopulation2.take(lowest)
+            val sortedPopulation2 = noNan.sortBy(hits)
+            val lowestHitIndividual = sortedPopulation2.take(50)
 
-            val lowestHitIndividual = noNan
+//            val lowestHitIndividual = noNan
 //            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
             val weights = {
               val w = lowestHitIndividual.map(i => hits(i).toDouble)
-              w.map(h => w.max + 1.0 - h)
+              w.map(h => w.max / h)
             }
             val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
@@ -374,7 +368,7 @@ object PPSE2Operations {
             (state2, population2)
         }
 
-      } else (state, population2)
+
     }
 
 

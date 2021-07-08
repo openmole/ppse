@@ -79,7 +79,7 @@ object EMPPSETest extends App {
               (m / "means.csv").appendLine(s"${c.evaluated}, ${gmm.means.flatten.mkString(",")}")
               (m / "covariances.csv").appendLine(s"${c.evaluated}, ${gmm.covariances.flatten.flatten.mkString(",")}")
 
-              def hits(i: Individual) = c.hitMap.get(ppse.pattern(i.phenotype.toVector)).getOrElse(1)
+              def hits(i: Individual) = c.hitMap.getOrElse(ppse.pattern(i.phenotype.toVector), 1)
 
               for {
                 i <- c.individuals

@@ -39,45 +39,73 @@ object KMeans {
 
   def initializeAndFit(components: Int, x: DenseMatrix[Double], dataWeights: DenseVector[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
     val points = WDFEMGMM.toArray(x)
+    def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
+      def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
+      points.transpose.map { coord => average(coord, weights) }
+    }
 
+    def buildSingleCluster(): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+      val centroids = computeCentroid(points, dataWeights.toArray)
+      val weight = new DenseVector(Array(1.0))
+      val covariance = {
+        val clusterMatrix = DenseMatrix.tabulate(points.length, x.cols)((i, j) => points(i)(j))
+        val centroidVector = new DenseVector(centroids)
+        cov(clusterMatrix, centroidVector)
+      }
+      (new DenseMatrix[Double](1, x.cols, centroids), Array(covariance), weight)
+    }
     import jsat.clustering._
     import jsat.clustering.kmeans._
     import jsat.linear.distancemetrics._
 
-    val gmeans = new GMeans {
-      rand = random.self
+//    val gmeans = new GMeans {
+//      rand = random.self
+//    }
+    val gmeans = new HDBSCAN {
+    //  rand = random.self
     }
+    if (points.length < gmeans.getMinPoints) {
+      buildSingleCluster()
+    } else {
+      //    gmeans.setMinClusterSize(3)
 
-    gmeans.setMinClusterSize(2)
-
-    val dataSet = {
-      val dataPoints = (points zip dataWeights.toArray).map { case (p, w) =>
-        new DataPoint(new jsat.linear.DenseVector(p), w)
-      }
-      new SimpleDataSet(dataPoints.toList.asJava)
-    }
-
-    val clusters = gmeans.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
-
-    val centroids =
-      clusters.map { cluster =>
-        def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
-
-        val points = cluster.map(_.getNumericalValues.arrayCopy())
-        val weights = cluster.map(_.getWeight)
-
-        points.transpose.map { coord => average(coord, weights) }
+      val dataSet = {
+        val dataPoints = (points zip dataWeights.toArray).map { case (p, w) =>
+          new DataPoint(new jsat.linear.DenseVector(p), w)
+        }
+        assert(points.length == dataWeights.toArray.length)
+        new SimpleDataSet(dataPoints.toList.asJava)
       }
 
-    val means = WDFEMGMM.toDenseMatrix(clusters.size, x.cols, centroids)
-    val weights = new DenseVector(clusters.map(_.length.toDouble / points.length))
-    val covariances = (clusters zip centroids).map { case(cluster, centroid) =>
-      val clusterMatrix = DenseMatrix.tabulate(cluster.length, x.cols)((i, j) => cluster(i).getNumericalValues.get(j))
-      val centroidVector = new DenseVector(centroid)
-      cov(clusterMatrix, centroidVector)
-    }
+      val clusters = gmeans.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
 
-    (means, covariances, weights)
+      //    assert(clusters.nonEmpty, s"${clusters.length} Clusters found from ${x.rows} points")
+
+      if (!clusters.isEmpty) {
+        val centroids =
+          clusters.map { cluster =>
+            val points = cluster.map(_.getNumericalValues.arrayCopy())
+            val weights = cluster.map(_.getWeight)
+            computeCentroid(points, weights)
+          }
+
+        val means = WDFEMGMM.toDenseMatrix(clusters.length, x.cols, centroids)
+
+        val totalWeight = clusters.flatten.map(_.getWeight).sum
+        val weights = new DenseVector(clusters.map(_.map(_.getWeight).sum / totalWeight))
+
+        val covariances = (clusters zip centroids).map { case (cluster, centroid) =>
+          val clusterMatrix = DenseMatrix.tabulate(cluster.length, x.cols)((i, j) => cluster(i).getNumericalValues.get(j))
+          val centroidVector = new DenseVector(centroid)
+          cov(clusterMatrix, centroidVector)
+        }
+
+        (means, covariances, weights)
+      } else {
+        buildSingleCluster()
+
+      }
+    }
   }
 
 }
