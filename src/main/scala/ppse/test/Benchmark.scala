@@ -37,7 +37,6 @@ object Benchmark {
     Benchmark.sampleInPolygon(prep._1, prep._2) _
   }
 
-
   def preparePolygon(inputPolygon: MultiPolygon) = {
     import org.locationtech.jts.geom.GeometryCollection
     import org.locationtech.jts.triangulate.ConformingDelaunayTriangulationBuilder
@@ -76,6 +75,88 @@ object Benchmark {
     Vector(x,y)
   }
 
+  def inverseFlower(w:Double = 0.01) = {
+    val fact = new GeometryFactory()
+    val polygon = fact.createMultiPolygon(Array(fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.5-w,0.75),
+      new Coordinate(0.5,1.0),
+      new Coordinate(0.5+w,0.75),
+      new Coordinate(0.5,0.5)
+    )),fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.75,0.5+w),
+      new Coordinate(1.0,0.5),
+      new Coordinate(0.75,0.5-w),
+      new Coordinate(0.5,0.5)
+    )),fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.5+w,0.25),
+      new Coordinate(0.5,0.0),
+      new Coordinate(0.5-w,0.25),
+      new Coordinate(0.5,0.5)
+    )),fact.createPolygon(Array(
+      new Coordinate(0.5,0.5),
+      new Coordinate(0.25,0.5-w),
+      new Coordinate(0.0,0.5),
+      new Coordinate(0.25,0.5+w),
+      new Coordinate(0.5,0.5)
+    ))
+    ))
+    val prep = Benchmark.preparePolygon(polygon)
+    inverseSampleInPolygon(prep._1, prep._2) _
+  }
+  def inverseSampleInPolygon(triangles: IndexedSeq[Geometry], areas: IndexedSeq[Double])(p: Vector[Double]): Vector[Double] = {
+    def isPointInTriangle(ax: Double, ay: Double, bx: Double, by: Double, cx: Double, cy: Double, px: Double, py: Double) = { // vectors
+      val v0x = cx - ax
+      val v0y = cy - ay
+      val v1x = bx - ax
+      val v1y = by - ay
+      val v2x = px - ax
+      val v2y = py - ay
+      // Compute dot products
+      val dot00 = v0x * v0x + v0y * v0y
+      val dot01 = v0x * v1x + v0y * v1y
+      val dot02 = v0x * v2x + v0y * v2y
+      val dot11 = v1x * v1x + v1y * v1y
+      val dot12 = v1x * v2x + v1y * v2y
+      // Compute barycentric coordinates
+      val invDenom = 1. / (dot00 * dot11 - dot01 * dot01)
+      val u = (dot11 * dot02 - dot01 * dot12) * invDenom
+      val v = (dot00 * dot12 - dot01 * dot02) * invDenom
+      // Check if point is in triangle
+      (u >= 0) && (v >= 0) && (u + v < 1)
+    }
+    import org.locationtech.jts.geom.Coordinate
+    val point = triangles.head.getFactory.createPoint(new Coordinate(p(0),p(1)))
+    import scala.jdk.CollectionConverters._
+    val triangle = triangles.find(tr=> {
+      val a = tr.getCoordinates()(0)
+      val b = tr.getCoordinates()(1)
+      val c = tr.getCoordinates()(2)
+      isPointInTriangle(a.x, a.y, b.x, b.y, c.x, c.y, point.getX, point.getY)
+    })
+    if (triangle.isDefined) {
+      import org.locationtech.jts.geom.Coordinate
+      val coord = triangle.get.getCoordinates
+      val p1 = coord(0)
+      val p2 = coord(1)
+      val p3 = coord(2)
+      val e0 = p2.x - p1.x
+      val e1 = p2.y - p1.y
+      val f0 = p3.x - p2.x
+      val f1 = p3.y - p2.y
+      val v2 = (e1 * (p(0) - p1.x) - e0 * (p(1) - p1.y)) / (f0 * e1 - f1 * e0)
+      val v1 = (p(1) - p1.y - v2 * f1) / e1
+      val r1 = v1 * v1
+      val r2 = v2 / v1
+      val ind = triangles.indexOf(triangle)
+      val prev = areas.take(ind).sum
+      val d = (r1 * areas(ind) + prev) / areas.sum
+      Vector(d, if (r2.isNaN) 0.0 else r2)
+    } else Vector(0.0,0.0)
+
+  }
   def pow2(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 2.0))
 
   def bisect(wB: Double, wO: Double)(x: Double, y: Double) = {
