@@ -2,6 +2,7 @@ package ppse.test
 
 import scala.util.Random
 import better.files._
+import mgo.evolution.niche.boundedGrid
 import ppse.test.SampleUniform.uniform2D
 import scopt.OParser
 
@@ -11,16 +12,26 @@ object SampleUniform {
   type DensityMap = Map[Pattern, Double]
   type PatternFunction = Vector[Double] => Pattern
 
-  def uniform2D(pattern: PatternFunction, points: Int, random: Random) = {
-    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(pattern).map(_ -> 1.0)
-    val total = drawn.map(_._2).sum
+  def uniform2D(points: Int, random: Random = new Random(42)) = {
+    val size = 50
 
-    drawn.
-      groupBy(p => p._1).
-      view.
-      mapValues(_.map(_._2).sum / total.toDouble).
-      toMap
+    def pattern = boundedGrid(
+      lowBound = Vector(0.0, 0.0),
+      highBound = Vector(1.0, 1.0),
+      definition = Vector(size, size))(_)
+
+    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.pow2)
+
+    val patterns =
+      drawn.
+        groupBy(p => pattern(p)).
+        view.
+        mapValues(_.size / points.toDouble).
+        toMap
+
+    drawn.map(d => d -> patterns(pattern(d)))
   }
+
 
 
 }
@@ -46,22 +57,15 @@ object SampleUniformApp extends App {
     )
   }
 
-  def computePatterns(points: Int) = {
-    val size = 50
 
-    def patternFunction(x: Vector[Double]) =
-      Benchmark.pattern(Benchmark.pow2(x), Vector(size, size))
-
-    uniform2D(patternFunction, points, new Random(42))
-  }
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
       config.map.foreach { f =>
-        def write(file: File, densities: SampleUniform.DensityMap) =
+        def write(file: File, densities: Seq[(Vector[Double], Double)]) =
           file.write(densities.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
-        val pattern = computePatterns(max)
+        val pattern = SampleUniform.uniform2D(max)
         f.delete(swallowIOExceptions = true)
         write(f, pattern)
       }
@@ -72,7 +76,7 @@ object SampleUniformApp extends App {
         for {
           points <- 100 to 10000 by 100
         } {
-          val pattern = computePatterns(points)
+          val pattern = SampleUniform.uniform2D(points)
           f.appendLine(s"$points, ${pattern.size}")
         }
       }
