@@ -26,5 +26,20 @@ package object test {
     )
   }
 
+  def mixture2(seed: Long = 43) = {
+    val rng = new Well44497a(seed)
+
+    val g1 = new MultivariateNormalDistribution(rng, Array(0.3, 0.2), Array(Array(0.1, 0.0), Array(0.0, 0.1)))
+    val g2 = new MultivariateNormalDistribution(rng, Array(0.2, 0.3), Array(Array(0.2, 0.0), Array(0.0, 0.2)))
+
+    new MixtureMultivariateNormalDistribution(
+      rng,
+      List(
+        new Pair(java.lang.Double.valueOf(0.50), g1),
+        new Pair(java.lang.Double.valueOf(0.50), g2)).asJava
+    )
+  }
+
+
 
 }
