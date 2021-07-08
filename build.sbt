@@ -17,8 +17,7 @@ libraryDependencies ++= Seq(
   "org.scalanlp" %% "breeze" % breezeVersion,
   "org.scalanlp" %% "breeze-natives" % breezeVersion
 )
-
-libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9"
+libraryDependencies += "org.locationtech.jts" % "jts-core" % "1.18.1"
 
 scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps")
 

@@ -1,11 +1,11 @@
 package ppse.test
 
-import mgo.{evolution, _}
-import ppse.em._
-import mgo.evolution._
-import niche._
 import better.files._
+import mgo.evolution._
+import mgo.evolution.niche._
+import org.locationtech.jts.geom.{Coordinate, GeometryFactory}
 import ppse.em.EMPPSE.Individual
+import ppse.em._
 import scopt._
 
 import scala.collection.mutable.ListBuffer
@@ -33,12 +33,41 @@ object EMPPSETest extends App {
     )
   }
 
+  val fact = new GeometryFactory()
+  val w = 0.01
+  val polygon = fact.createMultiPolygon(Array(fact.createPolygon(Array(
+    new Coordinate(0.5,0.5),
+    new Coordinate(0.5-w,0.75),
+    new Coordinate(0.5,1.0),
+    new Coordinate(0.5+w,0.75),
+    new Coordinate(0.5,0.5)
+  )),fact.createPolygon(Array(
+    new Coordinate(0.5,0.5),
+    new Coordinate(0.75,0.5+w),
+    new Coordinate(1.0,0.5),
+    new Coordinate(0.75,0.5-w),
+    new Coordinate(0.5,0.5)
+  )),fact.createPolygon(Array(
+    new Coordinate(0.5,0.5),
+    new Coordinate(0.5+w,0.25),
+    new Coordinate(0.5,0.0),
+    new Coordinate(0.5-w,0.25),
+    new Coordinate(0.5,0.5)
+  )),fact.createPolygon(Array(
+    new Coordinate(0.5,0.5),
+    new Coordinate(0.25,0.5-w),
+    new Coordinate(0.0,0.5),
+    new Coordinate(0.25,0.5+w),
+    new Coordinate(0.5,0.5)
+  ))
+  ))
+  val prepared = Benchmark.preparePolygon(polygon)
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
       val ppse = EMPPSE(
         lambda = 10,
-        phenotype = Benchmark.pow2,
+        phenotype = Benchmark.sampleInPolygon(prepared._1, prepared._2),//Benchmark.pow2,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
