@@ -7,8 +7,10 @@ import org.locationtech.jts.geom.{Coordinate, GeometryFactory}
 import ppse.em.EMPPSE.Individual
 import ppse.em._
 import scopt._
+import squants.mass.Density
 
 import scala.collection.mutable.ListBuffer
+
 
 object EMPPSETest extends App {
 
@@ -80,7 +82,7 @@ object EMPPSETest extends App {
 
       def evolution =
         ppse.
-          until(afterGeneration(500)).
+          until(afterGeneration(1000)).
           trace { (s, is) =>
             val c = Converge(s.evaluated, s.s.hitmap, s.s.gmm.map(_._1), is)
             converge += c
@@ -91,6 +93,8 @@ object EMPPSETest extends App {
 
       //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
       def result = EMPPSE.result(ppse, finalPopulation, finalState)
+
+      println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
 
       config.map.foreach { m => m.write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
       config.trace.foreach { m =>
