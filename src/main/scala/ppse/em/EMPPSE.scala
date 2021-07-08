@@ -270,97 +270,89 @@ object PPSE2Operations {
 
       def noNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
+
+
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ noNan)
 
-        gmm.get(state) match {
-          case None =>
-            // TODO count hits and update densities
+      gmm.get(state) match {
+        case None if population2.size > 1 =>
+          val (gmmValue, _) =
+            WDFEMGMM.initializeAndFit(
+              iterations = iterations,
+              tolerance = tolerance,
+              x = WDFEMGMM.toDenseMatrix(rows = population2.length, cols = continuous.size, population2.map(values).map(_.toArray).toArray.transpose),
+              dataWeights = DenseVector.fill(population2.size, 1.0),
+              random = rng,
+              retry = retryGMM
+            )
 
-            //def lowestHitIndividual = population2.take(lowest)
+          val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
 
-            def lowestHitIndividual = population2
+          def state2 = (
+            gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
+          (state2, population2)
+        case None => (state, population2)
+        case Some(gmmValue) =>
 
-            val (gmmValue, _) =
+          val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
+          def hits(i: I) = hm2(phenotype andThen pattern apply i)
+
+         // val sortedPopulation2 = noNan.sortBy(hits)
+          val lowestHitIndividual = noNan
+
+          val weights = {
+            val w = lowestHitIndividual.map(i => hits(i).toDouble)
+            val wMax = w.max
+            w.map(h => wMax - h + 1)
+          }
+          val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
+
+          def densities =
+            noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
+              mapValues { v => v.map(values).map(p => 1 / distribution.density(p.toArray))}.toSeq
+
+          val pm: ProbabilityMap = probabilities.get(state)
+
+          def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
+            val (pattern, densities) = p
+            val newDensity = pm.getOrElse(pattern, 0.0) + densities.sum
+            pattern -> newDensity
+          }
+
+          def pm2 = pm ++ densities.map(probabilityUpdate)
+
+          val (gmmValue2, _) = {
+            try {
               WDFEMGMM.initializeAndFit(
                 iterations = iterations,
                 tolerance = tolerance,
-//                x = lowestHitIndividual.map(values).map(_.toArray).toArray,
-//                columns = continuous.size,
-                x = WDFEMGMM.toDenseMatrix(rows = lowestHitIndividual.length, cols = continuous.size, lowestHitIndividual.map(values).map(_.toArray).toArray.transpose),
-                dataWeights = DenseVector.fill(lowestHitIndividual.size, 1.0),
+//                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
+//                  columns = continuous.size,
+                x = WDFEMGMM.toDenseMatrix(
+                  rows = lowestHitIndividual.length,
+                  cols = continuous.size,
+                  lowestHitIndividual.map(values).map(_.toArray).toArray.transpose
+                ),
+                dataWeights = DenseVector(weights: _*), //DenseVector.fill(lowestHitIndividual.size, 1.0),
                 random = rng,
                 retry = retryGMM
               )
 
-            val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
-
-            def state2 = (
-              gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))))(state)
-
-            (state2, population2)
-          case Some(gmmValue) =>
-            val hm2 = addHits(phenotype andThen pattern, noNan, hitmap.get(state))
-            def hits(i: I) = hm2(phenotype andThen pattern apply i)
-
-           // val sortedPopulation2 = noNan.sortBy(hits)
-            val lowestHitIndividual = noNan
-
-//            val lowestHitIndividual = noNan
-//            val weights = lowestHitIndividual.map(i => 1.0 / hits(i))
-            val weights = {
-              val w = lowestHitIndividual.map(i => hits(i).toDouble)
-              val wMax = w.max
-              w.map(h => wMax - h + 1)
+            } catch {
+              case t: org.apache.commons.math3.linear.SingularMatrixException =>
+                throw new RuntimeException("Computing GMM for points [" + lowestHitIndividual.map(values).map(p => s"""[${p.mkString(", ")}]""").mkString(", ") + "]", t)
             }
-            val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
+          }
 
-            def densities =
-              noNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
-                mapValues { v => v.map(values).map(p => 1 / distribution.density(p.toArray))}.toSeq
+          val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
 
-            //val hm = hitmap.get(state)
-            val pm: ProbabilityMap = probabilities.get(state)
+          def state2 =
+            (gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
+              probabilities.replace(pm2) andThen
+              hitmap.replace(hm2))(state)
 
-            def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
-              val (pattern, densities) = p
-              val newDensity = pm.getOrElse(pattern, 0.0) + densities.sum
-              pattern -> newDensity
-            }
-
-            def pm2 = pm ++ densities.map(probabilityUpdate)
-
-            val (gmmValue2, _) = {
-              try {
-                WDFEMGMM.initializeAndFit(
-                  iterations = iterations,
-                  tolerance = tolerance,
-//                  x = lowestHitIndividual.map(values).map(_.toArray).toArray,
-//                  columns = continuous.size,
-                  x = WDFEMGMM.toDenseMatrix(
-                    rows = lowestHitIndividual.length,
-                    cols = continuous.size,
-                    lowestHitIndividual.map(values).map(_.toArray).toArray.transpose
-                  ),
-                  dataWeights = DenseVector(weights: _*), //DenseVector.fill(lowestHitIndividual.size, 1.0),
-                  random = rng,
-                  retry = retryGMM
-                )
-
-              } catch {
-                case t: org.apache.commons.math3.linear.SingularMatrixException =>
-                  throw new RuntimeException("Computing GMM for points [" + lowestHitIndividual.map(values).map(p => s"""[${p.mkString(", ")}]""").mkString(", ") + "]", t)
-              }
-            }
-
-            val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
-
-            def state2 =
-              (gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
-                probabilities.replace(pm2) andThen
-                hitmap.replace(hm2))(state)
-
-            (state2, population2)
-        }
+          (state2, population2)
+      }
 
 
     }
