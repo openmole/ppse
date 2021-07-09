@@ -6,33 +6,7 @@ import org.locationtech.jts.geom.{Coordinate, Geometry, GeometryFactory, MultiPo
 object Benchmark {
 
   def flower(w: Double = 0.01) = {
-    val fact = new GeometryFactory()
-    val polygon = fact.createMultiPolygon(Array(fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
-      new Coordinate(0.5-w,0.75),
-      new Coordinate(0.5,1.0),
-      new Coordinate(0.5+w,0.75),
-      new Coordinate(0.5,0.5)
-    )),fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
-      new Coordinate(0.75,0.5+w),
-      new Coordinate(1.0,0.5),
-      new Coordinate(0.75,0.5-w),
-      new Coordinate(0.5,0.5)
-    )),fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
-      new Coordinate(0.5+w,0.25),
-      new Coordinate(0.5,0.0),
-      new Coordinate(0.5-w,0.25),
-      new Coordinate(0.5,0.5)
-    )),fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
-      new Coordinate(0.25,0.5-w),
-      new Coordinate(0.0,0.5),
-      new Coordinate(0.25,0.5+w),
-      new Coordinate(0.5,0.5)
-    ))
-    ))
+    val polygon = createFlower(w)
     val prep = Benchmark.preparePolygon(polygon)
     Benchmark.sampleInPolygon(prep._1, prep._2) _
   }
@@ -75,34 +49,38 @@ object Benchmark {
     Vector(x,y)
   }
 
-  def inverseFlower(w:Double = 0.01) = {
+  def createFlower(w:Double = 0.01) = {
     val fact = new GeometryFactory()
-    val polygon = fact.createMultiPolygon(Array(fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
+    fact.createMultiPolygon(Array(fact.createPolygon(Array(
+      new Coordinate(0.5,0.5+w),
       new Coordinate(0.5-w,0.75),
       new Coordinate(0.5,1.0),
       new Coordinate(0.5+w,0.75),
-      new Coordinate(0.5,0.5)
+      new Coordinate(0.5,0.5+w)
     )),fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
+      new Coordinate(0.5+w,0.5),
       new Coordinate(0.75,0.5+w),
       new Coordinate(1.0,0.5),
       new Coordinate(0.75,0.5-w),
-      new Coordinate(0.5,0.5)
+      new Coordinate(0.5+w,0.5)
     )),fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
+      new Coordinate(0.5,0.5-w),
       new Coordinate(0.5+w,0.25),
       new Coordinate(0.5,0.0),
       new Coordinate(0.5-w,0.25),
-      new Coordinate(0.5,0.5)
+      new Coordinate(0.5,0.5-w)
     )),fact.createPolygon(Array(
-      new Coordinate(0.5,0.5),
+      new Coordinate(0.5-w,0.5),
       new Coordinate(0.25,0.5-w),
       new Coordinate(0.0,0.5),
       new Coordinate(0.25,0.5+w),
-      new Coordinate(0.5,0.5)
+      new Coordinate(0.5-w,0.5)
     ))
     ))
+  }
+
+  def inverseFlower(w:Double = 0.01) = {
+    val polygon = createFlower(w)
     val prep = Benchmark.preparePolygon(polygon)
     inverseSampleInPolygon(prep._1, prep._2) _
   }
