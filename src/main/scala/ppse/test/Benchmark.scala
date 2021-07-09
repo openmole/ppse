@@ -2,6 +2,7 @@ package ppse.test
 
 import breeze.linalg.DenseVector
 import org.locationtech.jts.geom.{Coordinate, Geometry, GeometryFactory, MultiPolygon, Polygon}
+import ppse.test.Benchmark.SquareDiagonalTransformation.MathVectors._
 
 object Benchmark {
 
@@ -73,6 +74,206 @@ object Benchmark {
     val x = a * x1 + b * x2 + c * x3
     val y = a * y1 + b * y2 + c * y3
     Vector(x,y)
+  }
+
+  object SquareDiagonalTransformation {
+
+    object MathVectors {
+
+      type MathVector = Seq[Double]
+
+      //Definitions
+      def dimension(v: MathVector): Int = v.length
+
+      def replace(v: MathVector, i: Int, c: Double): MathVector = v.zipWithIndex map { case (cv, iv) => if (iv == i) c else cv }
+      def insert(v: MathVector, i: Int, c: Double): MathVector = {
+        val (left, right) = v.splitAt(i)
+        left ++ Seq(c) ++ right
+      }
+      def remove(v: MathVector, i: Int): Seq[Double] = v.zipWithIndex.filterNot(_._2 == i).map(_._1)
+
+      def norm(v: MathVector, p: Int): Double = math.pow(v.map(math.abs).map(math.pow(_, p)).sum, 1.0/p)
+      def scale(v: MathVector, s: Double): MathVector = v.map(_ * s)
+      def normalize(v: MathVector, p: Int): MathVector = {
+        val vNorm = norm(v, p)
+        if(vNorm != 0) scale(v, 1/vNorm) else v
+      }
+      def toNorm(v: MathVector, p: Int, d: Double): MathVector = scale(normalize(v, p), d)
+      def add(v1: MathVector, v2: MathVector): MathVector = v1 zip v2 map { case (c1, c2) => c1 + c2 }
+      def add(v: MathVector, c: Double): MathVector = v.map(_ + c)
+      def sub(v1: MathVector, v2: MathVector): MathVector = v1 zip v2 map { case (c1, c2) => c1 - c2 }
+      def sub(v: MathVector, c: Double): MathVector = v.map(_ - c)
+      def mul(v1: MathVector, v2: MathVector): MathVector = v1 zip v2 map { case (c1, c2) => c1 * c2 }
+      def dot(v1: MathVector, v2: MathVector): Double = mul(v1, v2).sum
+      def angle(v1: MathVector, v2: MathVector): Double = math.acos(dot(v1, v2) / (norm(v1) * norm(v2)))
+      def parallelComponent(v1: MathVector, v2: MathVector): MathVector = {
+        val u = normalize(v2, 2)
+        scale(u, dot(v1, u))
+      }
+      def orthogonalComponent(v1: MathVector, v2: MathVector): MathVector = sub(v1, parallelComponent(v1, v2))
+      //
+
+      //Currying
+      def replace(i: Int, c: Double)(v: MathVector): MathVector = replace(v, i, c)
+      def insert(i: Int, c: Double)(v: MathVector): MathVector = insert(v, i, c)
+      def remove(i: Int)(v: MathVector): MathVector = remove(v, i)
+      def norm(p: Int)(v: MathVector): Double = norm(v, p)
+      def scale(s: Double)(v: MathVector): MathVector = scale(v, s)
+      def normalize(p: Int)(v: MathVector): MathVector = normalize(v, p)
+      def toNorm(p: Int, d: Double)(v: MathVector): MathVector = toNorm(v, p, d)
+      def add(v2: MathVector): MathVector => MathVector = (v1: MathVector) => add(v1, v2)
+      def add(c: Double)(v: MathVector): MathVector = add(v, c)
+      def sub(v2: MathVector): MathVector => MathVector = (v1: MathVector) => sub(v1, v2)
+      def sub(c: Double)(v: MathVector): MathVector = sub(v, c)
+      def mul(v2: MathVector): MathVector => MathVector = (v1: MathVector) => mul(v1, v2)
+      def dot(v2: MathVector): MathVector => Double = (v1: MathVector) => dot(v1, v2)
+      def angle(v2: MathVector): MathVector => Double = (v1: MathVector) => angle(v1, v2)
+      def parallelComponent(v2: MathVector): MathVector => MathVector = (v1: MathVector) => parallelComponent(v1, v2)
+      def orthogonalComponent(v2: MathVector): MathVector => MathVector = (v1: MathVector) => orthogonalComponent(v1, v2)
+      //
+
+      //Parameter aliases
+      // @inline ?
+      def norm(v: MathVector): Double = norm(2)(v)
+      def normalize(v: MathVector): MathVector = normalize(2)(v)
+      def toNorm(d: Double)(v: MathVector): MathVector = toNorm(2, d)(v)
+      def negate(v: MathVector): MathVector = scale(-1)(v)
+      //
+
+      //Function aliases
+      // @inline ?
+      def -(v: MathVector): MathVector = negate(v)
+      //
+
+      //Implicit class
+      implicit class ImplicitVector(v: MathVector) {
+
+        def dimension: Int = MathVectors.dimension(v)
+
+        //Currying copy
+        def replace(i: Int, c: Double): MathVector = MathVectors.replace(i, c)(v)
+        def insert(i: Int, c: Double): MathVector = MathVectors.insert(i, c)(v)
+        def remove(i: Int): MathVector = MathVectors.remove(i)(v)
+        def norm(p: Int): Double = MathVectors.norm(p)(v)
+        def scale(s: Double): MathVector = MathVectors.scale(s)(v)
+        def normalize(p: Int): MathVector = MathVectors.normalize(p)(v)
+        def toNorm(p: Int, d: Double): MathVector = MathVectors.toNorm(p, d)(v)
+        def add(ov: MathVector): MathVector = MathVectors.add(ov)(v)
+        def add(c: Double): MathVector = MathVectors.add(c)(v)
+        def sub(ov: MathVector): MathVector = MathVectors.sub(ov)(v)
+        def sub(c: Double): MathVector = MathVectors.sub(c)(v)
+        def mul(ov: MathVector): MathVector = MathVectors.mul(ov)(v)
+        def dot(ov: MathVector): Double = MathVectors.dot(ov)(v)
+        def angle(ov: MathVector): Double = MathVectors.angle(ov)(v)
+        def parallelComponent(ov: MathVector): MathVector = MathVectors.parallelComponent(ov)(v)
+        def orthogonalComponent(ov: MathVector): MathVector = MathVectors.orthogonalComponent(ov)(v)
+        //
+
+        //Parameter aliases copy
+        def norm: Double = MathVectors.norm(v)
+        def normalize: MathVector = MathVectors.normalize(v)
+        def toNorm(d: Double): MathVector = MathVectors.toNorm(d)(v)
+        def negate: MathVector = MathVectors.negate(v)
+        //
+
+        //Function aliases
+        def *(s: Double): MathVector = scale(s)
+        def *:(s: Double): MathVector = scale(s)
+        def +(ov: MathVector): MathVector = add(ov)
+        def -(ov: MathVector): MathVector = sub(ov)
+        def ^(ov: MathVector): Double = angle(ov)
+        //
+
+        def vectorToString: String = "(" + v.mkString(", ") + ")"
+      }
+      //
+
+    }
+
+    def proportionBetween(v1: MathVector, v2: MathVector, v: MathVector): Double = {
+      val v1v2 = v2.sub(v1)
+      val v1v = v.sub(v1)
+      val u = v1v2.normalize
+      (v1v dot u) / v1v2.norm
+    }
+
+    def move(v1: MathVector, v2: MathVector, v: MathVector, f: Double => Double): MathVector = {
+      val newNorm = f(proportionBetween(v1, v2, v)) * v2.sub(v1).norm
+      v1 + v.sub(v1).toNorm(newNorm)
+    }
+
+    def t1Bounds(v: MathVector): (MathVector, MathVector) = {
+      val s = v.sum
+      if(s < 1) {
+        (Seq(0, s), Seq(s, 0))
+      } else {
+        (Seq(s - 1, 1), Seq(1, s - 1))
+      }
+
+    }
+
+    def t2Bounds(v: MathVector): (MathVector, MathVector) = {
+      if(v(0) > v(1)) {
+        val s = (1 - v(0)) + v(1)
+        (Seq(1 - s, 0), Seq(1, s))
+      } else {
+        val s = v(0) + (1 - v(1))
+        (Seq(0, 1 - s), Seq(s, 1))
+      }
+    }
+
+    /*
+    def asinP(p: Double): Double = {
+      (asin((p - 0.5)*2)/(Pi/2) + 1)/2
+    }
+
+    def asinPN(p: Double, n: Int): Double = {
+      var newP = p
+      for(_ <- 1 to n) {
+        newP = asinP(newP)
+      }
+      newP
+    }
+    */
+
+    // 0 is on the diagonal and 1 is on the border
+    def t1ff(p: Double): Double = {
+      math.pow(p, 2)//TODO
+    }
+
+    def t1f(p: Double): Double = {
+      var u = (p - 0.5) * 2
+      if(u > 0) {
+        u = t1ff(u)
+      } else {
+        u = -t1ff(-u)
+      }
+      (u + 1)/2
+    }
+
+    // 0 is on the border including (0, 0) and 1 is on the border including (1, 1)
+    def t2f(p: Double): Double = {
+      math.pow(p, 2)//TODO
+    }
+
+    // transformation
+    def move(v: MathVector): MathVector = {
+      val t1B = t1Bounds(v)
+      val vt1 = move(t1B._1, t1B._2, v, t1f)
+      val t2B = t2Bounds(vt1)
+      val vt1t2 = move(t2B._1, t2B._2, vt1, t2f)
+      vt1t2
+    }
+
+    def vectors(n: Int): Seq[MathVector] = {
+      val range = (0 to n).map(_.toDouble / n)
+      range.flatMap(x => {
+        range.map(y => {
+          move(Seq(x, y))
+        })
+      })
+    }
+
   }
 
   def inverseFlower(w:Double = 0.01) = {
