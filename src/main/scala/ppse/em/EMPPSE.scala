@@ -283,7 +283,7 @@ object PPSE2Operations {
 
       // TODO: Consider density in boostraping steps ?
       gmm.get(state) match {
-        case None if population2.size > 1 =>
+        case None if population2.size > 10 =>
           val (gmmValue, _) =
             WDFEMGMM.initializeAndFit(
               iterations = iterations,
@@ -320,6 +320,8 @@ object PPSE2Operations {
           }
 
           def pm2 = pm ++ densities.map(probabilityUpdate)
+
+          //FIXME take to parameter
           def bestIndividualsOfPopulation = population2.sortBy(hits).take(100)
 
           val (gmmValue2, _) = {

@@ -173,14 +173,14 @@ object WDFEMGMM  {
     assert(dataWeights.forall(p=> p >= 1.0), s"dataweights=${dataWeights}")
     //assert(x.rows>10,s"data=$x")
     val resp = compute_log_likelihood(x, dataWeights, means, covariances, weights)
-//    assert(resp.forall(p=> p < 1.0 && p >= 0), s"RESP=${resp}")
+    //assert(resp.forall(p=> p > 0), s"RESP=${resp}")
     // for each point, the sum of all likelihoods for all components
     val resp_sum = sum(resp(*, ::))
-//    println(s"resp_sum=$resp_sum")
+    //println(s"resp_sum=$resp_sum")
     val log_likelihood = sum(log(resp_sum))
     // divide the responsibility by the sum for each point
-    val updatedResp = DenseMatrix.tabulate(resp.rows, resp.cols)((i,j)=>resp(i,j) / resp_sum(i))
-    assert(updatedResp.forall(p=> p <= 1.0 && p >= 0),s"UPDATED_RESP=${updatedResp}")
+    val updatedResp = DenseMatrix.tabulate(resp.rows, resp.cols)((i,j)=>resp(i,j) / (if (resp_sum(i) == 0) 1.0 else resp_sum(i)))
+    assert(updatedResp.forall(p=> p <= 1.0 && p >= 0),s"UPDATED_RESP (${updatedResp.rows},${updatedResp.cols}) =${updatedResp}")
 //    assert(sum(updatedResp(*, ::)).forall(p=> p==1.0),s"sums=${sum(updatedResp(*, ::))}")
     (log_likelihood, updatedResp)
   }
