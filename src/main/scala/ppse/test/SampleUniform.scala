@@ -14,7 +14,7 @@ object SampleUniform {
 
   def uniform2D(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
 
-    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.flower())
+    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.inverseFlower())
 
     val patterns =
       drawn.
@@ -33,7 +33,7 @@ object SampleUniform {
 
 object SampleUniformApp extends App {
 
-  val max = 10000
+  val max = 50000
 
   case class Config(
     map: Option[File] = None,
@@ -76,7 +76,7 @@ object SampleUniformApp extends App {
         f.delete(swallowIOExceptions = true)
 
         for {
-          points <- 100 to 10000 by 100
+          points <- 100 to max by 100
         } {
           val p = SampleUniform.uniform2D(pattern, points)._1
           f.appendLine(s"$points, ${p.size}")
