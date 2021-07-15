@@ -65,8 +65,10 @@ object Clustering {
 //    }
     val gmeans = new HDBSCAN
 
-    if (points.length < gmeans.getMinPoints) buildSingleCluster()
-    else {
+    if (points.length < gmeans.getMinPoints) {
+//      println(s"Only ${points.length} points (<${gmeans.getMinPoints})")
+      buildSingleCluster()
+    } else {
       //    gmeans.setMinClusterSize(3)
 
       val dataSet = {
@@ -101,8 +103,10 @@ object Clustering {
         }
 
         (means, covariances, weights)
-      } else buildSingleCluster()
-
+      } else {
+//        println(s"No cluster found for ${points.length} points")
+        buildSingleCluster()
+      }
     }
   }
 
