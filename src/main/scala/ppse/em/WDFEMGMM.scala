@@ -6,7 +6,7 @@ import breeze.linalg.Vector._
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
-import org.apache.commons.math3.linear.SingularMatrixException
+import org.apache.commons.math3.linear.{EigenDecomposition, SingularMatrixException}
 import org.apache.commons.math3.util.Pair
 
 import scala.annotation.tailrec
@@ -170,7 +170,7 @@ object WDFEMGMM  {
     // for each point and each component
     // the matrix containing the probability of point i for component k multiplied by the weight (coefficient) of component k
     assert(weights.forall(p=> p <= 1.0 && p >= 0), s"weights=${weights}")
-    assert(dataWeights.forall(p=> p >= 1.0), s"dataweights=${dataWeights}")
+    //assert(dataWeights.forall(p=> p >= 1.0), s"dataweights=${dataWeights}")
     //assert(x.rows>10,s"data=$x")
     val resp = compute_log_likelihood(x, dataWeights, means, covariances, weights)
     //assert(resp.forall(p=> p > 0), s"RESP=${resp}")
@@ -210,11 +210,22 @@ object WDFEMGMM  {
     means: DenseMatrix[Double],
     covariances: Array[DenseMatrix[Double]],
     weights: DenseVector[Double]): DenseMatrix[Double] = {
+
+    val epsilon = {
+      val nameField = classOf[EigenDecomposition].getDeclaredField("EPSILON");
+      nameField.setAccessible(true);
+      nameField.get(null).asInstanceOf[Double]
+    }
+
     DenseMatrix.tabulate(x.rows, weights.length) { (i, k) =>
-      new MultivariateNormalDistribution(
-        means(k, ::).inner.toArray,
-        toArray(covariances(k) /:/ dataWeights(i))
-      ).density(x(i, ::).inner.toArray) * weights(k)
+      val weightedCovariances = covariances(k) /:/ dataWeights(i)
+
+      if(det(weightedCovariances) < epsilon) epsilon
+      else
+        new MultivariateNormalDistribution(
+          means(k, ::).inner.toArray,
+          toArray(weightedCovariances)
+        ).density(x(i, ::).inner.toArray) * weights(k)
     }
   }
 

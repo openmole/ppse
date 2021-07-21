@@ -81,6 +81,8 @@ object Clustering {
 
       val clusters = gmeans.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
 
+      //println(s"clusters ${clusters.length} ${clusters.map(_.length).mkString(",")}")
+
       //    assert(clusters.nonEmpty, s"${clusters.length} Clusters found from ${x.rows} points")
 
       if (!clusters.isEmpty) {

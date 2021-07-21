@@ -226,7 +226,7 @@ case class EMPPSE(
     tolerance: Double = 0.0001,
     warmupSampler: Int = 1000,
     dilation: Double = 1.0,
-    retryGMM: Int = 1000)
+    retryGMM: Int = 0)
 
 object PPSE2Operations {
 
@@ -278,7 +278,7 @@ object PPSE2Operations {
       def weights(pop: Vector[I]) = {
         val w = pop.map(i => hits(i).toDouble)
         val wMax = w.max
-        w.map(h => wMax - h + 1) //.map(math.pow(_, 2))
+        w.map(h => 1 / h) // wMax - h + 1) //.map(math.pow(_, 2))
       }
 
       // TODO: Consider density in boostraping steps ?
@@ -322,7 +322,7 @@ object PPSE2Operations {
           def pm2 = pm ++ densities.map(probabilityUpdate)
 
           //FIXME take to parameter
-          def bestIndividualsOfPopulation = population2.sortBy(hits).take(100)
+          def bestIndividualsOfPopulation = population2 //.sortBy(hits)
 
           val (gmmValue2, _) = {
             try {
@@ -341,6 +341,13 @@ object PPSE2Operations {
 
             } catch {
               case t: org.apache.commons.math3.linear.SingularMatrixException =>
+                for {
+                  i <- population2
+                } {
+                  val v = values(i)
+                  println(s"0, ${v(0)},${v(1)},${hits(i)}")
+                }
+
                 throw new RuntimeException("Computing GMM for points [" + population2.map(values).map(p => s"""[${p.mkString(", ")}]""").mkString(", ") + "]", t)
             }
           }
