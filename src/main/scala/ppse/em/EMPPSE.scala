@@ -238,7 +238,7 @@ object PPSE2Operations {
     lambda: Int,
     //reject: Option[G => Boolean],
     gmm: S => Option[(GMM, RejectionSampler.State)]
- ): Breeding[S, I, G] =
+  ): Breeding[S, I, G] =
     (s, population, rng) => {
 
       def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Vector.fill(genomeLength)(() => rng.nextDouble()).map(_())
@@ -274,11 +274,10 @@ object PPSE2Operations {
       val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ offSpringWithNoNan)
       val hm2 = addHits(phenotype andThen pattern, offSpringWithNoNan, hitmap.get(state))
 
-      def hits(i: I) = hm2.getOrElse(phenotype andThen pattern apply i, 0)
+      def hits(i: I) = hm2.get(phenotype andThen pattern apply i)
       def weights(pop: Vector[I]) = {
-        val w = pop.map(i => hits(i).toDouble)
-        val wMax = w.max
-        w.map(h => 1 / h) // wMax - h + 1) //.map(math.pow(_, 2))
+        val w = pop.map(i => hits(i).getOrElse(1))
+        w.map(h => 1.0 / h) // wMax - h + 1) //.map(math.pow(_, 2))
       }
 
       // TODO: Consider density in boostraping steps ?

@@ -220,7 +220,7 @@ object WDFEMGMM  {
     DenseMatrix.tabulate(x.rows, weights.length) { (i, k) =>
       val weightedCovariances = covariances(k) /:/ dataWeights(i)
 
-      if(det(weightedCovariances) < epsilon) epsilon
+      if(det(weightedCovariances) < epsilon) mgo.tools.epsilon
       else
         new MultivariateNormalDistribution(
           means(k, ::).inner.toArray,

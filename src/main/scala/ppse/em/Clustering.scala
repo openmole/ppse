@@ -64,26 +64,19 @@ object Clustering {
 //      rand = random.self
 //    }
     val gmeans = new HDBSCAN
+    //gmeans.setMinPoints(10)
 
-    if (points.length < gmeans.getMinPoints) {
-//      println(s"Only ${points.length} points (<${gmeans.getMinPoints})")
-      buildSingleCluster()
-    } else {
-      //    gmeans.setMinClusterSize(3)
-
+    if (points.length < gmeans.getMinPoints) buildSingleCluster()
+    else {
       val dataSet = {
         val dataPoints = (points zip dataWeights.toArray).map { case (p, w) =>
           new DataPoint(new jsat.linear.DenseVector(p), w)
         }
-        assert(points.length == dataWeights.toArray.length)
         new SimpleDataSet(dataPoints.toList.asJava)
       }
 
       val clusters = gmeans.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
-
-      //println(s"clusters ${clusters.length} ${clusters.map(_.length).mkString(",")}")
-
-      //    assert(clusters.nonEmpty, s"${clusters.length} Clusters found from ${x.rows} points")
+      println(s"clusters ${clusters.length} ${clusters.map(_.length).mkString(",")}")
 
       if (!clusters.isEmpty) {
         val centroids =
@@ -105,10 +98,8 @@ object Clustering {
         }
 
         (means, covariances, weights)
-      } else {
-//        println(s"No cluster found for ${points.length} points")
-        buildSingleCluster()
-      }
+      } else buildSingleCluster()
+
     }
   }
 
