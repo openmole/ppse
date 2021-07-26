@@ -75,15 +75,11 @@ morestring=[b]"}
 %The first section of this paper exposes a formal description of the CP algorithm as well as a reusable implementation of method. In the second section we show how the application of the CP algorithm to a real world geographical simulation model produces novel insights toward the validation of the model.
 
 
-\section{The Pattern Probability Space Estimation (PPSE) algorithm}
-
-\subsection{Objective}\label{sec. objective}
+\section{Objective}\label{sec. objective}
 
 The PPSE method is inspired from the evolutionary algorithm. It extends the PSE method (citation). The PSE method discovers all the pattern that could be produced by a model given some uncertainty on its parameters. In PSE the pattern space is defined as discrete space containing descriptors of the dynamics of the simulation. Each combination values of these descriptors is considered a distinct pattern.
 
 PSE discovers all the possible patterns, however it does not provide any additional information on these pattern apart from there existence. PPSE extends on that to compute a likelihood for each pattern. This likelihood is the defined as the likelihood that the model produce this pattern given that the input parameters are drawn from a uniform distribution.
-
-\subsection{Naive algorithm}
 
 Lets consider a simulation model and a function that computes patterns from the dynamics produced by the model. The model has some free parameters. For the sake of simplicity we consider here that the input parameters of the model are defined on $[0, 1]$.
 
@@ -154,8 +150,16 @@ The idea behind the PPSE algorithm is to evolutionally bias the sampling of the 
 %of this approach, we propose a new algorithm that converges directly to the whole set  
 %$\{h_k(a^1_k), \ldots, h_k(a^{l_k}_k)\}$.
 
+\section{Material and Methods}
 
-\subsection{Description of the algorithm}\label{sec. algoDescription}
+\subsection{Importance Sampling}
+
+\subsection{Gaussian Mixture Fitting}
+
+\subsection{Evolutionary Algorithms}
+
+
+\section{Description of the algorithm}\label{sec. algoDescription}
 
 %In this section we consider $k\in\{1,\ldots, n\}$ to be fixed and we describe the CP algorithm for the analysis of the 
 %$k$-th parameter. As mentioned earlier, the goal is to approximate $h_k(x)$, that is to provide 

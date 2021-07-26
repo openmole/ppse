@@ -271,7 +271,7 @@ object PPSE2Operations {
       def offSpringWithNoNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
 
-      val population2 = keepNiches(phenotype andThen pattern, keepFirst)(population ++ offSpringWithNoNan)
+      val newPopulation = keepNiches(phenotype andThen pattern, keepFirst)(population ++ offSpringWithNoNan)
       val hm2 = addHits(phenotype andThen pattern, offSpringWithNoNan, hitmap.get(state))
 
       def hits(i: I) = hm2.get(phenotype andThen pattern apply i)
@@ -282,13 +282,16 @@ object PPSE2Operations {
 
       // TODO: Consider density in boostraping steps ?
       gmm.get(state) match {
-        case None if population2.size > 10 =>
+        case None if newPopulation.size < 10 =>
+          def state2 = hitmap.replace(hm2) apply (state)
+          (state2, newPopulation)
+        case None =>
           val (gmmValue, _) =
             WDFEMGMM.initializeAndFit(
               iterations = iterations,
               tolerance = tolerance,
-              x = WDFEMGMM.toDenseMatrix(rows = population2.length, cols = continuous.size, population2.map(values).map(_.toArray).toArray.transpose),
-              dataWeights = DenseVector(weights(population2): _*),
+              x = WDFEMGMM.toDenseMatrix(rows = newPopulation.length, cols = continuous.size, newPopulation.map(values).map(_.toArray).toArray.transpose),
+              dataWeights = DenseVector(weights(newPopulation): _*),
               random = rng,
               retry = retryGMM
             )
@@ -299,10 +302,8 @@ object PPSE2Operations {
             gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
               hitmap.replace(hm2) apply (state)
 
-          (state2, population2)
-        case None =>
-          def state2 = hitmap.replace(hm2) apply (state)
-          (state2, population2)
+          (state2, newPopulation)
+
         case Some(gmmValue) =>
           val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
@@ -321,7 +322,7 @@ object PPSE2Operations {
           def pm2 = pm ++ densities.map(probabilityUpdate)
 
           //FIXME take to parameter
-          def bestIndividualsOfPopulation = population2 //.sortBy(hits)
+          def bestIndividualsOfPopulation = newPopulation //.sortBy(hits)
 
           val (gmmValue2, _) = {
             try {
@@ -340,14 +341,7 @@ object PPSE2Operations {
 
             } catch {
               case t: org.apache.commons.math3.linear.SingularMatrixException =>
-                for {
-                  i <- population2
-                } {
-                  val v = values(i)
-                  println(s"0, ${v(0)},${v(1)},${hits(i)}")
-                }
-
-                throw new RuntimeException("Computing GMM for points [" + population2.map(values).map(p => s"""[${p.mkString(", ")}]""").mkString(", ") + "]", t)
+                throw new RuntimeException("Computing GMM for points [" + newPopulation.map(values).map(p => s"""[${p.mkString(", ")}]""").mkString(", ") + "]", t)
             }
           }
 
@@ -358,7 +352,7 @@ object PPSE2Operations {
               probabilities.replace(pm2) andThen
               hitmap.replace(hm2))(state)
 
-          (state2, population2)
+          (state2, newPopulation)
       }
 
 
