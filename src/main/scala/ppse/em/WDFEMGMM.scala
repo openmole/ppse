@@ -6,6 +6,7 @@ import breeze.linalg.Vector._
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
+import org.apache.commons.math3.linear.CholeskyDecomposition
 import org.apache.commons.math3.util.Pair
 
 import scala.annotation.tailrec
@@ -219,35 +220,40 @@ object WDFEMGMM  {
       val dimension = mMeans.size
       val covarianceArray =  toArray(weightedCovariances)
 
-
-      def density(vals: Array[Double]) = {
+      def density(vals: Array[Double], cholesky: Boolean = false) = {
         def covarianceMatrixInverse = {
           val covarianceMatrix = new Array2DRowRealMatrix(covarianceArray)
           // Covariance matrix eigen decomposition.
-          val covMatDec = new EigenDecomposition(covarianceMatrix)
-          // Compute and store the inverse.
-          covMatDec.getSolver.getInverse
+          if(!cholesky){
+            val covMatDec = new EigenDecomposition(covarianceMatrix)
+            // Compute and store the inverse.
+            covMatDec.getSolver.getInverse
+          } else {
+            val covMatDec = new CholeskyDecomposition(covarianceMatrix)
+            covMatDec.getSolver.getInverse
+          }
+
         }
 
         def getExponentTerm(values: Array[Double]) = {
-          val centered = new Array[Double](values.length)
-          for (i <- 0 until centered.length) {
-            centered(i) = values(i) - mMeans(i)
-          }
+          val centered = Array.tabulate(values.length) { i => values(i) - mMeans(i)}
           val preMultiplied = covarianceMatrixInverse.preMultiply(centered)
+
           var sum: Double = 0
           for (i <- 0 until preMultiplied.length) {
             sum += preMultiplied(i) * centered(i)
           }
+
           FastMath.exp(-0.5 * sum)
         }
 
-        //if (vals.length != dim) throw new DimensionMismatchException(vals.length, dim)
         FastMath.pow(2 * FastMath.PI, -0.5 * dimension) * FastMath.pow(determinant, -0.5) * getExponentTerm(vals)
       }
 
+
+
       if(determinant < epsilon) mgo.tools.epsilon
-      else density(x(i, ::).inner.toArray) * weights(k)
+      else density(x(i, ::).inner.toArray, cholesky = true) * weights(k)
     }
   }
 
