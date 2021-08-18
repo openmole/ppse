@@ -51,70 +51,70 @@ object EMPPSE {
     gmm: Option[(GMM, RejectionSampler.State)] = None,
     probabilityMap: ProbabilityMap = Map())
 
-  case class Result(continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual)
+  case class Result[P](continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual[P])
 
-  def result(population: Vector[Individual], state: EvolutionState[EMPPSEState], continuous: Vector[C], pattern: Vector[Double] => Vector[Int]) = {
+  def result[P](population: Vector[Individual[P]], state: EvolutionState[EMPPSEState], continuous: Vector[C], phenotype: P => Vector[Double], pattern: Vector[Double] ⇒ Vector[Int]) = {
     val densityMap = state.focus(_.s) andThen Focus[EMPPSEState](_.probabilityMap) get
-    val max = densityMap.map(_._2).maxOption.getOrElse(0.0)
     val total = densityMap.map(_._2).sum
 
     population.map { i =>
-      val p = pattern(i.phenotype.toVector)
+      val ph = phenotype(i.phenotype)
+      val pa = pattern(ph)
 
       Result(
-        scaleContinuousValues(i.genome, continuous),
-        p,
-        densityMap.getOrElse(p, 0.0) / total,
-        i.phenotype.toVector,
+        scaleContinuousValues(i.genome.toVector, continuous),
+        pa,
+        densityMap.getOrElse(pa, 0.0) / total,
+        ph,
         i)
     }
   }
 
-  def result(pse: EMPPSE, population: Vector[Individual], state: EvolutionState[EMPPSEState]): Vector[Result] =
-    result(population, state, pse.continuous, pse.pattern)
+  def result(pse: EMPPSE, population: Vector[Individual[Vector[Double]]], state: EvolutionState[EMPPSEState]): Vector[Result[Vector[Double]]] =
+    result(population, state, pse.continuous, identity, pse.pattern)
 
-  type Genome = Vector[Double]
+  type Genome = Array[Double]
 
-  @Lenses case class Individual(
+  @Lenses case class Individual[P](
     genome: Genome,
-    phenotype: Array[Double])
+    phenotype: P)
 
-  def buildIndividual(g: Genome, f: Vector[Double]) = Individual(g, f.toArray)
-  def vectorPhenotype = Focus[Individual](_.phenotype) andThen arrayToVectorIso[Double]
+  def buildIndividual[P](g: Genome, f: P) = Individual(g, f)
+  //def vectorPhenotype[P] = Focus[Individual[P]](_.phenotype) andThen arrayToVectorIso[Double]
 
-  def initialGenomes(number: Int, continuous: Vector[C], reject: Option[Genome => Boolean], rng: scala.util.Random) = {
-    def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Vector.fill(genomeLength)(() => rng.nextDouble()).map(_())
+  def initialGenomes(number: Int, continuous: Vector[C]/*, reject: Option[Genome => Boolean]*/, rng: scala.util.Random) = {
+    def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Array.fill(genomeLength)(() => rng.nextDouble()).map(_())
 
-    val rejectValue = reject.getOrElse((_: Genome) => false)
+    //val rejectValue = reject.getOrElse((_: Genome) => false)
 
     def generate(acc: List[Genome], n: Int): Vector[Genome] =
       if (n >= number) acc.toVector
       else {
         val g = randomUnscaledContinuousValues(continuous.length, rng)
-        if (rejectValue(g)) generate(acc, n)
-        else generate(g :: acc, n + 1)
+//        if (rejectValue(g)) generate(acc, n)
+//        else generate(g :: acc, n + 1)
+        generate(g :: acc, n + 1)
       }
 
     generate(List(), 0)
   }
 
-  def breeding(
+  def breeding[P](
     continuous: Vector[C],
-    lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual, Genome] =
+    lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual[P], Genome] =
     PPSE2Operations.breeding(continuous, identity, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
 
-  def elitism(
+  def elitism[P: CanBeNaN](
     continuous: Vector[C],
-    pattern: Vector[Double] => Vector[Int],
+    pattern: P => Vector[Int],
     iterations: Int,
     tolerance: Double,
     dilation: Double,
-    warmupSampler: Int,
-    retryGMM: Int) =
-    PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual, Vector[Double]](
+    warmupSampler: Int) =
+    PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual[P], P](
       continuous = continuous,
-      values = Individual.genome.get,
-      phenotype = Focus[Individual](_.phenotype) andThen arrayToVectorIso[Double] get,
+      values = (Individual.genome andThen arrayToVectorIso[Double]).get,
+      phenotype = (_: Individual[P]).phenotype,
       pattern = pattern,
       probabilities = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.probabilityMap),
       hitmap = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.hitmap),
@@ -122,8 +122,7 @@ object EMPPSE {
       iterations = iterations,
       tolerance = tolerance,
       dilation = dilation,
-      warmupSampler = warmupSampler,
-      retryGMM = retryGMM
+      warmupSampler = warmupSampler
     )
 
 
@@ -169,9 +168,9 @@ object EMPPSE {
 //      pattern,
 //      EvolutionState.s[HitMap])
 //
-  def expression(phenotype: Vector[Double] => Vector[Double], continuous: Vector[C]): Genome => Individual = (g: Genome) => {
-    val sc = scaleContinuousValues(g, continuous)
-    Individual(g, phenotype(sc).toArray)
+  def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) => {
+    val sc = scaleContinuousValues(g.toVector, continuous)
+    Individual(g, phenotype(sc))
   }
 //  deterministic.expression[Genome, Vector[Double], Individual](
 //      values(_, continuous),
@@ -183,20 +182,20 @@ object EMPPSE {
   //
 //  def reject(pse: PPSE2) = NSGA2.reject(pse.reject, pse.continuous)
 
-  implicit def isAlgorithm: Algorithm[EMPPSE, Individual, Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual, Genome, EvolutionState[EMPPSEState]] {
+  implicit def isAlgorithm: Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
     def initialState(t: EMPPSE, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
 
     override def initialPopulation(t: EMPPSE, rng: scala.util.Random) =
-      deterministic.initialPopulation[Genome, Individual](
-        EMPPSE.initialGenomes(t.lambda, t.continuous, None, rng),
+      deterministic.initialPopulation[Genome, Individual[Vector[Double]]](
+        EMPPSE.initialGenomes(t.lambda, t.continuous, rng),
         EMPPSE.expression(t.phenotype, t.continuous))
 
     def step(t: EMPPSE) =
       (s, pop, rng) =>
-        deterministic.step[EvolutionState[EMPPSEState], Individual, Genome](
+        deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
-          EMPPSE.expression(t.phenotype, t.continuous),
-          EMPPSE.elitism(t.continuous, t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.retryGMM),
+          EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
+          EMPPSE.elitism(t.continuous, t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -218,15 +217,14 @@ object EMPPSE {
 }
 
 case class EMPPSE(
-    lambda: Int,
-    phenotype: Vector[Double] => Vector[Double],
-    pattern: Vector[Double] => Vector[Int],
-    continuous: Vector[C],
-    iterations: Int = 100,
-    tolerance: Double = 0.0001,
-    warmupSampler: Int = 1000,
-    dilation: Double = 1.0,
-    retryGMM: Int = 0)
+  lambda: Int,
+  phenotype: Vector[Double] => Vector[Double],
+  pattern: Vector[Double] => Vector[Int],
+  continuous: Vector[C],
+  iterations: Int = 100,
+  tolerance: Double = 0.0001,
+  warmupSampler: Int = 1000,
+  dilation: Double = 1.0)
 
 object PPSE2Operations {
 
@@ -234,14 +232,14 @@ object PPSE2Operations {
 
   def breeding[S, I, G](
     continuous: Vector[C],
-    buildGenome: Vector[Double] => G,
+    buildGenome: Array[Double] => G,
     lambda: Int,
     //reject: Option[G => Boolean],
     gmm: S => Option[(GMM, RejectionSampler.State)]
   ): Breeding[S, I, G] =
     (s, population, rng) => {
 
-      def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Vector.fill(genomeLength)(() => rng.nextDouble()).map(_())
+      def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Array.fill(genomeLength)(() => rng.nextDouble()).map(_())
 
       gmm(s) match {
         case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng))).toVector
@@ -249,7 +247,7 @@ object PPSE2Operations {
           val sampler = EMPPSE.toSampler(gmm._1, rng)
 
           sampler.sampleVector(lambda, gmm._2)._2.
-            map(_._1).
+            map(_._1.toArray).
             map(g => buildGenome(g))
       }
     }
@@ -265,8 +263,7 @@ object PPSE2Operations {
       iterations: Int,
       tolerance: Double,
       dilation: Double,
-      warmupSampler: Int,
-      retryGMM: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+      warmupSampler: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def offSpringWithNoNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
@@ -293,7 +290,7 @@ object PPSE2Operations {
               x = WDFEMGMM.toDenseMatrix(rows = newPopulation.length, cols = continuous.size, newPopulation.map(values).map(_.toArray).toArray.transpose),
               dataWeights = DenseVector(weights(newPopulation): _*),
               random = rng,
-              retry = retryGMM
+              retry = 0
             )
 
           val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
@@ -336,7 +333,7 @@ object PPSE2Operations {
                 ),
                 dataWeights = DenseVector(weights(bestIndividualsOfPopulation): _*),
                 random = rng,
-                retry = retryGMM
+                retry = 0
               )
 
             } catch {

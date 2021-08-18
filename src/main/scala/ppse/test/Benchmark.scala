@@ -335,7 +335,7 @@ object Benchmark {
     } else Vector(0.0,0.0)
 
   }
-  def pow2(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 2.0))
+  def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
 
   def bisect(wB: Double, wO: Double)(x: Double, y: Double) = {
     def distanceToBisect(x: Double, y: Double) = math.abs(y - x) / math.sqrt(2.0)

@@ -1,4 +1,5 @@
 name := "ppse"
+organization := "org.openmole"
 
 version := "1.0-SNAPSHOT"
 
@@ -9,7 +10,7 @@ val breezeVersion = "1.2"
 
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1"
 libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
-libraryDependencies += "org.openmole" %% "mgo" % "3.50"
+libraryDependencies += "org.openmole" %% "mgo" % "3.51"
 libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1"
 libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0"
 libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9"

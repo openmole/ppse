@@ -39,7 +39,7 @@ object EMPPSETest extends App {
     case Some(config) =>
       val ppse = EMPPSE(
         lambda = 10,
-        phenotype = Benchmark.pow2,
+        phenotype = Benchmark.pow,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
@@ -47,7 +47,7 @@ object EMPPSETest extends App {
             definition = Vector(50, 50)),
         continuous = Vector.fill(2)(C(0.0, 1.0)))
 
-      case class Converge(evaluated: Long, hitMap: algorithm.HitMap, gmm: Option[GMM], individuals: Vector[Individual])
+      case class Converge(evaluated: Long, hitMap: algorithm.HitMap, gmm: Option[GMM], individuals: Vector[Individual[Vector[Double]]])
       val converge = ListBuffer[Converge]()
 
       def evolution =
@@ -82,12 +82,12 @@ object EMPPSETest extends App {
               (m / "means.csv").appendLine(s"${c.evaluated}, ${gmm.means.flatten.mkString(",")}")
               (m / "covariances.csv").appendLine(s"${c.evaluated}, ${gmm.covariances.flatten.flatten.mkString(",")}")
 
-              def hits(i: Individual) = c.hitMap.getOrElse(ppse.pattern(i.phenotype.toVector), 1)
+              def hits(i: Individual[Vector[Double]]) = c.hitMap.getOrElse(ppse.pattern(i.phenotype.toVector), 1)
 
               for {
                 i <- c.individuals
               } {
-                val genome = _root_.mgo.evolution.algorithm.scaleContinuousValues(i.genome, ppse.continuous)
+                val genome = _root_.mgo.evolution.algorithm.scaleContinuousValues(i.genome.toVector, ppse.continuous)
                 (m / "points.csv").appendLine(s"${c.evaluated}, ${genome(0)},${genome(1)},${hits(i)}")
               }
             case _ =>

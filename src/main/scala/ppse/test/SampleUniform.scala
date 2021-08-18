@@ -14,7 +14,7 @@ object SampleUniform {
 
   def uniform2D(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
 
-    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.pow2)
+    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.pow)
 
     val patterns =
       drawn.

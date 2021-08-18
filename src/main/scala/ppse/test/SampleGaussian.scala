@@ -26,7 +26,7 @@ object SampleGaussian {
     def patternFunction(p: Vector[Double]) = Benchmark.pattern(p, Vector(size, size))
     def sample() = {
       val x = gm.sample()
-      (Benchmark.pow2(x.toVector), Lazy(gm.density(x)))
+      (Benchmark.pow(x.toVector), Lazy(gm.density(x)))
     }
 
     //val drawn = (0 until points).map(_ => gm.sample().toVector).map(s => (patternFunction(s), 1 / gm.density(s.toArray))).filter(_._1.forall(_ <= 50))
