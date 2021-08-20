@@ -184,6 +184,11 @@ object WDFEMGMM  {
     DenseMatrix.create(rows, cols, array.transpose.flatten)
   }
 
+  def toDenseMatrix(array: Array[Array[Double]]) = {
+    assert(!array.isEmpty)
+    DenseMatrix.create(rows = array.length, cols = array.head.length, array.flatten)
+  }
+
   def toArray(m: DenseMatrix[Double]): Array[Array[Double]] = {
     Array.tabulate(m.rows,m.cols)((i,j)=>m(i,j))
   }

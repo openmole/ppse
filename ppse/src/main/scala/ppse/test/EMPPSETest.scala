@@ -52,7 +52,7 @@ object EMPPSETest extends App {
 
       def evolution =
         ppse.
-          until(afterGeneration(1000)).
+          until(afterGeneration(200)).
           trace { (s, is) =>
             val c = Converge(s.evaluated, s.s.hitmap, s.s.gmm.map(_._1), is)
             converge += c
