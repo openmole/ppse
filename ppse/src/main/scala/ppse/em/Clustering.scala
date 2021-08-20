@@ -76,7 +76,6 @@ object Clustering {
       }
 
       val clusters = gmeans.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
-      println(s"clusters ${clusters.length} ${clusters.map(_.length).mkString(",")}")
 
       if (!clusters.isEmpty) {
         val centroids =

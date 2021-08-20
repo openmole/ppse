@@ -34,33 +34,6 @@ package ppse :
     covariances: Array[Array[Array[Double]]],
     weights: Array[Double])
 
-  case class RejectionSamplerState(test: Long = 0L, pass: Long = 0L):
-     def inverseProbability() = test.toDouble / pass
-
-  class RejectionSampler(sampleFunction: () => (Array[Double], Double), accept: Array[Double] => Boolean) :
-    def success(state: RejectionSamplerState) = RejectionSamplerState(state.test + 1, state.pass + 1)
-    def fail(state: RejectionSamplerState) = RejectionSamplerState(state.test + 1, state.pass)
-
-    def warmup(n: Int, state: RejectionSamplerState = RejectionSamplerState()): RejectionSamplerState =
-      if(n > 0) {
-        val (x, _) = sampleFunction()
-        if (!accept(x)) warmup(n - 1, fail(state))
-        else warmup(n - 1, success(state))
-      } else state
-
-    def sample(state: RejectionSamplerState = RejectionSamplerState()): (RejectionSamplerState, (Array[Double], Double)) =
-      val (x, density) = sampleFunction()
-      if (!accept(x)) sample(fail(state))
-      else
-        val newState = success(state)
-        (newState, (x, density / newState.inverseProbability()))
-
-    def sampleVector(n: Int, state: RejectionSamplerState = RejectionSamplerState(), res: List[(Array[Double], Double)] = List()): (RejectionSamplerState, Array[(Array[Double], Double)]) =
-      if(n > 0)
-        val (newState, newSample) = sample(state)
-        sampleVector(n - 1, newState, newSample :: res)
-      else (state, res.reverse.toArray)
-
   def gmmToDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution =
     import org.apache.commons.math3.distribution._
     import org.apache.commons.math3.util._
@@ -89,16 +62,6 @@ package ppse :
 
   def dilateGMM(gmm: GMM, f: Double): GMM =
     gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
-
-  def toRejectionSampler(gmm: GMM, rng: Random) =
-    val distribution = gmmToDistribution(gmm, rng)
-
-    def sample() =
-      val x = distribution.sample()
-      (x, distribution.density(x))
-
-    def accept(p: Array[Double]) = p.forall(_ >= 0.0) && p.forall(_ <= 1.0)
-    RejectionSampler(sample, accept)
 
   def arrayToDenseMatrix(rows: Int, cols: Int, array: Array[Array[Double]]): DenseMatrix[Double] =
     // we need to transpose the array first because of breeze column first representation of matrices
@@ -358,24 +321,67 @@ package ppse :
     }
     (weights, means, covariances)
 
+
+  /* ------- Rejection sampling ---------- */
+
+  def toRejectionSampler(gmm: GMM, rng: Random) =
+    val distribution = gmmToDistribution(gmm, rng)
+
+    def sample() =
+      val x = distribution.sample()
+      (x, distribution.density(x))
+
+    def accept(p: Array[Double]) = p.forall(_ >= 0.0) && p.forall(_ <= 1.0)
+    RejectionSampler(sample, accept)
+
+  case class RejectionSamplerState(test: Long = 0L, pass: Long = 0L):
+    def inverseProbability() = test.toDouble / pass
+
+  class RejectionSampler(sampleFunction: () => (Array[Double], Double), accept: Array[Double] => Boolean) :
+    def success(state: RejectionSamplerState) = RejectionSamplerState(state.test + 1, state.pass + 1)
+    def fail(state: RejectionSamplerState) = RejectionSamplerState(state.test + 1, state.pass)
+
+    def warmup(n: Int, state: RejectionSamplerState = RejectionSamplerState()): RejectionSamplerState =
+      if(n > 0) {
+        val (x, _) = sampleFunction()
+        if (!accept(x)) warmup(n - 1, fail(state))
+        else warmup(n - 1, success(state))
+      } else state
+
+    def sample(state: RejectionSamplerState = RejectionSamplerState()): (RejectionSamplerState, (Array[Double], Double)) =
+      val (x, density) = sampleFunction()
+      if (!accept(x)) sample(fail(state))
+      else
+        val newState = success(state)
+        (newState, (x, density / newState.inverseProbability()))
+
+    def sampleVector(n: Int, state: RejectionSamplerState = RejectionSamplerState(), res: List[(Array[Double], Double)] = List()): (RejectionSamplerState, Array[(Array[Double], Double)]) =
+      if(n > 0)
+        val (newState, newSample) = sample(state)
+        sampleVector(n - 1, newState, newSample :: res)
+      else (state, res.reverse.toArray)
+
+  /* --------- Evolutionnary algorithm -------- */
+
   def breeding(
    genomeSize: Int,
    lambda: Int,
    gmm: Option[(GMM, RejectionSamplerState)],
-   random: Random) =
+   random: Random): (Option[(GMM, RejectionSamplerState)], Array[(Array[Double], Double)]) =
    gmm match
     case None =>
       def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
-      Array.fill(lambda)(randomGenome(genomeSize, random))
+      (None, Array.fill(lambda)((randomGenome(genomeSize, random), 1.0)))
     case Some((gmm, rejectionState)) =>
       val rejectionSampler = toRejectionSampler(gmm, random)
-      rejectionSampler.sampleVector(lambda, rejectionState)
+      val (state, samples) = rejectionSampler.sampleVector(lambda, rejectionState)
+      (Some((gmm, state)), samples.toArray)
 
 
   def elitism(
     genomes: Array[Array[Double]],
     patterns: Array[Array[Int]],
-    offspringGenomes: Array[Array[Double]],
+    offspringGenomes: Array[(Array[Double], Double)],
     offspringPatterns: Array[Array[Int]],
     densityMap: DensityMap,
     hitMap: HitMap,
@@ -397,12 +403,13 @@ package ppse :
       def hits(map: HitMap, c: Vector[Int]) = map.updated(c, map.getOrElse(c, 0) + 1)
       offspringPatterns.foldLeft(hitmap)((m, p) => hits(m, p.toVector))
 
-    val (newGenomes, newPatterns) = keepFirstGenomes(genomes, patterns, offspringGenomes, offspringPatterns)
+    val (newGenomes, newPatterns) = keepFirstGenomes(genomes, patterns, offspringGenomes.map(_._1), offspringPatterns)
     val newHitMap = addHits(offspringPatterns, hitMap)
 
     def weights(patterns: Array[Array[Int]]) =
       val w = patterns.map(p => newHitMap.get(p.toVector).getOrElse(1))
-      w.map(h => 1.0 / h)
+      val max = w.max + 1
+      w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0))
 
     // TODO: Consider density in boostraping steps ?
     gmm match
@@ -426,7 +433,7 @@ package ppse :
 
         def offSpringDensities =
           val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
-          groupedGenomes.view.mapValues { v => v.map (p => 1 / distribution.density(p.toArray)) }.toSeq
+          groupedGenomes.view.mapValues { v => v.map (p => 1 / p._2) }.toSeq //distribution.density(p.toArray)) }.toSeq
 
         def probabilityUpdate(p: (Array[Int], Array[Double])) =
           val (pattern, densities) = p
@@ -452,4 +459,30 @@ package ppse :
         val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
         (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)))
+
+
+
+  object PPSEExample:
+
+
+    @main def powExample =
+      def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
+      def pattern(x: Vector[Double], g: Vector[Int]): Vector[Int] =
+        x zip g map { (f, g) => math.floor(f * g).toInt }
+
+      val genomeSize = 10
+      val lambda = 100
+
+      def generation(
+        genomes: Array[Array[Double]],
+        patterns: Array[Array[Int]],
+        densityMap: DensityMap,
+        hitMap: HitMap,
+        gmm: Option[(GMM, RejectionSamplerState)],
+        random: Random) =
+
+        val (breedGMM, offSpringGenomes) = breeding(genomeSize, lambda, gmm, random)
+
+        val offspringPatterns = offSpringGenomes.map(g => pattern(Vector.fill(0.1))pow(g._1.toVector))
+    offspringPatterns: Array[Array[Int]],
 

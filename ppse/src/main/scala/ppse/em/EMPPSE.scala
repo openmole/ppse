@@ -62,7 +62,7 @@ object EMPPSE {
       val pa = pattern(ph)
 
       Result(
-        scaleContinuousValues(i.genome.toVector, continuous),
+        scaleContinuousValues(i.genome._1.toVector, continuous),
         pa,
         densityMap.getOrElse(pa, 0.0) / total,
         ph,
@@ -73,7 +73,7 @@ object EMPPSE {
   def result(pse: EMPPSE, population: Vector[Individual[Vector[Double]]], state: EvolutionState[EMPPSEState]): Vector[Result[Vector[Double]]] =
     result(population, state, pse.continuous, identity, pse.pattern)
 
-  type Genome = Array[Double]
+  type Genome = (Array[Double], Double)
 
   @Lenses case class Individual[P](
     genome: Genome,
@@ -93,7 +93,7 @@ object EMPPSE {
         val g = randomUnscaledContinuousValues(continuous.length, rng)
 //        if (rejectValue(g)) generate(acc, n)
 //        else generate(g :: acc, n + 1)
-        generate(g :: acc, n + 1)
+        generate((g, 1.0) :: acc, n + 1)
       }
 
     generate(List(), 0)
@@ -102,7 +102,7 @@ object EMPPSE {
   def breeding[P](
     continuous: Vector[C],
     lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual[P], Genome] =
-    PPSE2Operations.breeding(continuous, identity, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
+    PPSE2Operations.breeding(continuous, identity[Genome] _, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
 
   def elitism[P: CanBeNaN](
     pattern: P => Vector[Int],
@@ -111,7 +111,7 @@ object EMPPSE {
     dilation: Double,
     warmupSampler: Int) =
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual[P], P](
-      values = (Individual.genome andThen arrayToVectorIso[Double]).get,
+      values = Individual.genome.get,
       phenotype = (_: Individual[P]).phenotype,
       pattern = pattern,
       densityMap = Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.probabilityMap),
@@ -167,7 +167,7 @@ object EMPPSE {
 //      EvolutionState.s[HitMap])
 //
   def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) => {
-    val sc = scaleContinuousValues(g.toVector, continuous)
+    val sc = scaleContinuousValues(g._1.toVector, continuous)
     Individual(g, phenotype(sc))
   }
 //  deterministic.expression[Genome, Vector[Double], Individual](
@@ -222,7 +222,7 @@ case class EMPPSE(
   iterations: Int = 100,
   tolerance: Double = 0.0001,
   warmupSampler: Int = 1000,
-  dilation: Double = 1.0)
+  dilation: Double = 2.0)
 
 object PPSE2Operations {
 
@@ -230,7 +230,7 @@ object PPSE2Operations {
 
   def breeding[S, I, G](
     continuous: Vector[C],
-    buildGenome: Array[Double] => G,
+    buildGenome: ((Array[Double], Double)) => G,
     lambda: Int,
     //reject: Option[G => Boolean],
     gmm: S => Option[(GMM, RejectionSampler.State)]
@@ -240,19 +240,19 @@ object PPSE2Operations {
       def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Array.fill(genomeLength)(() => rng.nextDouble()).map(_())
 
       gmm(s) match {
-        case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng))).toVector
-        case Some(gmm) =>
+        case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng), 1.0)).toVector
+        case Some((gmmValue, rejectionSamplerState)) =>
 
-          val sampler = EMPPSE.toSampler(gmm._1, rng)
+          val sampler = EMPPSE.toSampler(gmmValue, rng)
 
-          sampler.sampleVector(lambda, gmm._2)._2.
-            map(_._1.toArray).
-            map(g => buildGenome(g))
+          val (_, sampled) = sampler.sampleVector(lambda, rejectionSamplerState)
+          val breed = sampled.map(s => buildGenome(s._1.toArray, s._2))
+          breed
       }
     }
 
     def elitism[S, I, P: CanBeNaN](
-      values: I => Vector[Double],
+      values: I => (Array[Double], Double),
       phenotype: I => P,
       pattern: P => Vector[Int],
       densityMap: monocle.Lens[S, DensityMap],
@@ -272,7 +272,9 @@ object PPSE2Operations {
       def hits(i: I) = hm2.get(phenotype andThen pattern apply i)
       def weights(pop: Vector[I]) = {
         val w = pop.map(i => hits(i).getOrElse(1))
-        w.map(h => 1.0 / h) // wMax - h + 1) //.map(math.pow(_, 2))
+        val max = w.max + 1
+        //println(w.map(h => 1.0 - math.pow((h.toDouble + 1) / max, 2.0)))
+        w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0)) // wMax - h + 1) //.map(math.pow(_, 2))
       }
 
       // TODO: Consider density in boostraping steps ?
@@ -285,10 +287,9 @@ object PPSE2Operations {
             WDFEMGMM.initializeAndFit(
               iterations = iterations,
               tolerance = tolerance,
-              x = WDFEMGMM.toDenseMatrix(newPopulation.map(values).map(_.toArray).toArray),
+              x = WDFEMGMM.toDenseMatrix(newPopulation.map(values).map(_._1.toArray).toArray),
               dataWeights = DenseVector(weights(newPopulation): _*),
-              random = rng,
-              retry = 0
+              random = rng
             )
 
           val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
@@ -300,11 +301,12 @@ object PPSE2Operations {
           (state2, newPopulation)
 
         case Some(gmmValue) =>
-          val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
+          //val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
 
           def offspringDensities =
             offSpringWithNoNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
-              mapValues { v => v.map(values).map(p => 1 / distribution.density(p.toArray))}.toSeq
+              mapValues { v => v.map(values).map(p => 1 / p._2) }.toSeq
+              // mapValues { v => v.map(values).map(p => 1 / distribution.density(p._1)) }.toSeq
 
           val oldDensityMap: DensityMap = densityMap.get(state)
 
@@ -323,10 +325,9 @@ object PPSE2Operations {
             WDFEMGMM.initializeAndFit(
               iterations = iterations,
               tolerance = tolerance,
-              x = WDFEMGMM.toDenseMatrix(bestIndividualsOfPopulation.map(values).map(_.toArray).toArray),
+              x = WDFEMGMM.toDenseMatrix(bestIndividualsOfPopulation.map(values).map(_._1.toArray).toArray),
               dataWeights = DenseVector(weights(bestIndividualsOfPopulation): _*),
-              random = rng,
-              retry = 0
+              random = rng
             )
 
           val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)

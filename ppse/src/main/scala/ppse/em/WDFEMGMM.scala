@@ -30,36 +30,29 @@ object WDFEMGMM  {
     tolerance: Double,
     x: DenseMatrix[Double],
     dataWeights: DenseVector[Double],
-    random: Random,
-    retry: Int): (GMM, Seq[Double]) = {
+    random: Random): (GMM, Seq[Double]) = {
+    // initialize parameters using KMeans
+    val (means, covariances, weights) = Clustering.initializeAndFit(x, dataWeights, 100, random)
+    val newComponents = means.rows
 
-    def compute(t: Int): (GMM, Seq[Double]) =
-      try {
-        // initialize parameters using KMeans
-        val (means, covariances, weights) = Clustering.initializeAndFit(x, dataWeights, 100, random)
-        val newComponents = means.rows
+    assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
-        assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
+    val (gmm, logLikelihoodTrace) =
+      fit(
+        x = x,
+        dataWeights = dataWeights,// /:/ sum(dataWeights),
+        means = means,
+        covariances = covariances,
+        weights = weights,
+        components = newComponents,
+        iterations = iterations,
+        tolerance = tolerance,
+        trace = IndexedSeq()
+      )
 
-        val (gmm, logLikelihoodTrace) =
-          fit(
-            x = x,
-            dataWeights = dataWeights,// /:/ sum(dataWeights),
-            means = means,
-            covariances = covariances,
-            weights = weights,
-            components = newComponents,
-            iterations = iterations,
-            tolerance = tolerance,
-            trace = IndexedSeq()
-          )
-        (gmm, logLikelihoodTrace)
-      } catch {
-        case e: org.apache.commons.math3.linear.SingularMatrixException => if(t > 0) compute(t - 1) else throw e
-        case e: org.apache.commons.math3.exception.MaxCountExceededException => if(t > 0) compute(t - 1) else throw e
-      }
+    //println(s"gmm ${toDenseMatrix(gmm.means)} ${gmm.weights.toVector}")
 
-    compute(retry)
+    (gmm, logLikelihoodTrace)
 
   }
 
@@ -348,8 +341,7 @@ object WDFEMGMMTest extends App {
       tolerance = 0.0000001,
       x = DenseMatrix.create(data.length, 2, data.transpose.flatten),
       dataWeights = DenseVector(dataWeights),
-      random = rng,
-      retry = 20)
+      random = rng)
 
   println("finished")
   println(s"Means=\n${toString2dArray(gmm.means)}")
