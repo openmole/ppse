@@ -25,7 +25,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
 
 
 lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
-  scalaVersion := "3.0.1",
+  scalaVersion := "3.0.2",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   libraryDependencies ++= Seq(

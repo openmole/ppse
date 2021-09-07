@@ -287,8 +287,8 @@ object PPSE2Operations {
             WDFEMGMM.initializeAndFit(
               iterations = iterations,
               tolerance = tolerance,
-              x = WDFEMGMM.toDenseMatrix(newPopulation.map(values).map(_._1.toArray).toArray),
-              dataWeights = DenseVector(weights(newPopulation): _*),
+              x = newPopulation.map(values).map(_._1.toArray).toArray,
+              dataWeights = weights(newPopulation).toArray,
               random = rng
             )
 
@@ -325,8 +325,8 @@ object PPSE2Operations {
             WDFEMGMM.initializeAndFit(
               iterations = iterations,
               tolerance = tolerance,
-              x = WDFEMGMM.toDenseMatrix(bestIndividualsOfPopulation.map(values).map(_._1.toArray).toArray),
-              dataWeights = DenseVector(weights(bestIndividualsOfPopulation): _*),
+              x = bestIndividualsOfPopulation.map(values).map(_._1.toArray).toArray,
+              dataWeights = weights(bestIndividualsOfPopulation).toArray,
               random = rng
             )
 

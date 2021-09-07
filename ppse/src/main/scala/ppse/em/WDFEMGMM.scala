@@ -28,19 +28,22 @@ object WDFEMGMM  {
   def initializeAndFit(
     iterations: Int,
     tolerance: Double,
-    x: DenseMatrix[Double],
-    dataWeights: DenseVector[Double],
+    x: Array[Array[Double]],
+    dataWeights: Array[Double],
     random: Random): (GMM, Seq[Double]) = {
+    val xMatrix = WDFEMGMM.toDenseMatrix(x)
+    val dataWeightsVector = DenseVector(dataWeights: _*)
+
     // initialize parameters using KMeans
-    val (means, covariances, weights) = Clustering.initializeAndFit(x, dataWeights, 100, random)
+    val (means, covariances, weights) = Clustering.initializeAndFit(xMatrix, dataWeightsVector)
     val newComponents = means.rows
 
     assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
     val (gmm, logLikelihoodTrace) =
       fit(
-        x = x,
-        dataWeights = dataWeights,// /:/ sum(dataWeights),
+        x = xMatrix,
+        dataWeights = dataWeightsVector,// /:/ sum(dataWeights),
         means = means,
         covariances = covariances,
         weights = weights,
@@ -339,8 +342,8 @@ object WDFEMGMMTest extends App {
     WDFEMGMM.initializeAndFit(
       iterations = 10,
       tolerance = 0.0000001,
-      x = DenseMatrix.create(data.length, 2, data.transpose.flatten),
-      dataWeights = DenseVector(dataWeights),
+      x = data,
+      dataWeights = dataWeights,
       random = rng)
 
   println("finished")

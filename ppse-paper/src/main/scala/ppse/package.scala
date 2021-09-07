@@ -390,7 +390,7 @@ package ppse :
     tolerance: Double,
     dilation: Double,
     warmupSampler: Int,
-    random: Random): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)]) =
+    random: Random): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)], DensityMap) =
 
     def keepFirstGenomes(
       genomes: Array[Array[Double]],
@@ -413,7 +413,7 @@ package ppse :
 
     // TODO: Consider density in boostraping steps ?
     gmm match
-      case None if newGenomes.size < 10 => (newGenomes, newPatterns, newHitMap, gmm)
+      case None if newGenomes.size < 10 => (newGenomes, newPatterns, newHitMap, gmm, densityMap)
       case None =>
         val newGMM =
           initializeAndFitGMM(
@@ -427,7 +427,7 @@ package ppse :
         val dilatedGMM = dilateGMM(newGMM, dilation)
         val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
-        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)))
+        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)), densityMap)
       case Some((gmm, rejectionState)) =>
         val distribution = gmmToDistribution(gmm, random)
 
@@ -438,7 +438,7 @@ package ppse :
         def probabilityUpdate(p: (Array[Int], Array[Double])) =
           val (pattern, densities) = p
           val newDensity = densityMap.getOrElse(pattern.toVector, 0.0) + densities.sum
-          (pattern, newDensity)
+          (pattern.toVector, newDensity)
 
 
         def newDensityMap = densityMap ++ offSpringDensities.map(probabilityUpdate)
@@ -458,31 +458,48 @@ package ppse :
         val dilatedGMM = dilateGMM(gmmValue2, dilation)
         val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
-        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)))
+        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)), newDensityMap)
 
 
 
-  object PPSEExample:
 
+  @main def powExample =
+    def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
+    def pattern(x: Vector[Double], g: Vector[Int]): Vector[Int] =
+      x zip g map { (f, g) => math.floor(f * g).toInt }
 
-    @main def powExample =
-      def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
-      def pattern(x: Vector[Double], g: Vector[Int]): Vector[Int] =
-        x zip g map { (f, g) => math.floor(f * g).toInt }
+    val genomeSize = 10
+    val lambda = 100
+    val dimension = 2
+    val generations = 200
 
-      val genomeSize = 10
-      val lambda = 100
+    val intervals = Vector.fill(dimension)(50)
 
-      def generation(
-        genomes: Array[Array[Double]],
-        patterns: Array[Array[Int]],
-        densityMap: DensityMap,
-        hitMap: HitMap,
-        gmm: Option[(GMM, RejectionSamplerState)],
-        random: Random) =
+    def evolution(
+      genomes: Array[Array[Double]],
+      patterns: Array[Array[Int]],
+      densityMap: DensityMap,
+      hitMap: HitMap,
+      gmm: Option[(GMM, RejectionSamplerState)],
+      random: Random,
+      generation: Int = 0): DensityMap =
 
+      println(s"Computing generation $generation")
+
+      if(generation >= generations) densityMap
+      else
         val (breedGMM, offSpringGenomes) = breeding(genomeSize, lambda, gmm, random)
 
-        val offspringPatterns = offSpringGenomes.map(g => pattern(Vector.fill(0.1))pow(g._1.toVector))
-    offspringPatterns: Array[Array[Int]],
+        val offspringPatterns = offSpringGenomes.map(g => pattern(pow(g._1.toVector), intervals).toArray)
+        val (elitedGenomes, elitedPattern, elitedHitMap, elitedGMM, elitedDensityMap) = elitism(genomes, patterns, offSpringGenomes, offspringPatterns, densityMap, hitMap, breedGMM, 1000, 0.01, 2.0, 1000, random)
+        evolution(elitedGenomes, elitedPattern, elitedDensityMap, elitedHitMap, elitedGMM, random, generation + 1)
 
+    val hitMap =
+      evolution(
+        Array(),
+        Array(),
+        Map(),
+        Map(),
+        None,
+        new Random(42)
+      )
