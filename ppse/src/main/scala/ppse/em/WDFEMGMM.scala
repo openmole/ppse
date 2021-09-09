@@ -30,12 +30,13 @@ object WDFEMGMM  {
     tolerance: Double,
     x: Array[Array[Double]],
     dataWeights: Array[Double],
+    minClusterSize: Int,
     random: Random): (GMM, Seq[Double]) = {
     val xMatrix = WDFEMGMM.toDenseMatrix(x)
     val dataWeightsVector = DenseVector(dataWeights: _*)
 
     // initialize parameters using KMeans
-    val (means, covariances, weights) = Clustering.initializeAndFit(xMatrix, dataWeightsVector)
+    val (means, covariances, weights) = Clustering.build(xMatrix, dataWeightsVector, minClusterSize)
     val newComponents = means.rows
 
     assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
@@ -253,7 +254,7 @@ object WDFEMGMM  {
 
 
 
-      if(determinant < epsilon) mgo.tools.epsilon
+      if(determinant <= epsilon) mgo.tools.epsilon
       else density(x(i, ::).inner.toArray, cholesky = true) * weights(k)
     }
   }
@@ -344,6 +345,7 @@ object WDFEMGMMTest extends App {
       tolerance = 0.0000001,
       x = data,
       dataWeights = dataWeights,
+      minClusterSize = 10,
       random = rng)
 
   println("finished")

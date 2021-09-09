@@ -261,7 +261,8 @@ object PPSE2Operations {
       iterations: Int,
       tolerance: Double,
       dilation: Double,
-      warmupSampler: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+      warmupSampler: Int,
+      minClusterSize: Int = 10): Elitism[S, I] = { (state, population, candidates, rng) =>
 
       def offSpringWithNoNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
@@ -279,7 +280,7 @@ object PPSE2Operations {
 
       // TODO: Consider density in boostraping steps ?
       gmm.get(state) match {
-        case None if newPopulation.size < 10 =>
+        case None if newPopulation.size < minClusterSize * 2 =>
           def state2 = hitmap.replace(hm2) apply (state)
           (state2, newPopulation)
         case None =>
@@ -289,7 +290,8 @@ object PPSE2Operations {
               tolerance = tolerance,
               x = newPopulation.map(values).map(_._1.toArray).toArray,
               dataWeights = weights(newPopulation).toArray,
-              random = rng
+              random = rng,
+              minClusterSize = minClusterSize
             )
 
           val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
@@ -327,7 +329,8 @@ object PPSE2Operations {
               tolerance = tolerance,
               x = bestIndividualsOfPopulation.map(values).map(_._1.toArray).toArray,
               dataWeights = weights(bestIndividualsOfPopulation).toArray,
-              random = rng
+              random = rng,
+              minClusterSize = minClusterSize
             )
 
           val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)

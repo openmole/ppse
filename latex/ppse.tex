@@ -150,122 +150,155 @@ The idea behind the PPSE algorithm is to evolutionally bias the sampling of the 
 %of this approach, we propose a new algorithm that converges directly to the whole set  
 %$\{h_k(a^1_k), \ldots, h_k(a^{l_k}_k)\}$.
 
+\section{Previous Work}
+
 \section{Material and Methods}
+
 
 \subsection{Importance Sampling}
 
-
+[Julien]
 
 \subsection{Gaussian Mixture Fitting}
+
+[Julien]
 
 \subsection{Evolutionary Algorithms}
 
 
+
 \section{Description of the algorithm}\label{sec. algoDescription}
+
+
+\subsection{Patterns}
+
+The PPSE algorithm has been developed in the frame of evolutionary algorithm. It computes the density of patterns that can be produced by the model. In the implementation of PPSE exposed in this paper we define a pattern as a vector of integral values. Generally the pattern are metrics that can be derived from the outputs of a model. For instance one can think of the discretisation by range of numerical values, some descriptors of temporal series such as the number of derivative sign change or the size of a population of agents. 
+
+A given pattern can generally be produced by several (or an infinity) of input value for the model. The signature of a the pattern function provided to the algorithm is exposed in listing \ref{lst:pattern}. This function can for instance compute the output of a model for the input values x and then compute the pattern from the model outputs.
+
+\begin{lstlisting}[caption={Pattern function},label={lst:pattern}]
+def pattern(x: Vector[Double]): Vector[Int] = 
+  // computation of the pattern for the point x
+\end{lstlisting}
+
+
+\subsection{Algorithm State}
+
+At each generation the population of solution is evolved. Additionally to this state, it maintains two pieces of state : a hit map and a density map. The data structures are exposed in listing \ref{lst:state}
+
+The hit map contains the number of of times each pattern has been hit since the start of the algorithm. The density map contains the sum of the densities for each pattern: each time a pattern is hit, the density of the input point in the current GMM is summed in this the density map. 
+
+\begin{lstlisting}[caption={State},label={lst:state}]
+type DensityMap = Map[Vector[Int], Double]
+type HitMap = Map[Vector[Int], Int]
+\end{lstlisting}
+
+
+
+
+ This algorithm At each step a Gaussian Mixture Model (GMM) is fitted from the current population and
+
 
 \begin{lstlisting}[caption={Breeding function},label={lst:breeding}]
 
-def breeding(
-  genomeDescription: GenomeDescription,
-  lambda: Int,
-  gmm: Option[(GMM, RejectionSamplerState)],
-  random: Random
-) =
-  gmm match 
-    case None => Array.fill(lambda)(randomGenomes(genomeDescription, random))
+  def breeding(
+   genomeSize: Int,
+   lambda: Int,
+   gmm: Option[(GMM, RejectionSamplerState)],
+   random: Random): (Option[(GMM, RejectionSamplerState)], Array[(Array[Double], Double)]) =
+   gmm match
+    case None =>
+      def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
+      (None, Array.fill(lambda)((randomGenome(genomeSize, random), 1.0)))
     case Some((gmm, rejectionState)) =>
       val rejectionSampler = toRejectionSampler(gmm, random)
-      rejectionSampler.sampleVector(lambda, rejectionState)
-  
-
+      val (state, samples) = rejectionSampler.sampleVector(lambda, rejectionState)
+      (Some((gmm, state)), samples.toArray)
 
 \end{lstlisting}
 
 
 \begin{lstlisting}[caption={Elitism function},label={lst:elitism}]
 
-def elitism(
-  genomes: Array[Array[Double]],
-  patterns: Array[Array[[Int]],
-  offspringGenomes: Array[Array[Double]],
-  offspringPatterns: Array[Array[[Int]],
-  densityMap: DensityMap,
-  hitMap: HitMap,
-  gmm: Option[(GMM, RejectionSamplerState)],
-  iterations: Int,
-  tolerance: Double,
-  dilation: Double,
-  warmupSampler: Int,
-  random: Random): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)]) = 
-  def keepFirst(i: Vector[I]) = Vector(i.head) // define keepNiches
+  def elitism(
+    genomes: Array[Array[Double]],
+    patterns: Array[Array[Int]],
+    offspringGenomes: Array[(Array[Double], Double)],
+    offspringPatterns: Array[Array[Int]],
+    densityMap: DensityMap,
+    hitMap: HitMap,
+    gmm: Option[(GMM, RejectionSamplerState)],
+    iterations: Int = 1000,
+    tolerance: Double = 0.001,
+    dilation: Double,
+    warmupSampler: Int = 1000,
+    minClusterSize: Int,
+    random: Random): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)], DensityMap) =
 
-  val (newGenomes, newPattens) = keepNiches(genomes, patterns, offspringGenomes, offspringPatterns)
-  val newHitMap = addHits(offspringPatterns, hitMap)
+    def keepFirstGenomes(
+      genomes: Array[Array[Double]],
+      patterns: Array[Array[Int]],
+      offspringGenomes: Array[Array[Double]],
+      offspringPatterns: Array[Array[Int]]) =
+      ((genomes ++ offspringGenomes) zip (patterns ++ offspringPatterns)).distinctBy { (_, pattern) => pattern }.unzip
 
-  def weights(patterns: Array[Array[Int]]) = 
-    val w = patterns.map(p => newHitMap.get(p).getOrElse(1))
-    w.map(h => 1.0 / h) // wMax - h + 1) //.map(math.pow(_, 2))
-  
-  // TODO: Consider density in boostraping steps ?
-  gmm match 
-    case None if newPopulation.size < 10 => (newGenomes, newPatterns, newHitMap, gmm)
-    case None =>
-      val newGMM =
-        WDFEMGMM.initializeAndFit(
-          iterations = iterations,
-          tolerance = tolerance,
-          x = WDFEMGMM.toDenseMatrix(newPopulation.map(values).map(_.toArray).toArray),
-          dataWeights = DenseVector(weights(newPopulation): _*),
-          random = random
-        )
+    def addHits(offspringPatterns: Array[Array[Int]], hitmap: HitMap): HitMap =
+      def hits(map: HitMap, c: Vector[Int]) = map.updated(c, map.getOrElse(c, 0) + 1)
+      offspringPatterns.foldLeft(hitmap)((m, p) => hits(m, p.toVector))
 
-      val dilatedGMM = WDFEMGMM.dilate(newGMM, dilation)
-      val samplerState = EMPPSE.toSampler(dilatedGMM, random).warmup(warmupSampler)
+    val (newGenomes, newPatterns) = keepFirstGenomes(genomes, patterns, offspringGenomes.map(_._1), offspringPatterns)
+    val newHitMap = addHits(offspringPatterns, hitMap)
 
-      (newGenomes, newPatterns, newHitMap, Some((diratedGMM, samplerState))
+    def weights(patterns: Array[Array[Int]]) =
+      val w = patterns.map(p => newHitMap.get(p.toVector).getOrElse(1))
+      val max = w.max + 1
+      w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0))
 
-    case Some((gmm, rejectionState)) =>
-       val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
+    gmm match
+      case None if newGenomes.size < minClusterSize * 2 => (newGenomes, newPatterns, newHitMap, gmm, densityMap)
+      case None =>
+        val newGMM =
+          initializeAndFitGMM(
+            iterations = iterations,
+            tolerance = tolerance,
+            x = arrayToDenseMatrix(newGenomes),
+            dataWeights = DenseVector(weights(newPatterns): _*),
+            minClusterSize = minClusterSize,
+            random = random
+          )
 
-       def offSpringDensities =
-         (offspringGenomes, offspringPatterns).groupBy { _._2 }.view.mapValues { v => v._1.map(p => 1 / distribution.density(p.toArray))}.toSeq
+        val dilatedGMM = dilateGMM(newGMM, dilation)
+        val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
+        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)), densityMap)
+      case Some((gmm, rejectionState)) =>
+        val distribution = gmmToDistribution(gmm, random)
 
-          def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
-            val (pattern, densities) = p
-            val newDensity = densityMap.getOrElse(pattern, 0.0) + densities.sum
-            pattern -> newDensity
-          }
+        def offSpringDensities =
+          val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
+          groupedGenomes.view.mapValues { v => v.map (p => 1 / p._2) }.toSeq
 
-          def pm2 = pm ++ densities.map(probabilityUpdate)
+        def probabilityUpdate(p: (Array[Int], Array[Double])) =
+          val (pattern, densities) = p
+          val newDensity = densityMap.getOrElse(pattern.toVector, 0.0) + densities.sum
+          (pattern.toVector, newDensity)
 
-          //FIXME take to parameter
-          def bestIndividualsOfPopulation = newPopulation //.sortBy(hits)
+        def newDensityMap = densityMap ++ offSpringDensities.map(probabilityUpdate)
 
-          val (gmmValue2, _) =
-            WDFEMGMM.initializeAndFit(
-              iterations = iterations,
-              tolerance = tolerance,
-              x = WDFEMGMM.toDenseMatrix(
-                rows = bestIndividualsOfPopulation.length,
-                cols = continuous.size,
-                bestIndividualsOfPopulation.map(values).map(_.toArray).toArray.transpose
-              ),
-              dataWeights = DenseVector(weights(bestIndividualsOfPopulation): _*),
-              random = rng,
-              retry = 0
-            )
+        val gmmValue2 =
+          initializeAndFitGMM(
+            iterations = iterations,
+            tolerance = tolerance,
+            x = arrayToDenseMatrix(newGenomes),
+            dataWeights = DenseVector(weights(newPatterns): _*),
+            minClusterSize = minClusterSize,
+            random = random
+          )
 
-          val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
+        val dilatedGMM = dilateGMM(gmmValue2, dilation)
+        val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
-          def state2 =
-            (gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
-              probabilities.replace(pm2) andThen
-              hitmap.replace(hm2))(state)
-
-          (state2, newPopulation)
-      }
-
+        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)), newDensityMap)
 
     
 
@@ -312,50 +345,50 @@ def elitism(
 %
 
 
-\bigskip
-The algorithm is composed of the following steps:
-
-\paragraph{Initialization.} We construct an initial set of parameter vectors.
-
-\subparagraph{Step 0.} 
-We first generate a random set $X_0$  of parameter vectors, that is $X_0 = \{\bar{a}^1, \ldots, \bar{a}^{M}\}$,  
-with $\bar{a}^j = (a^j_1, \ldots, a^j_{n})$ and $a^j_i\in A_i$. The number $M$ may be much higher than $l_k$.
-
-
-\medskip
-\paragraph{Approximation loop.}
-
-We construct $X_{N+1}$ from $X_N$.
-
-
-\subparagraph{Step 1.} 
-We construct the sets $S_i = \{\bar{a}\in X_N: \mathfrak{Cat}(\bar{a})= C_i \} $ for $i= 1, \ldots,l_k$ (we may get $S_i = \emptyset$).
-
-\subparagraph{Step 2.}
-Here we apply elitism, that is we select only the best parameter vector in each category: We construct the sets 
-$E_i = \{ \bar{a}\in S_i : f(\bar{a})\leq f(\bar{a}') \mbox{ }\forall \bar{a}'\in S_i\}$ for $i= 1, \ldots,l_k$, and 
-$H = \bigcup_{i=1}^{l_k} E_i$. 
-In practice all the sets $E_i$ will be either empty (if $S_i=\emptyset$) 
-or composed by only one parameter vector;  if there exist more more than one that are minimal in $S_i$, then we can 
-randomly choose a fixed number of them to compose $E_i$.
-
-
-\subparagraph{Step 3.}
-Generate $H^*$ from $H$ by randomly modifying the parameter vectors in $H$. 
-We can for instance generate each vector in $H^*$ by applying a gaussian variation to a vector in $H$.   
-
-\subparagraph{Step 4.}
-Define the set $X_{N+1}$ as the union of $H$ and $H^*$. Check if a predefined stopping criterion is met 
- (number of iterations, stabilization of the solutions, etc.): Go to Step 5 if it is, iterate Steps 1 to 4 if is not. 
-
-\paragraph{Ending.} 
-When the stopping criterion is met, we can output our approximation to the function $h_k(x)$.
-
-\subparagraph{Step 5.} 
-If $\{\bar{a}^1, \ldots, \bar{a}^m\}$ is the last $H$ computed,  we define our approximation to  $h_k(x)$ as the set of 
-$2$-tuples $\{(\bar{a}^1_k, f(\bar{a}^1)), \ldots,(\bar{a}^m_k, f(\bar{a}^m)) \}$. Let us note that by construction $m \leq l_k$, 
-but in practice, when the number of iterations is high enough (see section \ref{sec. validityAlgo}), 
-we get $m = l_k$.
+%\bigskip
+%The algorithm is composed of the following steps:
+%
+%\paragraph{Initialization.} We construct an initial set of parameter vectors.
+%
+%\subparagraph{Step 0.} 
+%We first generate a random set $X_0$  of parameter vectors, that is $X_0 = \{\bar{a}^1, \ldots, \bar{a}^{M}\}$,  
+%with $\bar{a}^j = (a^j_1, \ldots, a^j_{n})$ and $a^j_i\in A_i$. The number $M$ may be much higher than $l_k$.
+%
+%
+%\medskip
+%\paragraph{Approximation loop.}
+%
+%We construct $X_{N+1}$ from $X_N$.
+%
+%
+%\subparagraph{Step 1.} 
+%We construct the sets $S_i = \{\bar{a}\in X_N: \mathfrak{Cat}(\bar{a})= C_i \} $ for $i= 1, \ldots,l_k$ (we may get $S_i = \emptyset$).
+%
+%\subparagraph{Step 2.}
+%Here we apply elitism, that is we select only the best parameter vector in each category: We construct the sets 
+%$E_i = \{ \bar{a}\in S_i : f(\bar{a})\leq f(\bar{a}') \mbox{ }\forall \bar{a}'\in S_i\}$ for $i= 1, \ldots,l_k$, and 
+%$H = \bigcup_{i=1}^{l_k} E_i$. 
+%In practice all the sets $E_i$ will be either empty (if $S_i=\emptyset$) 
+%or composed by only one parameter vector;  if there exist more more than one that are minimal in $S_i$, then we can 
+%randomly choose a fixed number of them to compose $E_i$.
+%
+%
+%\subparagraph{Step 3.}
+%Generate $H^*$ from $H$ by randomly modifying the parameter vectors in $H$. 
+%We can for instance generate each vector in $H^*$ by applying a gaussian variation to a vector in $H$.   
+%
+%\subparagraph{Step 4.}
+%Define the set $X_{N+1}$ as the union of $H$ and $H^*$. Check if a predefined stopping criterion is met 
+% (number of iterations, stabilization of the solutions, etc.): Go to Step 5 if it is, iterate Steps 1 to 4 if is not. 
+%
+%\paragraph{Ending.} 
+%When the stopping criterion is met, we can output our approximation to the function $h_k(x)$.
+%
+%\subparagraph{Step 5.} 
+%If $\{\bar{a}^1, \ldots, \bar{a}^m\}$ is the last $H$ computed,  we define our approximation to  $h_k(x)$ as the set of 
+%$2$-tuples $\{(\bar{a}^1_k, f(\bar{a}^1)), \ldots,(\bar{a}^m_k, f(\bar{a}^m)) \}$. Let us note that by construction $m \leq l_k$, 
+%but in practice, when the number of iterations is high enough (see section \ref{sec. validityAlgo}), 
+%we get $m = l_k$.
 
 
 
@@ -385,7 +418,9 @@ we get $m = l_k$.
 %We should note that, as it is usually the case with evolutionary algorithms, we do not provide a precise speed 
 %of convergence for our algorithm; however, experimental results are very satisfactory (see section \ref{application}).
 
-\subsection{Heuristic improvement}\label{sec. heuristicsAlgo}
+\subsection{Extensions of the algorithm}\label{sec. extensions}
+
+Application to stochastic problems
 
 %In section \ref{sec. algoDescription}  we have presented the most basic version of our algorithm, for the sake of clarity. 
 %However in practice we use a variation of it, heuristically devised, to improve its performance. 

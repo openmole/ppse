@@ -39,7 +39,7 @@ object Clustering {
   }
 
 
-  def initializeAndFit(x: DenseMatrix[Double], dataWeights: DenseVector[Double]): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+  def build(x: DenseMatrix[Double], dataWeights: DenseVector[Double], minPoints: Int): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
     val points = WDFEMGMM.toArray(x)
     
     def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
@@ -57,17 +57,15 @@ object Clustering {
       }
       (new DenseMatrix[Double](1, x.cols, centroids), Array(covariance), weight)
     }
+    
     import jsat.clustering._
     import jsat.clustering.kmeans._
     import jsat.linear.distancemetrics._
 
-//    val gmeans = new GMeans {
-//      rand = random.self
-//    }
-    val gmeans = new HDBSCAN
-    //gmeans.setMinPoints(10)
-
-    if (points.length < gmeans.getMinPoints) buildSingleCluster()
+    val hdbScan = new HDBSCAN
+    hdbScan.setMinPoints(minPoints)
+    
+    if (points.length <= hdbScan.getMinPoints) buildSingleCluster()
     else {
       val dataSet = {
         val dataPoints = (points zip dataWeights.toArray).map { case (p, w) =>
@@ -76,7 +74,7 @@ object Clustering {
         new SimpleDataSet(dataPoints.toList.asJava)
       }
 
-      val clusters = gmeans.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
+      val clusters = hdbScan.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
 
       if (!clusters.isEmpty) {
         val centroids =

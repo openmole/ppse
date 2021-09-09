@@ -81,7 +81,7 @@ package ppse :
     val q = DenseMatrix.tabulate(x.cols,x.cols)((j,k) => Array.tabulate(x.rows)(i => (x(i,j)-mean(j)) * (x(i,k)-mean(k))).sum)
     q.map(_ / (x.rows - 1).toDouble).toDenseMatrix
 
-  def clusterize(x: DenseMatrix[Double], dataWeights: DenseVector[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
+  def clusterize(x: DenseMatrix[Double], dataWeights: DenseVector[Double], minClusterSize: Int, random: Random): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) =
     import jsat.*
     import jsat.clustering.*
     import jsat.clustering.kmeans.*
@@ -90,10 +90,10 @@ package ppse :
     import scala.jdk.CollectionConverters.*
 
     val points = matrixToArray(x)
-    def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
+    def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) =
       def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
       points.transpose.map { coord => average(coord, weights) }
-    }
+
 
     def buildSingleCluster(): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) =
       val centroids = computeCentroid(points, dataWeights.toArray)
@@ -105,9 +105,10 @@ package ppse :
       (new DenseMatrix[Double](1, x.cols, centroids), Array(clusterCovariance), weight)
 
     val gmeans = new HDBSCAN
+    gmeans.setMinClusterSize(minClusterSize)
 
     if (points.length < gmeans.getMinPoints) buildSingleCluster()
-    else {
+    else
       val dataSet =
         val dataPoints = (points zip dataWeights.toArray).map { (p, w) =>
           new DataPoint(new jsat.linear.DenseVector(p), w)
@@ -138,8 +139,8 @@ package ppse :
         (means, covariances, weights)
       else buildSingleCluster()
 
-    }
-  }
+
+
 
 
   /**
@@ -152,8 +153,9 @@ package ppse :
     tolerance: Double,
     x: DenseMatrix[Double],
     dataWeights: DenseVector[Double],
+    minClusterSize: Int,
     random: Random): GMM =
-    val (means, covariances, weights) = clusterize(x, dataWeights, 100, random)
+    val (means, covariances, weights) = clusterize(x, dataWeights, minClusterSize, random)
     val newComponents = means.rows
 
     fitGMM(
@@ -249,7 +251,7 @@ package ppse :
     dataWeights: DenseVector[Double],
     means: DenseMatrix[Double],
     covariances: Array[DenseMatrix[Double]],
-    weights: DenseVector[Double]): DenseMatrix[Double] = {
+    weights: DenseVector[Double]): DenseMatrix[Double] =
     import org.apache.commons.math3.linear.{Array2DRowRealMatrix, EigenDecomposition}
     import org.apache.commons.math3.util.FastMath
 
@@ -266,32 +268,26 @@ package ppse :
       val dimension = mMeans.size
       val covarianceArray =  matrixToArray(weightedCovariances)
 
-      def density(vals: Array[Double]) = {
+      def density(vals: Array[Double]) =
         def covarianceMatrixInverse =
           val covarianceMatrix = new Array2DRowRealMatrix(covarianceArray)
           val covMatDec = new CholeskyDecomposition(covarianceMatrix)
           covMatDec.getSolver.getInverse
 
 
-        def getExponentTerm(values: Array[Double]) = {
+        def getExponentTerm(values: Array[Double]) =
           val centered = Array.tabulate(values.length) { i => values(i) - mMeans(i)}
           val preMultiplied = covarianceMatrixInverse.preMultiply(centered)
-
-          var sum: Double = 0
-          for (i <- 0 until preMultiplied.length) {
-            sum += preMultiplied(i) * centered(i)
-          }
-
+          val sum = (preMultiplied zip centered).map(_ * _).sum
           FastMath.exp(-0.5 * sum)
-        }
 
         FastMath.pow(2 * FastMath.PI, -0.5 * dimension) * FastMath.pow(determinant, -0.5) * getExponentTerm(vals)
-      }
 
-      if(determinant < epsilon) epsilon
+
+      if(determinant <= epsilon) epsilon
       else density(x(i, ::).inner.toArray) * weights(k)
     }
-  }
+
 
   /**
    * M-step, update parameters.
@@ -367,30 +363,21 @@ package ppse :
    genomeSize: Int,
    lambda: Int,
    gmm: Option[(GMM, RejectionSamplerState)],
-   random: Random): (Option[(GMM, RejectionSamplerState)], Array[(Array[Double], Double)]) =
+   random: Random): Array[(Array[Double], Double)] =
    gmm match
     case None =>
       def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
-      (None, Array.fill(lambda)((randomGenome(genomeSize, random), 1.0)))
+      Array.fill(lambda)((randomGenome(genomeSize, random), 1.0))
     case Some((gmm, rejectionState)) =>
       val rejectionSampler = toRejectionSampler(gmm, random)
-      val (state, samples) = rejectionSampler.sampleVector(lambda, rejectionState)
-      (Some((gmm, state)), samples.toArray)
-
+      val (_, samples) = rejectionSampler.sampleVector(lambda, rejectionState)
+      samples.toArray
 
   def elitism(
     genomes: Array[Array[Double]],
     patterns: Array[Array[Int]],
     offspringGenomes: Array[(Array[Double], Double)],
-    offspringPatterns: Array[Array[Int]],
-    densityMap: DensityMap,
-    hitMap: HitMap,
-    gmm: Option[(GMM, RejectionSamplerState)],
-    iterations: Int,
-    tolerance: Double,
-    dilation: Double,
-    warmupSampler: Int,
-    random: Random): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)], DensityMap) =
+    offspringPatterns: Array[Array[Int]]): (Array[Array[Double]], Array[Array[Int]]) =
 
     def keepFirstGenomes(
       genomes: Array[Array[Double]],
@@ -399,107 +386,189 @@ package ppse :
       offspringPatterns: Array[Array[Int]]) =
       ((genomes ++ offspringGenomes) zip (patterns ++ offspringPatterns)).distinctBy { (_, pattern) => pattern }.unzip
 
-    def addHits(offspringPatterns: Array[Array[Int]], hitmap: HitMap): HitMap =
-      def hits(map: HitMap, c: Vector[Int]) = map.updated(c, map.getOrElse(c, 0) + 1)
-      offspringPatterns.foldLeft(hitmap)((m, p) => hits(m, p.toVector))
+    keepFirstGenomes(genomes, patterns, offspringGenomes.map(_._1), offspringPatterns)
 
-    val (newGenomes, newPatterns) = keepFirstGenomes(genomes, patterns, offspringGenomes.map(_._1), offspringPatterns)
-    val newHitMap = addHits(offspringPatterns, hitMap)
+
+  def updateGMM(
+    gmm: Option[GMM],
+    genomes: Array[Array[Double]],
+    patterns: Array[Array[Int]],
+    newHitMap: HitMap,
+    iterations: Int,
+    tolerance: Double,
+    dilation: Double,
+    warmupSampler: Int,
+    minClusterSize: Int,
+    random: Random) =
 
     def weights(patterns: Array[Array[Int]]) =
       val w = patterns.map(p => newHitMap.get(p.toVector).getOrElse(1))
       val max = w.max + 1
       w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0))
 
-    // TODO: Consider density in boostraping steps ?
     gmm match
-      case None if newGenomes.size < 10 => (newGenomes, newPatterns, newHitMap, gmm, densityMap)
       case None =>
         val newGMM =
           initializeAndFitGMM(
             iterations = iterations,
             tolerance = tolerance,
-            x = arrayToDenseMatrix(newGenomes),
-            dataWeights = DenseVector(weights(newPatterns): _*),
+            x = arrayToDenseMatrix(genomes),
+            dataWeights = DenseVector(weights(patterns): _*),
+            minClusterSize = minClusterSize,
             random = random
           )
 
         val dilatedGMM = dilateGMM(newGMM, dilation)
         val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
-        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)), densityMap)
-      case Some((gmm, rejectionState)) =>
+        (dilatedGMM, samplerState)
+      case Some(gmm) =>
         val distribution = gmmToDistribution(gmm, random)
-
-        def offSpringDensities =
-          val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
-          groupedGenomes.view.mapValues { v => v.map (p => 1 / p._2) }.toSeq //distribution.density(p.toArray)) }.toSeq
-
-        def probabilityUpdate(p: (Array[Int], Array[Double])) =
-          val (pattern, densities) = p
-          val newDensity = densityMap.getOrElse(pattern.toVector, 0.0) + densities.sum
-          (pattern.toVector, newDensity)
-
-
-        def newDensityMap = densityMap ++ offSpringDensities.map(probabilityUpdate)
-
-        //FIXME take to parameter
-        //def bestIndividualsOfPopulation = newPopulation //.sortBy(hits)
 
         val gmmValue2 =
           initializeAndFitGMM(
             iterations = iterations,
             tolerance = tolerance,
-            x = arrayToDenseMatrix(newGenomes),
-            dataWeights = DenseVector(weights(newPatterns): _*),
+            x = arrayToDenseMatrix(genomes),
+            dataWeights = DenseVector(weights(patterns): _*),
+            minClusterSize = minClusterSize,
             random = random
           )
 
         val dilatedGMM = dilateGMM(gmmValue2, dilation)
         val samplerState = toRejectionSampler(dilatedGMM, random).warmup(warmupSampler)
 
-        (newGenomes, newPatterns, newHitMap, Some((dilatedGMM, samplerState)), newDensityMap)
+        (dilatedGMM, samplerState)
 
+  def updateState(
+    newGenomes: Array[Array[Double]],
+    newPatterns: Array[Array[Int]],
+    offspringGenomes: Array[(Array[Double], Double)],
+    offspringPatterns: Array[Array[Int]],
+    densityMap: DensityMap,
+    hitMap: HitMap,
+    gmm: Option[GMM],
+    iterations: Int,
+    tolerance: Double,
+    dilation: Double,
+    warmupSampler: Int,
+    minClusterSize: Int,
+    random: Random): (HitMap, Option[(GMM, RejectionSamplerState)], DensityMap) =
+    def addHits(offspringPatterns: Array[Array[Int]], hitmap: HitMap): HitMap =
+      def hits(map: HitMap, c: Vector[Int]) = map.updated(c, map.getOrElse(c, 0) + 1)
+      offspringPatterns.foldLeft(hitmap)((m, p) => hits(m, p.toVector))
 
+    val newHitMap = addHits(offspringPatterns, hitMap)
+
+    gmm match
+      case None if newGenomes.size < minClusterSize * 2 => (newHitMap, None, densityMap)
+      case None =>
+        val newGMM =
+          updateGMM(
+            gmm = None,
+            genomes = newGenomes,
+            patterns = newPatterns,
+            newHitMap = newHitMap,
+            iterations = iterations,
+            tolerance = tolerance,
+            dilation = dilation,
+            warmupSampler = warmupSampler,
+            minClusterSize = minClusterSize,
+            random = random
+          )
+
+        (newHitMap, Some(newGMM), densityMap)
+      case Some(gmm) =>
+        def newGMM =
+          updateGMM(
+            gmm = Some(gmm),
+            genomes = newGenomes,
+            patterns = newPatterns,
+            newHitMap = newHitMap,
+            iterations = iterations,
+            tolerance = tolerance,
+            dilation = dilation,
+            warmupSampler = warmupSampler,
+            minClusterSize = minClusterSize,
+            random = random
+          )
+
+        def offSpringDensities =
+          val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
+          groupedGenomes.view.mapValues { v => v.map (p => 1 / p._2) }.toSeq
+
+        def probabilityUpdate(p: (Array[Int], Array[Double])) =
+          val (pattern, densities) = p
+          val newDensity = densityMap.getOrElse(pattern.toVector, 0.0) + densities.sum
+          (pattern.toVector, newDensity)
+
+        def newDensityMap = densityMap ++ offSpringDensities.map(probabilityUpdate)
+
+        (newHitMap, Some(newGMM), newDensityMap)
 
 
   @main def powExample =
-    def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
+
     def pattern(x: Vector[Double], g: Vector[Int]): Vector[Int] =
-      x zip g map { (f, g) => math.floor(f * g).toInt }
+      def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
+      pow(x) zip g map { (f, g) => math.floor(f * g).toInt }
 
     val genomeSize = 10
     val lambda = 100
     val dimension = 2
     val generations = 200
+    val dilation = 2.0
 
     val intervals = Vector.fill(dimension)(50)
 
     def evolution(
-      genomes: Array[Array[Double]],
-      patterns: Array[Array[Int]],
-      densityMap: DensityMap,
-      hitMap: HitMap,
-      gmm: Option[(GMM, RejectionSamplerState)],
+      genomes: Array[Array[Double]] = Array(),
+      patterns: Array[Array[Int]] = Array(),
+      densityMap: DensityMap = Map(),
+      hitMap: HitMap = Map(),
+      gmm: Option[(GMM, RejectionSamplerState)] = None,
       random: Random,
       generation: Int = 0): DensityMap =
 
       println(s"Computing generation $generation")
 
-      if(generation >= generations) densityMap
+      if(generation >= generations)
+        val totalDensity = densityMap.values.sum
+        densityMap.map((p, density) => (p, density / totalDensity))
       else
-        val (breedGMM, offSpringGenomes) = breeding(genomeSize, lambda, gmm, random)
+        val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
+        val offspringPatterns = offSpringGenomes.map(g => pattern(g._1.toVector, intervals).toArray)
 
-        val offspringPatterns = offSpringGenomes.map(g => pattern(pow(g._1.toVector), intervals).toArray)
-        val (elitedGenomes, elitedPattern, elitedHitMap, elitedGMM, elitedDensityMap) = elitism(genomes, patterns, offSpringGenomes, offspringPatterns, densityMap, hitMap, breedGMM, 1000, 0.01, 2.0, 1000, random)
-        evolution(elitedGenomes, elitedPattern, elitedDensityMap, elitedHitMap, elitedGMM, random, generation + 1)
+        val (elitedGenomes, elitedPattern) =
+          elitism(
+            genomes = genomes,
+            patterns = patterns,
+            offspringGenomes = offSpringGenomes,
+            offspringPatterns = offspringPatterns)
 
-    val hitMap =
-      evolution(
-        Array(),
-        Array(),
-        Map(),
-        Map(),
-        None,
-        new Random(42)
-      )
+        val (elitedHitMap, elitedGMM, elitedDensity) =
+          updateState(
+            newGenomes = elitedGenomes,
+            newPatterns = elitedPattern,
+            offspringGenomes = offSpringGenomes,
+            offspringPatterns = offspringPatterns,
+            densityMap = densityMap,
+            hitMap = hitMap,
+            gmm = gmm.map(_._1),
+            iterations = 1000,
+            tolerance = 0.01,
+            dilation = dilation,
+            warmupSampler = 1000,
+            minClusterSize = 10,
+            random = random)
+
+        evolution(elitedGenomes, elitedPattern, elitedDensity, elitedHitMap, elitedGMM, random, generation + 1)
+
+    val densityMap = evolution(random = new Random(42))
+
+    println((0 until dimension).map(d => s"d$d").mkString(",") + ",density")
+
+    for
+      (pattern, density) <- densityMap
+    do
+      println(s"${pattern.mkString(",")},$density")
