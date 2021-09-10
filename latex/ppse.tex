@@ -163,12 +163,18 @@ The idea behind the PPSE algorithm is to evolutionally bias the sampling of the 
 
 [Julien]
 
+\subsection{Rejection Sampling}
+
+[Julien]
+
 \subsection{Evolutionary Algorithms}
 
 
 
 \section{Description of the algorithm}\label{sec. algoDescription}
 
+
+lambda
 
 \subsection{Patterns}
 
@@ -182,7 +188,7 @@ def pattern(x: Vector[Double]): Vector[Int] =
 \end{lstlisting}
 
 
-\subsection{Algorithm State}
+\subsection{Algorithm State}\label{sec. algoState}
 
 At each generation the population of solution is evolved. Additionally to this state, it maintains two pieces of state : a hit map and a density map. The data structures are exposed in listing \ref{lst:state}
 
@@ -194,28 +200,98 @@ type HitMap = Map[Vector[Int], Int]
 \end{lstlisting}
 
 
+\subsection{Evolution Loop}
+
+The evolution is the engine of the PPSE algorithm. It is a recursive function computing the successive states of the algorithm until a given number of generation has been exhausted. The code of the evolution loop is expose in listing \ref{lst:loop}.
+
+The $evolution$ function takes the entire state of the algorithm as parameters. The 2 first parameters are the $genomes$ and the $patterns$ that have been computed for each of these genomes. These 2 parameters store the current population of solution of the evolutionary algorithm.
+
+The next 2 parameters are the density map ($densityMap$) and the hit map ($hitMap$), described in section \ref{sec. algoState}.
+
+The $gmm$ parameter passes the value of the GMM and the state of the rejection sampler. This is used in the breeding function to sample the new genomes and compute their densities.
+
+The last 2 parameters are the random number generator ($random$) and the $generation$ number.
+
+This function first test whether the number of generations is exhausted and the loop should be ended. In the case it is exhausted, it renormalises the densities and return a normalised density map. Otherwise it computes the next state of the algorithm.
+
+The subsequent state is compute by first breeding $lamdba$ new genomes and computes the pattern matching each of these genomes. Then it calls the $elitism$ that kept the genomes producing pattern that are not present in the population already.
+
+Then the function $updateState$ compute then new values for the hit map, then GMM and the density map. And the evolution function is then called recursively.
+
+\begin{lstlisting}[caption={Evolution Loop},label={lst:loop}]
+def evolution(
+  genomes: Array[Array[Double]] = Array(),
+  patterns: Array[Array[Int]] = Array(),
+  densityMap: DensityMap = Map(),
+  hitMap: HitMap = Map(),
+  gmm: Option[(GMM, RejectionSamplerState)] = None,
+  random: Random,
+  generation: Int = 0): DensityMap =
+
+  if generation >= generations
+  then
+    // Return the final result
+    renormaliseDensityMap(densityMap)
+  else
+    // Compute the next generation
+    val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
+    val offspringPatterns = offSpringGenomes.map((g, _) => pattern(g.toVector, intervals).toArray)
+
+    val (elitedGenomes, elitedPattern) =
+      elitism(
+        genomes = genomes,
+        patterns = patterns,
+        offspringGenomes = offSpringGenomes,
+        offspringPatterns = offspringPatterns)
+
+    val (elitedHitMap, elitedGMM, elitedDensity) =
+      updateState(
+        newGenomes = elitedGenomes,
+        newPatterns = elitedPattern,
+        offspringGenomes = offSpringGenomes,
+        offspringPatterns = offspringPatterns,
+        densityMap = densityMap,
+        hitMap = hitMap,
+        gmm = gmm.map(_._1),
+        iterations = 1000,
+        tolerance = 0.01,
+        dilation = dilation,
+        warmupSampler = 1000,
+        minClusterSize = 10,
+        random = random)
+
+    evolution(elitedGenomes, elitedPattern, elitedDensity, elitedHitMap, elitedGMM, random, generation + 1)
+\end{lstlisting}
+
+
+\subsection{Breeding}
+
+The breeding function 
+
+\begin{lstlisting}[caption={Breeding},label={lst:breeding}]
+def breeding(
+  genomeSize: Int,
+  lambda: Int,
+  gmm: Option[(GMM, RejectionSamplerState)],
+  random: Random): Array[(Array[Double], Double)] =
+  gmm match
+    case None =>
+      def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
+      Array.fill(lambda)((randomGenome(genomeSize, random), 1.0))
+    case Some((gmm, rejectionState)) =>
+      val rejectionSampler = toRejectionSampler(gmm, random)
+      val (_, samples) = rejectionSampler.sampleVector(lambda, rejectionState)
+      samples.toArray
+\end{lstlisting}
+
+
+\subsection{Elitism}
+
+In genetic algorithm the 
 
 
  This algorithm At each step a Gaussian Mixture Model (GMM) is fitted from the current population and
 
-
-\begin{lstlisting}[caption={Breeding function},label={lst:breeding}]
-
-  def breeding(
-   genomeSize: Int,
-   lambda: Int,
-   gmm: Option[(GMM, RejectionSamplerState)],
-   random: Random): (Option[(GMM, RejectionSamplerState)], Array[(Array[Double], Double)]) =
-   gmm match
-    case None =>
-      def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
-      (None, Array.fill(lambda)((randomGenome(genomeSize, random), 1.0)))
-    case Some((gmm, rejectionState)) =>
-      val rejectionSampler = toRejectionSampler(gmm, random)
-      val (state, samples) = rejectionSampler.sampleVector(lambda, rejectionState)
-      (Some((gmm, state)), samples.toArray)
-
-\end{lstlisting}
 
 
 \begin{lstlisting}[caption={Elitism function},label={lst:elitism}]
@@ -228,12 +304,12 @@ type HitMap = Map[Vector[Int], Int]
     densityMap: DensityMap,
     hitMap: HitMap,
     gmm: Option[(GMM, RejectionSamplerState)],
+    random: Random,
     iterations: Int = 1000,
     tolerance: Double = 0.001,
-    dilation: Double,
+    dilation: Double = 2.0,
     warmupSampler: Int = 1000,
-    minClusterSize: Int,
-    random: Random): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)], DensityMap) =
+    minClusterSize: Int = 10): (Array[Array[Double]], Array[Array[Int]], HitMap, Option[(GMM, RejectionSamplerState)], DensityMap) =
 
     def keepFirstGenomes(
       genomes: Array[Array[Double]],
@@ -255,7 +331,7 @@ type HitMap = Map[Vector[Int], Int]
       w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0))
 
     gmm match
-      case None if newGenomes.size < minClusterSize * 2 => (newGenomes, newPatterns, newHitMap, gmm, densityMap)
+      case None if newGenomes.size < minClusterSize * 2 => (newGenomes, newPatterns, newHitMap, None, densityMap)
       case None =>
         val newGMM =
           initializeAndFitGMM(

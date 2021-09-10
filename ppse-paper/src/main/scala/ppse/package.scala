@@ -63,6 +63,10 @@ package ppse :
   def dilateGMM(gmm: GMM, f: Double): GMM =
     gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
 
+  def renormaliseDensityMap(densityMap: DensityMap) =
+    val totalDensity = densityMap.values.sum
+    densityMap.map((p, density) => (p, density / totalDensity))
+
   def arrayToDenseMatrix(rows: Int, cols: Int, array: Array[Array[Double]]): DenseMatrix[Double] =
     // we need to transpose the array first because of breeze column first representation of matrices
     DenseMatrix.create(rows, cols, array.transpose.flatten)
@@ -532,12 +536,12 @@ package ppse :
 
       println(s"Computing generation $generation")
 
-      if(generation >= generations)
-        val totalDensity = densityMap.values.sum
-        densityMap.map((p, density) => (p, density / totalDensity))
+      if generation >= generations
+      then
+        renormaliseDensityMap(densityMap)
       else
         val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
-        val offspringPatterns = offSpringGenomes.map(g => pattern(g._1.toVector, intervals).toArray)
+        val offspringPatterns = offSpringGenomes.map((g, _) => pattern(g.toVector, intervals).toArray)
 
         val (elitedGenomes, elitedPattern) =
           elitism(
