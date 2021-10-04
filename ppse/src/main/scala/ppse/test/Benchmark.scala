@@ -352,11 +352,12 @@ object Benchmark {
     val aLot = 1000000
 
     val (uniformDensity, _) = SampleUniform.uniform2D(pattern, aLot)
+    val densityMap = density.toMap
 
     val deltas =
       for {
-        (pp, dp) <- density
-        du = uniformDensity.getOrElse(pp, 0.0)
+        (pp, dp) <- uniformDensity
+        du = densityMap.getOrElse(pp, 0.0)
       } yield math.abs(dp - du)
 
     deltas.sum

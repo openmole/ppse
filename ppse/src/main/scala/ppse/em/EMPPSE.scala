@@ -41,8 +41,6 @@ import monocle.macros.Lenses
 import monocle._
 import monocle.syntax.all._
 
-import scala.language.higherKinds
-
 object EMPPSE {
 
   type DensityMap = Map[Vector[Int], Double]
@@ -109,7 +107,8 @@ object EMPPSE {
     iterations: Int,
     tolerance: Double,
     dilation: Double,
-    warmupSampler: Int) =
+    warmupSampler: Int,
+    fitOnRarest: Int) =
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual[P], P](
       values = Individual.genome.get,
       phenotype = (_: Individual[P]).phenotype,
@@ -120,65 +119,14 @@ object EMPPSE {
       iterations = iterations,
       tolerance = tolerance,
       dilation = dilation,
-      warmupSampler = warmupSampler
+      warmupSampler = warmupSampler,
+      fitOnRarest = fitOnRarest
     )
 
-
-//  def elitism[S, I, P: CanBeNaN](
-//    continuous: Vector[C],
-//    values: I => Vector[Double],
-//    phenotype: I => P,
-//    pattern: P => Vector[Int],
-//    hitmap: monocle.Lens[S, HitMap],
-//    gmm: monocle.Lens[S, Option[GMM]],
-//    components: Int,
-//    iterations: Int,
-//    tolerance: Double,
-//    bootstrap: Int): Elitism[EMPPSEState, Individual, Genome] =
-//    PPSE2Operations.elitism(
-//
-//    )
-
-//  def adaptiveBreeding(
-//    lambda: Int,
-//    operatorExploration: Double,
-//    discrete: Vector[D],
-//    pattern: Vector[Double] => Vector[Int],
-//    reject: Option[Genome => Boolean]): Breeding[EMPPSEState, Individual, Genome] =
-//    PPSE2Operations.adaptiveBreeding[EMPPSEState, Individual, Genome](
-//      Individual.genome.get,
-//      continuousValues.get,
-//      continuousOperator.get,
-//      discreteValues.get,
-//      discreteOperator.get,
-//      discrete,
-//      vectorPhenotype.get _ andThen pattern,
-//      buildGenome,
-//      lambda,
-//      reject,
-//      operatorExploration,
-//      EvolutionState.s[HitMap])
-//
-//  def elitism(pattern: Vector[Double] => Vector[Int], continuous: Vector[C]) =
-//    PPSE2Operations.elitism[EMPPSEState, Individual, Vector[Double]](
-//      i => values(Individual.genome.get(i), continuous),
-//      vectorPhenotype.get,
-//      pattern,
-//      EvolutionState.s[HitMap])
-//
   def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) => {
     val sc = scaleContinuousValues(g._1.toVector, continuous)
     Individual(g, phenotype(sc))
   }
-//  deterministic.expression[Genome, Vector[Double], Individual](
-//      values(_, continuous),
-//      buildIndividual,
-//      phenotype)
-//}
-
-
-  //
-//  def reject(pse: PPSE2) = NSGA2.reject(pse.reject, pse.continuous)
 
   implicit def isAlgorithm: Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
     def initialState(t: EMPPSE, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
@@ -193,7 +141,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
           EMPPSE.breeding(t.continuous, t.lambda),
           EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
-          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler),
+          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.fitOnRarest),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -219,10 +167,11 @@ case class EMPPSE(
   phenotype: Vector[Double] => Vector[Double],
   pattern: Vector[Double] => Vector[Int],
   continuous: Vector[C],
-  iterations: Int = 100,
+  iterations: Int = 1000,
   tolerance: Double = 0.0001,
-  warmupSampler: Int = 1000,
-  dilation: Double = 2.0)
+  warmupSampler: Int = 10000,
+  dilation: Double = 2.0,
+  fitOnRarest: Int = 100)
 
 object PPSE2Operations {
 
@@ -262,88 +211,123 @@ object PPSE2Operations {
       tolerance: Double,
       dilation: Double,
       warmupSampler: Int,
-      minClusterSize: Int = 10): Elitism[S, I] = { (state, population, candidates, rng) =>
+      minClusterSize: Int = 10,
+      fitOnRarest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+
+      def updateGMM(
+        genomes: Array[Array[Double]],
+        patterns: Array[Array[Int]],
+        newHitMap: HitMap,
+        iterations: Int,
+        tolerance: Double,
+        dilation: Double,
+        warmupSampling: Int,
+        minClusterSize: Int,
+        random: Random) = {
+
+        WDFEMGMM.initializeAndFit(
+          iterations = iterations,
+          tolerance = tolerance,
+          x = genomes,
+          minClusterSize = minClusterSize,
+          random = random
+        ) map { case (newGMM, _) =>
+          val dilatedGMM = EMGMM.dilate(newGMM, dilation)
+          val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
+
+          (dilatedGMM, samplerState)
+        }
+      }
+
+
+      def updateState(
+        genomes: Array[Array[Double]],
+        patterns: Array[Array[Int]],
+        offspringGenomes: Array[(Array[Double], Double)],
+        offspringPatterns: Array[Array[Int]],
+        densityMap: DensityMap,
+        hitMap: HitMap,
+        iterations: Int,
+        tolerance: Double,
+        dilation: Double,
+        warmupSampler: Int,
+        minClusterSize: Int,
+        fitOnRarest: Int,
+        random: Random): (HitMap, Option[(GMM, RejectionSampler.State)], DensityMap) = {
+
+        val newHitMap = {
+          def addHits(offspringPatterns: Array[Array[Int]], hitmap: HitMap): HitMap = {
+            def hits(map: HitMap, c: Vector[Int]) = map.updated(c, map.getOrElse(c, 0) + 1)
+            offspringPatterns.foldLeft(hitmap)((m, p) => hits(m, p.toVector))
+          }
+          addHits(offspringPatterns, hitMap)
+        }
+
+        def newDensityMap = {
+          def offSpringDensities = {
+            val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
+            groupedGenomes.view.mapValues(v => v.map(p => 1 / p._2)).toSeq
+          }
+
+          offSpringDensities.foldLeft(densityMap) { case (map, (pattern, densities)) =>
+            map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
+          }
+        }
+
+        if (genomes.size < minClusterSize * 2) (newHitMap, None, newDensityMap)
+        else {
+          def sortedIndividuals =
+            (genomes zip patterns).sortBy { case (_, p) => newHitMap.getOrElse(p.toVector, 1) }
+
+          def rareIndividuals = sortedIndividuals.take(fitOnRarest)
+
+          def newGMM =
+            updateGMM(
+              genomes = rareIndividuals.map(_._1),
+              patterns = rareIndividuals.map(_._2),
+              newHitMap = newHitMap,
+              iterations = iterations,
+              tolerance = tolerance,
+              dilation = dilation,
+              warmupSampling = warmupSampler,
+              minClusterSize = minClusterSize,
+              random = random
+            )
+
+          (newHitMap, newGMM.toOption, newDensityMap)
+        }
+      }
 
       def offSpringWithNoNan = filterNaN(candidates, phenotype)
       def keepFirst(i: Vector[I]) = Vector(i.head)
 
       val newPopulation = keepNiches(phenotype andThen pattern, keepFirst)(population ++ offSpringWithNoNan)
-      val hm2 = addHits(phenotype andThen pattern, offSpringWithNoNan, hitmap.get(state))
 
-      def hits(i: I) = hm2.get(phenotype andThen pattern apply i)
-      def weights(pop: Vector[I]) = {
-        val w = pop.map(i => hits(i).getOrElse(1))
-        val max = w.max + 1
-        //println(w.map(h => 1.0 - math.pow((h.toDouble + 1) / max, 2.0)))
-        w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0)) // wMax - h + 1) //.map(math.pow(_, 2))
-      }
+      def genomes(p: Vector[I]) = p.map(values).map(_._1).toArray
+      def patterns(p: Vector[I]) = p.map(phenotype andThen pattern).map(_.toArray).toArray
 
-      // TODO: Consider density in boostraping steps ?
-      gmm.get(state) match {
-        case None if newPopulation.size < minClusterSize * 2 =>
-          def state2 = hitmap.replace(hm2) apply (state)
-          (state2, newPopulation)
-        case None =>
-          val (gmmValue, _) =
-            WDFEMGMM.initializeAndFit(
-              iterations = iterations,
-              tolerance = tolerance,
-              x = newPopulation.map(values).map(_._1.toArray).toArray,
-              dataWeights = weights(newPopulation).toArray,
-              random = rng,
-              minClusterSize = minClusterSize
-            )
+      val (elitedHitMap, elitedGMM, elitedDensity) =
+        updateState(
+          genomes = genomes(newPopulation),
+          patterns = patterns(newPopulation),
+          offspringGenomes = offSpringWithNoNan.map(values).toArray,
+          offspringPatterns = patterns(offSpringWithNoNan),
+          densityMap = densityMap.get(state),
+          hitMap = hitmap.get(state),
+          iterations = iterations,
+          tolerance = tolerance,
+          dilation = dilation,
+          warmupSampler = warmupSampler,
+          minClusterSize = minClusterSize,
+          fitOnRarest = fitOnRarest,
+          random = rng)
 
-          val dilatedGMMValue = WDFEMGMM.dilate(gmmValue, dilation)
+      def state2 =
+        (gmm.modify(gmm => elitedGMM orElse gmm) andThen
+          densityMap.replace(elitedDensity) andThen
+          hitmap.replace(elitedHitMap))(state)
 
-          def state2 =
-            gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
-              hitmap.replace(hm2) apply (state)
-
-          (state2, newPopulation)
-
-        case Some(gmmValue) =>
-          //val distribution = WDFEMGMM.toDistribution(gmmValue._1, rng)
-
-          def offspringDensities =
-            offSpringWithNoNan.groupBy { i => (phenotype andThen pattern)(i) }.view.
-              mapValues { v => v.map(values).map(p => 1 / p._2) }.toSeq
-              // mapValues { v => v.map(values).map(p => 1 / distribution.density(p._1)) }.toSeq
-
-          val oldDensityMap: DensityMap = densityMap.get(state)
-
-          def probabilityUpdate(p: (Vector[Int], Seq[Double])) = {
-            val (pattern, densities) = p
-            val newDensity = oldDensityMap.getOrElse(pattern, 0.0) + densities.sum
-            pattern -> newDensity
-          }
-
-          def newDensityMap = oldDensityMap ++ offspringDensities.map(probabilityUpdate)
-
-          //FIXME take to parameter
-          def bestIndividualsOfPopulation = newPopulation //.sortBy(hits)
-
-          val (gmmValue2, _) =
-            WDFEMGMM.initializeAndFit(
-              iterations = iterations,
-              tolerance = tolerance,
-              x = bestIndividualsOfPopulation.map(values).map(_._1.toArray).toArray,
-              dataWeights = weights(bestIndividualsOfPopulation).toArray,
-              random = rng,
-              minClusterSize = minClusterSize
-            )
-
-          val dilatedGMMValue = EMGMM.dilate(gmmValue2, dilation)
-
-          def state2 =
-            (gmm.replace(Some((dilatedGMMValue, EMPPSE.toSampler(dilatedGMMValue, rng).warmup(warmupSampler)))) andThen
-              densityMap.replace(newDensityMap) andThen
-              hitmap.replace(hm2))(state)
-
-          (state2, newPopulation)
-      }
-
-
+      (state2, newPopulation)
     }
 
 

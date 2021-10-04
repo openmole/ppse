@@ -192,7 +192,9 @@ object GMM {
 case class GMM(
   means: Array[Array[Double]],
   covariances: Array[Array[Array[Double]]],
-  weights: Array[Double])
+  weights: Array[Double]) {
+  def components = means.size
+}
 
 
 object EMGMMTest extends App {

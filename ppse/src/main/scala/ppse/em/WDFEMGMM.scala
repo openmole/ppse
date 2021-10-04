@@ -6,12 +6,14 @@ import breeze.linalg.Vector._
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
-import org.apache.commons.math3.linear.CholeskyDecomposition
+import org.apache.commons.math3.linear.{CholeskyDecomposition, NonPositiveDefiniteMatrixException}
 import org.apache.commons.math3.util.Pair
+import ppse.tool.Breeze
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.Random
+import util.{Failure, Success, Try}
 
 /**
  * Weighted-data Gaussian mixture model (WDF-GMM) with Fixed weight implementation.
@@ -29,35 +31,24 @@ object WDFEMGMM  {
     iterations: Int,
     tolerance: Double,
     x: Array[Array[Double]],
-    dataWeights: Array[Double],
+    dataWeights: Option[Array[Double]] = None,
     minClusterSize: Int,
-    random: Random): (GMM, Seq[Double]) = {
-    val xMatrix = WDFEMGMM.toDenseMatrix(x)
-    val dataWeightsVector = DenseVector(dataWeights: _*)
+    random: Random): Try[(GMM, Seq[Double])] = {
+    def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0))
 
     // initialize parameters using KMeans
-    val (means, covariances, weights) = Clustering.build(xMatrix, dataWeightsVector, minClusterSize)
-    val newComponents = means.rows
+    val (means, covariances, weights) = Clustering.build(x, dataWeigthsValue, minClusterSize)
 
-    assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
+    assert(covariances.forall(_.forall(_.forall(!_.isNaN))),s"covariances with nan: ${covariances.mkString("\n")}")
 
-    val (gmm, logLikelihoodTrace) =
-      fit(
-        x = xMatrix,
-        dataWeights = dataWeightsVector,// /:/ sum(dataWeights),
-        means = means,
-        covariances = covariances,
-        weights = weights,
-        components = newComponents,
-        iterations = iterations,
-        tolerance = tolerance,
-        trace = IndexedSeq()
-      )
-
-    //println(s"gmm ${toDenseMatrix(gmm.means)} ${gmm.weights.toVector}")
-
-    (gmm, logLikelihoodTrace)
-
+    fit(
+      x = x,
+      dataWeights = dataWeigthsValue,
+      gmm = GMM(means = means, covariances = covariances, weights = weights),
+      iterations = iterations,
+      tolerance = tolerance,
+      trace = IndexedSeq()
+    )
   }
 
 
@@ -79,46 +70,31 @@ object WDFEMGMM  {
 
   @tailrec
   def fit(
-    x: DenseMatrix[Double],
-    dataWeights: DenseVector[Double],
-    means: DenseMatrix[Double],
-    covariances: Array[DenseMatrix[Double]],
-    weights: DenseVector[Double],
-    components: Int,
+    x: Array[Array[Double]],
+    dataWeights: Array[Double],
+    gmm: GMM,
     iterations: Int,
     tolerance: Double,
     logLikelihood: Double = 0.0,
-    trace: Seq[Double] = Seq()): (GMM, Seq[Double]) = {
-    def gmm = {
-      GMM(
-        means = toArray(means),
-        covariances = covariances.map(toArray),
-        weights = weights.toArray
-      )
-    }
+    trace: Seq[Double] = Seq()): Try[(GMM, Seq[Double])] = {
 
     iterations match {
-      case 0 => (gmm, trace)
+      case 0 => Success((gmm, trace))
       case i =>
-        val (updatedLogLikelihood, resp) = eStep(x, dataWeights, means, covariances, weights)
-//        println(s"logLikelihood=\n$updatedLogLikelihood")
-        val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, dataWeights, resp, components)
-//        println(s"Means=\n$updatedMeans")
-//        println(s"Weights=\n$updatedWeights")
-//        println(s"Covariances=\n\n${updatedCovariances.mkString("\n\n")}")
-//        assert(math.exp(updatedLogLikelihood) < 1.0, s"Shitty log likelihood = $updatedLogLikelihood => ${math.exp(updatedLogLikelihood)}\n${GMM.toString(gmm)}")
-        if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
-        else fit(
-          x = x,
-          dataWeights = dataWeights,
-          means = updatedMeans,
-          covariances = updatedCovariances,
-          weights = updatedWeights,
-          logLikelihood = updatedLogLikelihood,
-          components = components,
-          iterations = i - 1,
-          tolerance = tolerance,
-          trace = trace :+ updatedLogLikelihood)
+        eStep(x, dataWeights, gmm.means, gmm.covariances, gmm.weights) match {
+          case Success((updatedLogLikelihood, resp)) =>
+            val updatedGMM = mStep(x, dataWeights, resp, gmm.components)
+            if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) Success((gmm, trace :+ updatedLogLikelihood))
+            else fit(
+              x = x,
+              dataWeights = dataWeights,
+              gmm = updatedGMM,
+              logLikelihood = updatedLogLikelihood,
+              iterations = i - 1,
+              tolerance = tolerance,
+              trace = trace :+ updatedLogLikelihood)
+          case Failure(e) => Failure(e)
+        }
     }
   }
 
@@ -153,44 +129,33 @@ object WDFEMGMM  {
    * @param weights weights of the components (clusters)
    */
   def eStep(
-    x: DenseMatrix[Double],
-    dataWeights: DenseVector[Double],
-    means: DenseMatrix[Double],
-    covariances: Array[DenseMatrix[Double]],
-    weights: DenseVector[Double]): (Double, DenseMatrix[Double]) = {
+    x: Array[Array[Double]],
+    dataWeights: Array[Double],
+    means: Array[Array[Double]],
+    covariances: Array[Array[Array[Double]]],
+    weights: Array[Double]): Try[(Double, Array[Array[Double]])] = {
     // for each point and each component
     // the matrix containing the probability of point i for component k multiplied by the weight (coefficient) of component k
     assert(weights.forall(p=> p <= 1.0 && p >= 0), s"weights=${weights}")
     //assert(dataWeights.forall(p=> p >= 1.0), s"dataweights=${dataWeights}")
     //assert(x.rows>10,s"data=$x")
-    val resp = compute_log_likelihood(x, dataWeights, means, covariances, weights)
-    //assert(resp.forall(p=> p > 0), s"RESP=${resp}")
-    // for each point, the sum of all likelihoods for all components
-    val resp_sum = sum(resp(*, ::))
-    //println(s"resp_sum=$resp_sum")
-    val log_likelihood = sum(log(resp_sum))
-    // divide the responsibility by the sum for each point
-    val updatedResp = DenseMatrix.tabulate(resp.rows, resp.cols)((i,j)=>resp(i,j) / (if (resp_sum(i) == 0) 1.0 else resp_sum(i)))
-    assert(updatedResp.forall(p=> p <= 1.0 && p >= 0),s"UPDATED_RESP (${updatedResp.rows},${updatedResp.cols}) =${updatedResp}")
-//    assert(sum(updatedResp(*, ::)).forall(p=> p==1.0),s"sums=${sum(updatedResp(*, ::))}")
-    (log_likelihood, updatedResp)
+    compute_log_likelihood(Breeze.arrayToDenseMatrix(x), Breeze.arrayToDenseVector(dataWeights), Breeze.arrayToDenseMatrix(means), covariances.map(Breeze.arrayToDenseMatrix), Breeze.arrayToDenseVector(weights)) map { resp =>
+      //assert(resp.forall(p=> p > 0), s"RESP=${resp}")
+      // for each point, the sum of all likelihoods for all components
+      val resp_sum = sum(resp(*, ::))
+      //println(s"resp_sum=$resp_sum")
+      val log_likelihood = sum(log(resp_sum))
+      // divide the responsibility by the sum for each point
+      val updatedResp = Array.tabulate(resp.rows, resp.cols)((i,j)=>resp(i,j) / (if (resp_sum(i) == 0) 1.0 else resp_sum(i)))
+      //assert(updatedResp.forall(_.forall(p=> p <= 1.0 && p >= 0)),s"UPDATED_RESP (${updatedResp.rows},${updatedResp.cols}) =${updatedResp}")
+      // assert(sum(updatedResp(*, ::)).forall(p=> p==1.0),s"sums=${sum(updatedResp(*, ::))}")
+      (log_likelihood, updatedResp)
+    }
   }
 
   def toDenseMatrix(rows: Int, cols: Int, array: Array[Array[Double]]): DenseMatrix[Double] = {
     // we need to transpose the array first because of breeze column first representation of matrices
     DenseMatrix.create(rows, cols, array.transpose.flatten)
-  }
-
-  def toDenseMatrix(array: Array[Array[Double]]) = {
-    assert(!array.isEmpty)
-    DenseMatrix.create(rows = array.length, cols = array.head.length, array.flatten)
-  }
-
-  def toArray(m: DenseMatrix[Double]): Array[Array[Double]] = {
-    Array.tabulate(m.rows,m.cols)((i,j)=>m(i,j))
-  }
-  def toArray(m: DenseMatrix[Double], w: DenseVector[Int]): Array[Array[Double]] = {
-    toArray(m).zipWithIndex.flatMap{case (v,i)=>Array.fill(w(i))(v)}
   }
 
   /**
@@ -205,36 +170,22 @@ object WDFEMGMM  {
     dataWeights: DenseVector[Double],
     means: DenseMatrix[Double],
     covariances: Array[DenseMatrix[Double]],
-    weights: DenseVector[Double]): DenseMatrix[Double] = {
+    weights: DenseVector[Double]): Try[DenseMatrix[Double]] = Try {
     import org.apache.commons.math3.linear.{Array2DRowRealMatrix, EigenDecomposition}
     import org.apache.commons.math3.util.FastMath
-
-    val epsilon = {
-      val nameField = classOf[EigenDecomposition].getDeclaredField("EPSILON");
-      nameField.setAccessible(true);
-      nameField.get(null).asInstanceOf[Double]
-    }
 
     DenseMatrix.tabulate(x.rows, weights.length) { (i, k) =>
       val weightedCovariances = covariances(k) /:/ dataWeights(i)
       val determinant = det(weightedCovariances)
       val mMeans = means(k, ::).inner.toArray
       val dimension = mMeans.size
-      val covarianceArray =  toArray(weightedCovariances)
+      val covarianceArray =  Breeze.matrixToArray(weightedCovariances)
 
       def density(vals: Array[Double], cholesky: Boolean = false) = {
         def covarianceMatrixInverse = {
           val covarianceMatrix = new Array2DRowRealMatrix(covarianceArray)
-          // Covariance matrix eigen decomposition.
-          if(!cholesky){
-            val covMatDec = new EigenDecomposition(covarianceMatrix)
-            // Compute and store the inverse.
-            covMatDec.getSolver.getInverse
-          } else {
-            val covMatDec = new CholeskyDecomposition(covarianceMatrix)
-            covMatDec.getSolver.getInverse
-          }
-
+          val covMatDec = new CholeskyDecomposition(covarianceMatrix)
+          covMatDec.getSolver.getInverse
         }
 
         def getExponentTerm(values: Array[Double]) = {
@@ -252,10 +203,7 @@ object WDFEMGMM  {
         FastMath.pow(2 * FastMath.PI, -0.5 * dimension) * FastMath.pow(determinant, -0.5) * getExponentTerm(vals)
       }
 
-
-
-      if(determinant <= epsilon) mgo.tools.epsilon
-      else density(x(i, ::).inner.toArray, cholesky = true) * weights(k)
+      density(x(i, ::).inner.toArray, cholesky = true) * weights(k)
     }
   }
 
@@ -263,31 +211,30 @@ object WDFEMGMM  {
    * M-step, update parameters.
    * @param X data points
    */
-  def mStep(X: DenseMatrix[Double], dataWeights: DenseVector[Double], resp: DenseMatrix[Double], components: Int): (DenseVector[Double], DenseMatrix[Double], Array[DenseMatrix[Double]]) = {
+  def mStep(x: Array[Array[Double]], dataWeights: Array[Double], resp: Array[Array[Double]], components: Int): GMM = {
     // sum the columns to get total responsibility assigned to each cluster, N^{soft}
-    val resp_t = resp.t
+    val xMatrix = Breeze.arrayToDenseMatrix(x)
+    val resp_t = Breeze.arrayToDenseMatrix(resp).t
     val component_weights = sum(resp_t(*, ::))
     // normalized weights (mixture coefficients)
-    val weights = component_weights /:/ X.rows.toDouble
+    val weights = component_weights /:/ xMatrix.rows.toDouble
     // means
     // for all components : the sum of the product of responsibility by point values weighted by point weight
-    val weighted_sum = resp_t * DenseMatrix.tabulate(X.rows, X.cols)((i,j)=>X(i,j)*dataWeights(i))
+    val weighted_sum = resp_t * DenseMatrix.tabulate(xMatrix.rows, xMatrix.cols)((i,j) => xMatrix(i,j) * dataWeights(i))
     // for all components : the sum of the product of responsibility by point weight
-    val weighted_resp = resp_t * dataWeights.toDenseMatrix.t
-    val means = DenseMatrix.tabulate(weighted_sum.rows, weighted_sum.cols)((i,j)=>weighted_sum(i,j)/weighted_resp(i,0))
+    val weighted_resp = resp_t * Breeze.arrayToDenseVector(dataWeights).toDenseMatrix.t
+    val means = DenseMatrix.tabulate(weighted_sum.rows, weighted_sum.cols)((i,j) => weighted_sum(i,j) / weighted_resp(i,0))
     // covariance
 //    println(s"components = $components")
 
     val covariances = Array.tabulate(components) { k =>
       val mean = means(k, ::)
-      val w_sum = DenseMatrix.tabulate(X.cols,X.cols){
-        (covRow, covCol)=>Array.tabulate(X.rows){
-          i=>(X(i,covRow)-mean(covRow))*(X(i,covCol)-mean(covCol))*resp_t(k,i)*dataWeights(i)
-        }.sum
+      val w_sum = DenseMatrix.tabulate(xMatrix.cols, xMatrix.cols){
+        (covRow, covCol)=>Array.tabulate(xMatrix.rows){ i=> (xMatrix(i,covRow) - mean(covRow)) * (xMatrix(i,covCol) - mean(covCol)) * resp_t(k,i) * dataWeights(i) }.sum
       }
       w_sum /:/ component_weights(k)
     }
-    (weights, means, covariances)
+    GMM(weights = Breeze.vectorToArray(weights), means = Breeze.matrixToArray(means), covariances = covariances.map(Breeze.matrixToArray))
   }
 
   /**
@@ -344,9 +291,9 @@ object WDFEMGMMTest extends App {
       iterations = 10,
       tolerance = 0.0000001,
       x = data,
-      dataWeights = dataWeights,
+      dataWeights = Some(dataWeights),
       minClusterSize = 10,
-      random = rng)
+      random = rng).get
 
   println("finished")
   println(s"Means=\n${toString2dArray(gmm.means)}")

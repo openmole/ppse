@@ -1,10 +1,10 @@
 name := "ppse"
-organization := "org.openmole"
-
-version := "1.0-SNAPSHOT"
 
 val breezeVersion = "1.2"
 
+
+ThisBuild / organization := "org.openmole"
+ThisBuild / version := "1.0-SNAPSHOT"
 
 lazy val ppse = Project("ppse", file("ppse")).settings (
   scalaVersion := "2.13.6",
@@ -25,6 +25,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
 
 
 lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
+  version := "1.0-SNAPSHOT",
   scalaVersion := "3.0.2",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",

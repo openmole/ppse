@@ -3,6 +3,7 @@ package ppse.em
 import breeze.linalg.{DenseMatrix, DenseVector, norm, sum}
 import jsat.SimpleDataSet
 import jsat.classifiers.DataPoint
+import ppse.tool.Breeze
 //import org.apache.commons.math3.ml.clustering.{Clusterable, KMeansPlusPlusClusterer, MultiKMeansPlusPlusClusterer}
 //import org.apache.commons.math3.ml.distance.EuclideanDistance
 //import org.apache.commons.math3.random.JDKRandomGenerator
@@ -19,43 +20,29 @@ import scala.jdk.CollectionConverters._
  * Simplistic implementation of K-Means.
  */
 object Clustering {
-//  def initializeAndFit(components: Int, x: DenseMatrix[Double], dataWeights: DenseVector[Double], maxIterations: Int, random: Random, replications: Int = 100): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
-//    val points = WDFEMGMM.toArray(x, dataWeights.map(w=>if (w.toInt > 0) w.toInt else 1))
-//    val clusters = GMeans.fit(points, math.max(components,10))
-//    val means = WDFEMGMM.toDenseMatrix(clusters.k, x.cols, clusters.centroids)
-//    val covariances = clusters.centroids.indices.map{i=>
-//      val pointsIndices = clusters.y.zipWithIndex.filter(_._1 == i).map(_._2)
-//      cov(DenseMatrix.tabulate(pointsIndices.length, x.cols)((i, j)=>points(pointsIndices(i))(j)),means(i,::).t)
-//    }.toArray
-//    println(s"GMeans = ${clusters.k}\n\tsize=${clusters.size.take(clusters.k).mkString(",")}\n\tclusters=\n\t\t${clusters.centroids.map(_.mkString(",")).mkString("\n\t\t")}\n\tcovariances=\n\t\t${covariances.mkString("\n\t\t")}")
-//    val weights = new DenseVector(clusters.size.take(clusters.k).map(_.toDouble/points.length))
-//    (means, covariances, weights)
-//  }
-
 
   def cov(x: DenseMatrix[Double], mean: DenseVector[Double]): DenseMatrix[Double] = {
     val q = DenseMatrix.tabulate(x.cols,x.cols)((j,k)=>Array.tabulate(x.rows)(i=>(x(i,j)-mean(j))*(x(i,k)-mean(k))).sum)
     (q /:/ (x.rows - 1).toDouble).toDenseMatrix
   }
 
+  def build(x: Array[Array[Double]], dataWeights: Array[Double], minPoints: Int): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
+    val pointSize = x.head.length
 
-  def build(x: DenseMatrix[Double], dataWeights: DenseVector[Double], minPoints: Int): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
-    val points = WDFEMGMM.toArray(x)
-    
     def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
       def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
       points.transpose.map { coord => average(coord, weights) }
     }
 
-    def buildSingleCluster(): (DenseMatrix[Double], Array[DenseMatrix[Double]], DenseVector[Double]) = {
-      val centroids = computeCentroid(points, dataWeights.toArray)
-      val weight = new DenseVector(Array(1.0))
+    def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
+      val centroids = computeCentroid(x, dataWeights.toArray)
+      val weight = Array(1.0)
       val covariance = {
-        val clusterMatrix = DenseMatrix.tabulate(points.length, x.cols)((i, j) => points(i)(j))
+        val clusterMatrix = Breeze.arrayToDenseMatrix(x)
         val centroidVector = new DenseVector(centroids)
-        cov(clusterMatrix, centroidVector)
+        Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
       }
-      (new DenseMatrix[Double](1, x.cols, centroids), Array(covariance), weight)
+      (Array(centroids), Array(covariance), weight)
     }
     
     import jsat.clustering._
@@ -65,10 +52,10 @@ object Clustering {
     val hdbScan = new HDBSCAN
     hdbScan.setMinPoints(minPoints)
     
-    if (points.length <= hdbScan.getMinPoints) buildSingleCluster()
+    if (x.size <= hdbScan.getMinPoints) buildSingleCluster()
     else {
       val dataSet = {
-        val dataPoints = (points zip dataWeights.toArray).map { case (p, w) =>
+        val dataPoints = (x zip dataWeights).map { case (p, w) =>
           new DataPoint(new jsat.linear.DenseVector(p), w)
         }
         new SimpleDataSet(dataPoints.toList.asJava)
@@ -84,18 +71,16 @@ object Clustering {
             computeCentroid(points, weights)
           }
 
-        val means = WDFEMGMM.toDenseMatrix(clusters.length, x.cols, centroids)
-
         val totalWeight = clusters.flatten.map(_.getWeight).sum
-        val weights = new DenseVector(clusters.map(_.map(_.getWeight).sum / totalWeight))
+        val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
 
         val covariances = (clusters zip centroids).map { case (cluster, centroid) =>
-          val clusterMatrix = DenseMatrix.tabulate(cluster.length, x.cols)((i, j) => cluster(i).getNumericalValues.get(j))
+          val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
           val centroidVector = new DenseVector(centroid)
           cov(clusterMatrix, centroidVector)
         }
 
-        (means, covariances, weights)
+        (centroids, covariances.map(Breeze.matrixToArray), weights)
       } else buildSingleCluster()
 
     }

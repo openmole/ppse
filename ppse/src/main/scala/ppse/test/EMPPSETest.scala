@@ -39,14 +39,15 @@ object EMPPSETest extends App {
     case Some(config) =>
       val ppse = EMPPSE(
         lambda = 10,
-        phenotype = Benchmark.inverseFlower(),
+        phenotype = Benchmark.pow,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
             highBound = Vector(1.0, 1.0),
             definition = Vector(50, 50)),
         continuous = Vector.fill(2)(C(0.0, 1.0)),
-        dilation = 2.0)
+        dilation = 2.0,
+        fitOnRarest = 100)
 
       case class Converge(evaluated: Long, hitMap: algorithm.HitMap, gmm: Option[GMM], individuals: Vector[Individual[Vector[Double]]])
       val converge = ListBuffer[Converge]()
