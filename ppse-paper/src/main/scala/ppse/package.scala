@@ -92,7 +92,7 @@ package ppse :
     val q = DenseMatrix.tabulate(x.cols,x.cols)((j,k) => Array.tabulate(x.rows)(i => (x(i,j)-mean(j)) * (x(i,k)-mean(k))).sum)
     q.map(_ / (x.rows - 1).toDouble).toDenseMatrix
 
-  def clusterize(points: Array[Array[Double]], dataWeights: Array[Double], minClusterSize: Int, random: Random): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
+  def clusterize(points: Array[Array[Double]], minClusterSize: Int, random: Random): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
     import jsat.*
     import jsat.clustering.*
     import jsat.clustering.kmeans.*
@@ -101,6 +101,7 @@ package ppse :
     import scala.jdk.CollectionConverters.*
 
     val pointsSize = points.head.size
+    val dataWeights = points.map(_ => 1.0)
 
     //val points = matrixToArray(x)
     def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) =
@@ -151,11 +152,12 @@ package ppse :
 
   @scala.annotation.tailrec def fitGMM(
     x: Array[Array[Double]],
-    dataWeights: Array[Double],
     gmm: GMM,
     iterations: Int,
     tolerance: Double,
     logLikelihood: Double = 0.0): Try[GMM] =
+
+    val dataWeights = x.map(_ => 1.0)
 
     iterations match
       case 0 => Success(gmm)
@@ -167,7 +169,6 @@ package ppse :
               val updatedGMM = mStep(x, dataWeights, resp, gmm.components)
               fitGMM(
                 x = x,
-                dataWeights = dataWeights,
                 gmm = updatedGMM,
                 logLikelihood = updatedLogLikelihood,
                 iterations = i - 1,
@@ -361,7 +362,8 @@ package ppse :
   def computeGMM(
     genomes: Array[Array[Double]],
     patterns: Array[Array[Int]],
-    newHitMap: HitMap,
+    hitMap: HitMap,
+    fitOnRarest: Int,
     iterations: Int,
     tolerance: Double,
     dilation: Double,
@@ -369,23 +371,15 @@ package ppse :
     minClusterSize: Int,
     random: Random) =
 
-    val weights =
-      val w = patterns.map(p => newHitMap.get(p.toVector).getOrElse(1))
-      val max = w.max + 1
-      w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0))
+    def rarestIndividuals = (genomes zip patterns).sortBy { case (_, p) => hitMap.getOrElse(p.toVector, 1) }.take(fitOnRarest)
+    def rarestGenomes = rarestIndividuals.map(_._1)
 
-    val (means, covariances, clusterWeights) = clusterize(genomes, weights, minClusterSize, random)
+    val (means, covariances, clusterWeights) = clusterize(rarestGenomes, minClusterSize, random)
 
-    def initialGMM =
-      GMM(
-        means = means,
-        covariances = covariances,
-        weights = clusterWeights
-      )
+    def initialGMM = GMM(means = means, covariances = covariances, weights = clusterWeights)
 
     fitGMM(
-      x = genomes,
-      dataWeights = weights,
+      x = rarestGenomes,
       gmm = initialGMM,
       iterations = iterations,
       tolerance = tolerance
@@ -405,6 +399,7 @@ package ppse :
     offspringPatterns: Array[Array[Int]],
     likelihoodRatioMap: LikelihoodRatioMap,
     hitMap: HitMap,
+    fitOnRarest: Int,
     iterations: Int,
     tolerance: Double,
     dilation: Double,
@@ -432,7 +427,8 @@ package ppse :
         computeGMM(
           genomes = genomes,
           patterns = patterns,
-          newHitMap = newHitMap,
+          hitMap = newHitMap,
+          fitOnRarest = fitOnRarest,
           iterations = iterations,
           tolerance = tolerance,
           dilation = dilation,
@@ -455,6 +451,7 @@ package ppse :
     val dimension = 2
     val generations = 200
     val dilation = 2.0
+    val fitOnRarest = 100
 
     val intervals = Vector.fill(dimension)(50)
 
@@ -490,6 +487,7 @@ package ppse :
             offspringPatterns = offspringPatterns,
             likelihoodRatioMap = likelihoodRatioMap,
             hitMap = hitMap,
+            fitOnRarest = fitOnRarest,
             iterations = 1000,
             tolerance = 0.01,
             dilation = dilation,

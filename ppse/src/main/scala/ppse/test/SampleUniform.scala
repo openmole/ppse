@@ -13,8 +13,21 @@ object SampleUniform {
   type PatternFunction = Vector[Double] => Pattern
 
   def uniform2D(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
+    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble()))
 
-    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble())).map(Benchmark.inverseFlower())
+    val patterns =
+      drawn.
+        groupBy(p => pattern(p)).
+        view.
+        mapValues(_.size / points.toDouble).
+        toMap
+
+    patterns
+    //(patterns, drawn.map(d => d -> patterns(pattern(d))))
+  }
+
+  def uniform2DAll(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
+    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble()))
 
     val patterns =
       drawn.
@@ -25,8 +38,6 @@ object SampleUniform {
 
     (patterns, drawn.map(d => d -> patterns(pattern(d))))
   }
-
-
 
 }
 
@@ -64,9 +75,9 @@ object SampleUniformApp extends App {
         def write(file: File, densities: Seq[(Vector[Double], Double)]) =
           file.write(densities.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
-        val p = SampleUniform.uniform2D(pattern, max)
+        val p = SampleUniform.uniform2DAll(Benchmark.pow _ andThen pattern, max, new Random(42))
 
-        println(s"Delta to uniform for $max points ${Benchmark.compareToUniformBenchmark(pattern, p._1.toVector)}")
+        //println(s"Delta to uniform for $max points ${Benchmark.compareToUniformBenchmark(Benchmark.pow andThen pattern, p.toVector)}")
 
         f.delete(swallowIOExceptions = true)
         write(f, p._2)
@@ -78,7 +89,7 @@ object SampleUniformApp extends App {
         for {
           points <- 100 to max by 100
         } {
-          val p = SampleUniform.uniform2D(pattern, points)._1
+          val p = SampleUniform.uniform2D(pattern, points)
           f.appendLine(s"$points, ${p.size}")
         }
       }

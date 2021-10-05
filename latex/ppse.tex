@@ -186,6 +186,14 @@ http://www2.stat.duke.edu/~st118/Publication/impsamp.pdf
 \section{Description of the algorithm}\label{sec. algoDescription}
 
 
+
+\begin{figure}
+ \centering
+  \includegraphics[width=0.8\linewidth]{images/schemaalgo.pdf}%{profils/zoomed/5.pdf}
+ \captionof{figure}{ \label{SchemaAlgo} Graphical Representation of PPSE Algorithm }
+\end{figure}
+
+
 lambda
 
 \subsection{Patterns}
@@ -207,7 +215,7 @@ At each generation the population of solution is evolved. Additionally to this s
 The hit map contains the number of of times each pattern has been hit since the start of the algorithm. The density map contains the sum of the densities for each pattern: each time a pattern is hit, the density of the input point in the current GMM is summed in this the density map. 
 
 \begin{lstlisting}[caption={State},label={lst:state}]
-type DensityMap = Map[Vector[Int], Double]
+type LikelihoodRatioMap = Map[Vector[Int], Double]
 type HitMap = Map[Vector[Int], Int]
 \end{lstlisting}
 
@@ -232,42 +240,42 @@ The subsequent state is computed by first breeding $lamdba$ new genomes, then co
 def evolution(
   genomes: Array[Array[Double]] = Array(),
   patterns: Array[Array[Int]] = Array(),
-  densityMap: DensityMap = Map(),
+  likelihoodRatioMap: LikelihoodRatioMap = Map(),
   hitMap: HitMap = Map(),
   gmm: Option[(GMM, RejectionSamplerState)] = None,
   random: Random,
-  generation: Int = 0): DensityMap =
-  
+  generation: Int = 0): LikelihoodRatioMap =
+
   if generation >= generations
-  then
-    renormaliseDensityMap(densityMap)
+  then computePDF(likelihoodRatioMap)
   else
     val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
     val offspringPatterns = offSpringGenomes.map((g, _) => pattern(g.toVector, intervals).toArray)
 
     val (elitedGenomes, elitedPattern) =
       elitism(
-        genomes = genomes,
-        patterns = patterns,
-        offspringGenomes = offSpringGenomes,
+        genomes = genomes, 
+        patterns = patterns, 
+        offspringGenomes = offSpringGenomes, 
         offspringPatterns = offspringPatterns)
 
-    val (updatedHitMap, updatedDensityMap, updatedGMM) =
+    val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
       updateState(
         genomes = elitedGenomes,
         patterns = elitedPattern,
         offspringGenomes = offSpringGenomes,
         offspringPatterns = offspringPatterns,
-        densityMap = densityMap,
+        likelihoodRatioMap = likelihoodRatioMap,
         hitMap = hitMap,
+        fitOnRarest = 100,
         iterations = 1000,
         tolerance = 0.01,
         dilation = dilation,
         warmupSampler = 1000,
         minClusterSize = 10,
         random = random)
-        
-    evolution(elitedGenomes, elitedPattern, updatedDensityMap, updatedHitMap, updatedGMM orElse gmm, random, generation + 1)
+
+   evolution(elitedGenomes, elitedPattern, updatedlikelihoodRatioMap, updatedHitMap, updatedGMM orElse gmm, random, generation + 1)
 \end{lstlisting}
 
 
@@ -328,36 +336,38 @@ def updateState(
   patterns: Array[Array[Int]],
   offspringGenomes: Array[(Array[Double], Double)],
   offspringPatterns: Array[Array[Int]],
-  densityMap: DensityMap,
+  likelihoodRatioMap: LikelihoodRatioMap,
   hitMap: HitMap,
+  fitOnRarest: Int,
   iterations: Int,
   tolerance: Double,
   dilation: Double,
   warmupSampler: Int,
   minClusterSize: Int,
-  random: Random): (HitMap, DensityMap, Option[(GMM, RejectionSamplerState)]) =
+  random: Random): (HitMap, LikelihoodRatioMap, Option[(GMM, RejectionSamplerState)]) =
   def newHitMap =
     def updateHits(m: HitMap, p: Vector[Int]) = m.updatedWith(p.toVector)(v => Some(v.getOrElse(0) + 1))
     offspringPatterns.foldLeft(hitMap)((m, p) => updateHits(m, p.toVector))
 
-  def newDensityMap =
+  def newLikelihoodRatioMap =
     def offSpringDensities =
       val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
-      groupedGenomes.view.mapValues(v => v.map (p => 1 / p._2).sum).toSeq
+      groupedGenomes.view.mapValues(v => v.map ((_, density) => 1 / density).sum).toSeq
 
-    def updatePatternDensity(map: DensityMap, pattern: Array[Int], densitiy: Double): DensityMap =
+    def updatePatternDensity(map: LikelihoodRatioMap, pattern: Array[Int], densitiy: Double): LikelihoodRatioMap =
       map.updatedWith(pattern.toVector)( v => Some(v.getOrElse(0.0) + densitiy))
 
-    offSpringDensities.foldLeft(densityMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
+    offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
 
   if genomes.size < minClusterSize * 2
-  then (newHitMap, newDensityMap, None)
+  then (newHitMap, newLikelihoodRatioMap, None)
   else
     def newGMM =
       computeGMM(
         genomes = genomes,
         patterns = patterns,
-        newHitMap = newHitMap,
+        hitMap = newHitMap,
+        fitOnRarest = fitOnRarest,
         iterations = iterations,
         tolerance = tolerance,
         dilation = dilation,
@@ -366,25 +376,27 @@ def updateState(
         random = random
       )
 
-    (newHitMap, newDensityMap, newGMM)
+    (newHitMap, newLikelihoodRatioMap, newGMM)
 \end{lstlisting}
 
 
 \subsection{Computing the GMM}\label{sec. computeGMM}
 
+At each step, the PPSE computes a GMM in order to sample the next generation. This GMM is fitted using the expectation maximisation (EM) algorithm {\color{red} ADD REF}. 
 
-To estimate the GMM at each step of the algorithm PPSE use the learning EM algorithm exposed in the paper {\color{red} ADD REF}. The function n listing \label{lst:computeGMM} fit a GMM over the genomes already discovered by the algorithms. This genome points are weighed in function of the pattern they produces: the more common is the pattern, the lower is the weight. 
+The computation of the GMM is exposed in listing \label{lst:computeGMM}. The $computeGMM$ function selects the $fitOnRarest$ genomes,  with the lowest number of hits, in the current population. Then it clusterise these genomes using the $HDBSCAN$  algorithm {\color{red} ADD REF}. The result of the clustering is used to bootstrap the EM fitting algorithm (i.e. the $fitGMM$ function). 
 
-The $computeGMM$ function fist compute the weight for each genome. To achieve that it associate the genome with its corresponding pattern and then get the number of hit that occurred for this pattern until then. From this number of hits the weight is derived given the following function: $weight = 1 - (hit / maxhit)^2$ where $maxhit$ is the maximum of hits among all the patterns. This function attributes high weight to the lowest hits and low weigh for the highest number of hits.
+In some edge cases, the $fitGMM$ function can fail to compute. In this case the $computeGMM$ function returns an empty option.
 
-
+In general the $fitGMM$ function return a GMM. This GMM is dilated and framed in the boundaries of definition domain of the input space (in this case $[0,1]^n$). The framing is achieved by rejection, using a rejection sampler algorithm. The dilated GMM is returned.
 
 
 \begin{lstlisting}[caption={Compute GMM},label={lst:computeGMM}]
 def computeGMM(
   genomes: Array[Array[Double]],
   patterns: Array[Array[Int]],
-  newHitMap: HitMap,
+  hitMap: HitMap,
+  fitOnRarest: Int,
   iterations: Int,
   tolerance: Double,
   dilation: Double,
@@ -392,18 +404,15 @@ def computeGMM(
   minClusterSize: Int,
   random: Random) =
 
-  val weights =
-    val w = patterns.map(p => newHitMap.get(p.toVector).getOrElse(1))
-    val max = w.max + 1
-    w.map(h => 1.0 - math.pow(h.toDouble / max, 2.0))
+  def rarestIndividuals = (genomes zip patterns).sortBy { case (_, p) => hitMap.getOrElse(p.toVector, 1) }.take(fitOnRarest)
+  def rarestGenomes = rarestIndividuals.map(_._1)
 
-  val (means, covariances, clusterWeights) = clusterize(genomes, weights, minClusterSize, random)
-    
+  val (means, covariances, clusterWeights) = clusterize(rarestGenomes, minClusterSize, random)
+
   def initialGMM = GMM(means = means, covariances = covariances, weights = clusterWeights)
 
   fitGMM(
-    x = genomes,
-    dataWeights = weights,
+    x = rarestGenomes,
     gmm = initialGMM,
     iterations = iterations,
     tolerance = tolerance
@@ -418,11 +427,14 @@ def computeGMM(
 \end{lstlisting}
 
 
-\begin{figure}
- \centering
-  \includegraphics[width=0.8\linewidth]{images/schemaalgo.pdf}%{profils/zoomed/5.pdf}
- \captionof{figure}{ \label{SchemaAlgo} Graphical Representation of PPSE Algorithm }
-\end{figure}
+
+\section{Application}\label{sec. application}
+
+\subsection{Test function}
+
+$f(x) = x^4$ x in $[0, 1]^n$
+
+\subsection{Realistic Model}
 
 
 %In this section we consider $k\in\{1,\ldots, n\}$ to be fixed and we describe the CP algorithm for the analysis of the 

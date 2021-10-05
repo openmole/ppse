@@ -348,10 +348,9 @@ object Benchmark {
       case (f, g) => math.floor(f * g).toInt
     }
 
-  def compareToUniformBenchmark(pattern: Vector[Double] => Vector[Int], density: Vector[(Vector[Int], Double)]) = {
-    val aLot = 1000000
+  def uniformDensity(pattern: Vector[Double] => Vector[Int], aLot: Int = 1000000) = SampleUniform.uniform2D(pattern, aLot)
 
-    val (uniformDensity, _) = SampleUniform.uniform2D(pattern, aLot)
+  def compareToUniformBenchmark(density: Vector[(Vector[Int], Double)], uniformDensity: Map[Vector[Int], Double]) = {
     val densityMap = density.toMap
 
     val deltas =
@@ -360,7 +359,8 @@ object Benchmark {
         du = densityMap.getOrElse(pp, 0.0)
       } yield math.abs(dp - du)
 
-    deltas.sum
+    val decile = deltas.size / 10
+    deltas.toSeq.sorted.apply(decile)
   }
 
 
