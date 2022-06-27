@@ -9,10 +9,10 @@ import java.util.Random
 object DoublePoisson {
 
   def createCauchy(rng: Random = new Random()) =
-    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), 0.4, 0.1)
+    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), 0.4, 0.01)
 
   def density(x: Vector[Double]): Vector[Double] =
     val dist = createCauchy()
-    x.map(dist.density)
+    x.map(dist.inverseCumulativeProbability)
 
 }

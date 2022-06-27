@@ -73,7 +73,7 @@ object SampleUniform {
     case Some(config) =>
       config.map.foreach { f =>
         def write(file: File, densities: Seq[(Vector[Double], Double)]) =
-          file.write(densities.filterNot(_._1.exists(_ > 1.0)).map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
+          file.write(densities.filterNot(p => p._1.exists(_ > 1.0) || p._1.exists(_ < 0.0)).map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
         val p = SampleUniform.uniformOutput(func, pattern, max, new Random(42), dimension = 2)
 
