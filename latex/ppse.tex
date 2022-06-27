@@ -122,6 +122,11 @@ This algorithm computes an approximation of the probability to reach a pattern g
 
 The idea behind the PPSE algorithm is to evolutionally bias the sampling of the parameter space towards the part generating rare patterns, while keeping the enough knowledge on this bias to be de-bias the results and obtain unbiased estimator of the pattern likelihoods.
 
+
+
+{\color{red} Justification methodo, c'est bien de savoir pour un modèle si un pattern est rare ou est commun. Dans le cadre de l'aide à la décision avec PSE on veut savoir si les pattern possible issues de l'incertitude sur le modéle et qui ammène à des cas catastophique sont rares ou pas} 
+
+
 %The CP method takes inspiration from evolutionary algorithms to provide a thorough analysis of 
 %the role played by each parameter. Such analysis is independent from one parameter to the other.
 %A function that evaluates the performance of each particular model is supposed to be given
@@ -550,6 +555,9 @@ def computeGMM(
 
 Application to stochastic problems
 
+Other distributions for inputs
+
+
 %In section \ref{sec. algoDescription}  we have presented the most basic version of our algorithm, for the sake of clarity. 
 %However in practice we use a variation of it, heuristically devised, to improve its performance. 
 %In this section we present these modifications. We use the same notation as in section \ref{sec. algoDescription}.
@@ -602,7 +610,7 @@ Application to stochastic problems
 %$F(H) = \sum_{\bar{a}\in H} f(\bar{a})$. However, in practice, we consider a maximal computation time as the stopping 
 %criterion and the stability becomes an element of subsequent analysis.
 
-\subsection{Generic implementation}
+%\subsection{Generic implementation}
 
 %In order to make the CP algorithm usable we provide along with this paper a generic implementation in the free and open source library called MGO (Multi Goal Optimisation)\footnote{https://github.com/ISCPIF/mgo} programmed in Scala\footnote{http://scala-lang.org/}. MGO is a flexible library of evolutionary algorithms. It leverages the Scala "trait" system to provide a high level of modularity.
 %
