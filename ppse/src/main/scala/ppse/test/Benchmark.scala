@@ -414,5 +414,4 @@ object Benchmark {
     deltas.sum / deltas.size
   }
 
-
 }

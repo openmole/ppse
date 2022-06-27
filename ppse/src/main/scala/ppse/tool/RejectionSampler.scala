@@ -17,7 +17,7 @@ object RejectionSampler {
 
 
 import RejectionSampler._
-import shapeless.Lazy
+import mgo.tools.Lazy
 
 import scala.annotation.tailrec
 /**

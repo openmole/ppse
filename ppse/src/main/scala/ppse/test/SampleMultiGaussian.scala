@@ -3,7 +3,7 @@ package ppse.test
 import better.files.File
 import org.apache.commons.math3.distribution.MixtureMultivariateNormalDistribution
 import ppse.tool.RejectionSampler
-import shapeless.Lazy
+import mgo.tools.Lazy
 
 /*
  * Copyright (C) 2021 Romain Reuillon
@@ -63,5 +63,5 @@ object SampleMultiGaussian  {
 
 
 object SampleMultiGaussianApp extends App {
-  File(args(0)).write(SampleMultiGaussian.run.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
+  File(args(0)).write(SampleMultiGaussian.run().map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 }

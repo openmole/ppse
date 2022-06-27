@@ -26,7 +26,6 @@ import mgo.evolution.elitism._
 import mgo.evolution.ranking._
 import mgo.tools._
 import mgo.tools.execution._
-import monocle.macros.Lenses
 
 import monocle._
 import monocle.syntax.all._

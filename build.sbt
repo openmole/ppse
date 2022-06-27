@@ -1,32 +1,33 @@
 name := "ppse"
 
-val breezeVersion = "1.2"
-
+val breezeVersion = "2.0.1-RC2"
 
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
 
 lazy val ppse = Project("ppse", file("ppse")).settings (
-  scalaVersion := "2.13.6",
+  scalaVersion := "3.1.2",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
-  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1",
-  libraryDependencies += "org.openmole" %% "mgo" % "3.51",
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" cross CrossVersion.for3Use2_13,
+  libraryDependencies += "org.openmole" %% "mgo" % "3.55",
   libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   libraryDependencies ++= Seq(
     "org.scalanlp" %% "breeze" % breezeVersion,
     "org.scalanlp" %% "breeze-natives" % breezeVersion
-  ),
+  ) ,
   libraryDependencies += "org.locationtech.jts" % "jts-core" % "1.18.1",
-  scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps")
+  scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps"),
+  excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13")
+
 )
 
 
 
 lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   version := "1.0-SNAPSHOT",
-  scalaVersion := "3.1.0",
+  scalaVersion := "3.1.2",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   libraryDependencies ++= Seq(

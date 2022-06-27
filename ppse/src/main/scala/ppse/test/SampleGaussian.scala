@@ -7,7 +7,7 @@ import ppse._
 
 import scala.jdk.CollectionConverters._
 import ppse.tool._
-import shapeless.Lazy
+import mgo.tools.Lazy
 
 object SampleGaussian {
 
