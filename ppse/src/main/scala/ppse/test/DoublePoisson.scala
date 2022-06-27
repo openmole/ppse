@@ -9,7 +9,7 @@ import java.util.Random
 object DoublePoisson {
 
   def createCauchy(rng: Random = new Random()) =
-    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), 0.4, 0.001)
+    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), 0.4, 0.01)
 
   def inverse(dist: CauchyDistribution, minX: Double, maxX: Double, minY: Double, maxY: Double): Double = {
     def x = dist.cumulativeProbability(maxX) - dist.cumulativeProbability(minX)
@@ -18,5 +18,6 @@ object DoublePoisson {
   }
   def density(x: Vector[Double]): Vector[Double] =
     val dist = createCauchy()
-    x.map(dist.density)
+    x.map(dist.inverseCumulativeProbability)
+
 }

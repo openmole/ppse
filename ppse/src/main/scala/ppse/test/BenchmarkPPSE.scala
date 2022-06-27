@@ -57,7 +57,7 @@ import scala.collection.mutable.ListBuffer
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
             highBound = Vector(1.0, 1.0),
-            definition = Vector(20, 20)),
+            definition = Vector(50, 50)),
         continuous = Vector.fill(2)(C(0.0, 1.0)),
         dilation = 1.0,
         fitOnRarest = 100)
@@ -90,7 +90,7 @@ import scala.collection.mutable.ListBuffer
 //
 //      //println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
 
-      config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
+      config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0) || r.phenotype.exists(_ < 0.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
 //      config.trace.foreach { m =>
 //        m.delete(swallowIOExceptions = true)
 //        for (c <- converge) m.appendLine(s"${c.evaluated}, ${c.hitMap.size}")
