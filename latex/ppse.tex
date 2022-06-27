@@ -86,7 +86,7 @@ In this paper, we choose to expose the PPSE algorithm using purely functional Sc
 
 The PPSE method is inspired from the evolutionary algorithm. It extends the PSE method (citation). The PSE method discovers all the pattern that could be produced by a model given some uncertainty on its parameters. In PSE the pattern space is defined as discrete space containing descriptors of the dynamics of the simulation. Each combination values of these descriptors is considered a distinct pattern.
 
-PSE discovers all the possible patterns, however it does not provide any additional information on these pattern apart from there existence. PPSE extends on that to compute a likelihood for each pattern. This likelihood is the defined as the likelihood that the model produce this pattern given that the input parameters are drawn from a uniform distribution.
+PSE discovers all the possible patterns, however it does not provide any additional information on these pattern apart from there existence. PPSE extends on that to compute a likelihood for each pattern. PPSE computes the likelihood that the model produce a given pattern when the input parameters are drawn from a uniform distribution.
 
 Lets consider a simulation model and a function that computes patterns from the dynamics produced by the model. The model has some free parameters. For the sake of simplicity we consider here that the input parameters of the model are defined on $[0, 1]$.
 
@@ -158,9 +158,6 @@ The idea behind the PPSE algorithm is to evolutionally bias the sampling of the 
 %$\{h_k(a^1_k), \ldots, h_k(a^{l_k}_k)\}$.
 
 \section{Previous Work}
-
-\section{Material and Methods}
-
 
 \subsection{Importance Sampling}
 
