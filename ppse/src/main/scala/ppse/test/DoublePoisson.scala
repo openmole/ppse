@@ -16,7 +16,9 @@ object DoublePoisson {
 //  def sample(x: Double, y: Double, rng: Random): Double =
 //    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), )
 
-  def inverse(dist: CauchyDistribution, minX: Double, maxX: Double, minY: Double, maxY: Double): Double {
-    
+  def inverse(dist: CauchyDistribution, minX: Double, maxX: Double, minY: Double, maxY: Double): Double = {
+    def x = dist.cumulativeProbability(maxX) - dist.cumulativeProbability(minX)
+    def y = dist.cumulativeProbability(maxY) - dist.cumulativeProbability(minY)
+    x * y
   }
 }
