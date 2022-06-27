@@ -8,13 +8,11 @@ import java.util.Random
 
 object DoublePoisson {
 
-
   def createCauchy(rng: Random = new Random()) =
-    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), 0.2, 0.01)
+    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), 0.4, 0.1)
 
-
-//  def sample(x: Double, y: Double, rng: Random): Double =
-//    new CauchyDistribution(RandomGeneratorFactory.createRandomGenerator(rng), )
-
+  def density(x: Vector[Double]): Vector[Double] =
+    val dist = createCauchy()
+    x.map(dist.density)
 
 }

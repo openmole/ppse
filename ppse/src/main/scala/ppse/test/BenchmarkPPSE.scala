@@ -25,7 +25,7 @@ import ppse.em._
 import scopt._
 import scala.collection.mutable.ListBuffer
 
-object BenchmarkPPSE extends App {
+@main def benchmarkPPSE(args: String*) =
 
 
   case class Config(
@@ -52,13 +52,13 @@ object BenchmarkPPSE extends App {
     case Some(config) =>
       val ppse = EMPPSE(
         lambda = 100,
-        phenotype = identity,
+        phenotype = DoublePoisson.density,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
             highBound = Vector(1.0, 1.0),
-            definition = Vector(50, 50)),
-        continuous = Vector.fill(6)(C(0.0, 1.0)),
+            definition = Vector(20, 20)),
+        continuous = Vector.fill(2)(C(0.0, 1.0)),
         dilation = 1.0,
         fitOnRarest = 100)
 
@@ -69,7 +69,7 @@ object BenchmarkPPSE extends App {
 
       def evolution =
         ppse.
-          until(afterGeneration(2000)).
+          until(afterGeneration(500)).
           trace { (s, is) =>
 //            if(s.generation % 100 == 0) {
 //              def result = EMPPSE.result(ppse, is, s)
@@ -86,11 +86,11 @@ object BenchmarkPPSE extends App {
 //      println(converge.map(c => s"${c.generation},${c.delta}").mkString("\n"))
 //
 //      //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
-//      def result = EMPPSE.result(ppse, finalPopulation, finalState)
+      def result = EMPPSE.result(ppse, finalPopulation, finalState)
 //
 //      //println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
-//
-//      config.map.foreach { m => m.write(result.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
+
+      config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
 //      config.trace.foreach { m =>
 //        m.delete(swallowIOExceptions = true)
 //        for (c <- converge) m.appendLine(s"${c.evaluated}, ${c.hitMap.size}")
@@ -131,7 +131,4 @@ object BenchmarkPPSE extends App {
     case _ =>
   }
 
-
-
-}
 
