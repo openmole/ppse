@@ -26,24 +26,24 @@ object SampleUniform {
     //(patterns, drawn.map(d => d -> patterns(pattern(d))))
   }
 
-  def uniform2DAll(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
-    val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble()))
+  def uniformOutput(f: Vector[Double] => Vector[Double], pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42), dimension: Int = 2) = {
+    val drawn = (0 until points).map(_ => Vector.fill(dimension)(random.nextDouble()))
 
     val patterns =
       drawn.
-        groupBy(p => pattern(p)).
+        groupBy(p => pattern(f(p))).
         view.
         mapValues(_.size / points.toDouble).
         toMap
 
-    (patterns, drawn.map(d => d -> patterns(pattern(d))))
+    drawn.map(f).map(f => f -> patterns(pattern(f)))
   }
-
 }
 
 
 object SampleUniformApp extends App {
 
+  val func = Benchmark.pow _
   val max = 10000
 
   case class Config(
@@ -75,22 +75,25 @@ object SampleUniformApp extends App {
         def write(file: File, densities: Seq[(Vector[Double], Double)]) =
           file.write(densities.map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
 
-        val p = SampleUniform.uniform2DAll(Benchmark.pow _ andThen pattern, max, new Random(42))
+        val p = SampleUniform.uniformOutput(func, pattern, max, new Random(42), dimension = 2)
 
         //println(s"Delta to uniform for $max points ${Benchmark.compareToUniformBenchmark(Benchmark.pow andThen pattern, p.toVector)}")
 
         f.delete(swallowIOExceptions = true)
-        write(f, p._2)
+        write(f, p)
       }
 
       config.trace.foreach { f =>
         f.delete(swallowIOExceptions = true)
 
+        val unif = Benchmark.powDensityMap(Vector(50, 50))
+
         for {
           points <- 100 to max by 100
         } {
           val p = SampleUniform.uniform2D(pattern, points)
-          f.appendLine(s"$points, ${p.size}")
+          def deltaToUniform = Benchmark.compareToUniformBenchmark(p.toVector, unif.toVector)
+          f.appendLine(s"$points, ${deltaToUniform}")
         }
       }
     case None =>

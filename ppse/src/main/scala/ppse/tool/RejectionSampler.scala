@@ -39,15 +39,19 @@ class RejectionSampler(_sample: () => (Vector[Double], Lazy[Double]), val accept
     } else state
 
   def sample(state: State = State()): (State, (Vector[Double], Double)) = {
-    val (x, density) = _sample()
-    if (!accept(x)) {
-      // if the sample is rejected, resample and keep the failure in the state
-      sample(fail(state))
-    } else {
-      val newState = success(state)
-      // if the sample is accepted, return the state, the sample pattern and the adjusted density
-      (newState, (x, density.value / newState.inverseProbability()))
+    @tailrec def sample0(state: State): (State, (Vector[Double], Double)) = {
+      val (x, density) = _sample()
+      if (!accept(x)) {
+        // if the sample is rejected, resample and keep the failure in the state
+        sample0(fail(state))
+      } else {
+        val newState = success(state)
+        // if the sample is accepted, return the state, the sample pattern and the adjusted density
+        (newState, (x, density.value / newState.inverseProbability()))
+      }
     }
+
+    sample0(state)
   }
 
   @tailrec final def sampleVector(n: Int, state: State = State(), res: List[(Vector[Double], Double)] = List()): (State, Vector[(Vector[Double], Double)]) = {

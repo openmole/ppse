@@ -270,7 +270,6 @@ def evolution(
         fitOnRarest = 100,
         iterations = 1000,
         tolerance = 0.01,
-        dilation = dilation,
         warmupSampler = 1000,
         minClusterSize = 10,
         random = random)
@@ -341,7 +340,6 @@ def updateState(
   fitOnRarest: Int,
   iterations: Int,
   tolerance: Double,
-  dilation: Double,
   warmupSampler: Int,
   minClusterSize: Int,
   random: Random): (HitMap, LikelihoodRatioMap, Option[(GMM, RejectionSamplerState)]) =
@@ -370,7 +368,6 @@ def updateState(
         fitOnRarest = fitOnRarest,
         iterations = iterations,
         tolerance = tolerance,
-        dilation = dilation,
         warmupSampling = warmupSampler,
         minClusterSize = minClusterSize,
         random = random
@@ -388,8 +385,7 @@ The computation of the GMM is exposed in listing \label{lst:computeGMM}. The $co
 
 In some edge cases, the $fitGMM$ function can fail to compute. In this case the $computeGMM$ function returns an empty option.
 
-In general the $fitGMM$ function return a GMM. This GMM is dilated and framed in the boundaries of definition domain of the input space (in this case $[0,1]^n$). The framing is achieved by rejection, using a rejection sampler algorithm. The dilated GMM is returned.
-
+In general the $fitGMM$ function return a GMM. This GMM is framed in the boundaries of definition domain of the input space (in this case $[0,1]^n$). The framing is achieved by rejection, using a rejection sampler algorithm. The dilated GMM is returned.
 
 \begin{lstlisting}[caption={Compute GMM},label={lst:computeGMM}]
 def computeGMM(
@@ -399,7 +395,6 @@ def computeGMM(
   fitOnRarest: Int,
   iterations: Int,
   tolerance: Double,
-  dilation: Double,
   warmupSampling: Int,
   minClusterSize: Int,
   random: Random) =
@@ -418,23 +413,28 @@ def computeGMM(
     tolerance = tolerance
   ) match
     case Success(newGMM) =>
-      val dilatedGMM = dilateGMM(newGMM, dilation)
-      val rejectionSampler = buildRejectionSampler(dilatedGMM, random)
+      val rejectionSampler = buildRejectionSampler(newGMM, random)
       val samplerState = warmupSampler(rejectionSampler, warmupSampling)
 
-      Some((dilatedGMM, samplerState))
+      Some((newGMM, samplerState))
     case Failure(_) => None
 \end{lstlisting}
 
 
 
+\section{Evaluation}\label{sec. evaluation}
+
+
+
 \section{Application}\label{sec. application}
 
-\subsection{Test function}
 
-$f(x) = x^4$ x in $[0, 1]^n$
+\subsection{The Flocking Model}
 
-\subsection{Realistic Model}
+
+
+\cite{Reynolds1987}
+
 
 
 %In this section we consider $k\in\{1,\ldots, n\}$ to be fixed and we describe the CP algorithm for the analysis of the 

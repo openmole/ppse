@@ -34,14 +34,14 @@ object BenchmarkUniform extends App{
     highBound = Vector(1.0, 1.0),
     definition = Vector(50, 50))(_)
 
-  val uniformSampling = Benchmark.uniformDensity(Benchmark.pow _ andThen pattern)
+  val uniformSampling = Benchmark.uniformDensity(Benchmark.inverseFlower() andThen pattern)
 
   val compare =
     for {
-      points <- 100 to 10000 by 100
+      points <- 100 to 1000000 by 10000
     } yield {
-      val p = SampleUniform.uniform2D(Benchmark.pow _ andThen pattern, points, new Random(100))
-      points -> Benchmark.compareToUniformBenchmark(p.toVector, uniformSampling)
+      val p = SampleUniform.uniform2D(Benchmark.inverseFlower() andThen pattern, points, new Random(100))
+      points -> Benchmark.compareToUniformBenchmark(p.toVector, uniformSampling.toVector)
     }
 
   println(compare.map(c => s"${c._1},${c._2}").mkString("\n"))

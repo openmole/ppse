@@ -6,6 +6,38 @@ import ppse.test.Benchmark.SquareDiagonalTransformation.MathVectors._
 
 object Benchmark {
 
+
+
+  def squareInSquare(x: Vector[Double]) = {
+
+    def norm(x: Vector[Double]) = math.sqrt(x.map(math.pow(_, 2.0)).sum)
+
+    def inSquare(center: Vector[Double], size: Double, point: Vector[Double]) =
+      (center zip point).forall{ case (c, p) => math.abs(p - c) < size / 2 }
+
+    def zoom(x: Vector[Double], size: Double) = x.map(_ * size)
+    def translate(x: Vector[Double], v: Vector[Double]) = (x zip v).map { case (x, v) => x + v }
+
+//    val n =
+//      if(inSquare(Vector.fill(x.size)(0.25), 0.04, x)) {
+//        1.0 + norm(zoom(translate(x, Vector.fill(x.size)(0.23)), 1 / 0.04))
+//      } else norm(x)
+
+    //if(inSquare(x.map(_ => 0.25), 0.04, x)) zoom(translate(x, x.map(_ => 0.23)), 1 / 0.04)
+    Vector(norm(x), x.reduceLeft(_ * _))
+
+
+//    val (r1, r2) =
+//      if(inSquare((0.25, 0.75), 0.01, (x1, x2))) translate(zoom(translate((x1, x2), (-0.245, -0.745)), 1 / 0.01 / 2), (0, 0.5))
+//      else if(inSquare((0.75, 0.25), 0.02, (x1, x2))) translate(zoom(translate((x1, x2), (-0.74, -0.24)), 1 / 0.02 / 2), (0.5, 0))
+//      else if(inSquare((0.75, 0.75), 0.04, (x1, x2))) translate(zoom(translate((x1, x2), (-0.73, -0.73)), 1 / 0.04 / 2), (0.5, 0.5))
+//      else zoom((x1, x2), 0.5)
+//
+//
+//
+//    Vector(r1, r2)
+  }
+
   def flower(w: Double = 0.01) = {
     val polygon = createFlower(w)
     val prep = Benchmark.preparePolygon(polygon)
@@ -335,7 +367,24 @@ object Benchmark {
     } else Vector(0.0,0.0)
 
   }
-  def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 4.0))
+
+
+  def pow(p: Vector[Double]): Vector[Double] = p.map(math.pow(_, 10.0))
+  def powDensity(base: Vector[Double], size: Vector[Double]) = {
+    def inf(x: Double) = math.pow(x, 0.25)
+    (inf(base(0) + size(0)) - inf(base(0))) * (inf(base(1) + size(1)) - inf(base(1)))
+  }
+
+  def powDensityMap(p: Vector[Int]) = {
+    val sx = 1.0 / p(0)
+    val sy = 1.0 / p(1)
+
+    for {
+      (x, i) <- (BigDecimal(0.0) until 1.0 by sx).zipWithIndex
+      (y, j) <- (BigDecimal(0.0) until 1.0 by sy).zipWithIndex
+    } yield Vector(i, j) -> powDensity(Vector(x, y).map(_.toDouble), Vector(sx, sy))
+  }
+
 
   def bisect(wB: Double, wO: Double)(x: Double, y: Double) = {
     def distanceToBisect(x: Double, y: Double) = math.abs(y - x) / math.sqrt(2.0)
@@ -348,9 +397,11 @@ object Benchmark {
       case (f, g) => math.floor(f * g).toInt
     }
 
+
+
   def uniformDensity(pattern: Vector[Double] => Vector[Int], aLot: Int = 1000000) = SampleUniform.uniform2D(pattern, aLot)
 
-  def compareToUniformBenchmark(density: Vector[(Vector[Int], Double)], uniformDensity: Map[Vector[Int], Double]) = {
+  def compareToUniformBenchmark(density: Vector[(Vector[Int], Double)], uniformDensity: Vector[(Vector[Int], Double)]) = {
     val densityMap = density.toMap
 
     val deltas =
@@ -359,8 +410,8 @@ object Benchmark {
         du = densityMap.getOrElse(pp, 0.0)
       } yield math.abs(dp - du)
 
-    val decile = deltas.size / 10
-    deltas.toSeq.sorted.apply(decile)
+    //val index = Math.ceil(1 / 2.0 * deltas.size).toInt
+    deltas.sum / deltas.size
   }
 
 

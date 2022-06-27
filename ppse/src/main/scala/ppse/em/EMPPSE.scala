@@ -170,7 +170,7 @@ case class EMPPSE(
   iterations: Int = 1000,
   tolerance: Double = 0.0001,
   warmupSampler: Int = 10000,
-  dilation: Double = 2.0,
+  dilation: Double = 1.0,
   fitOnRarest: Int = 100)
 
 object PPSE2Operations {
@@ -225,10 +225,42 @@ object PPSE2Operations {
         minClusterSize: Int,
         random: Random) = {
 
+//        def sortedIndividuals =
+//          (genomes zip patterns).sortBy { case (_, p) => newHitMap.getOrElse(p.toVector, 1) }
+//
+//        def rareIndividuals = sortedIndividuals.take(fitOnRarest)
+
+
+        def rareIndividuals = {
+          val pop = (genomes zip patterns)
+          val rare = pop.filter { case (_, p) => newHitMap.getOrElse(p.toVector, 1) < fitOnRarest }
+          if(rare.size < minClusterSize) pop
+          else rare
+        }
+
+
+
+        //        def genomeWeights = {
+//          val maxHit = newHitMap.values.max
+//          val minHit = newHitMap.values.min
+//          rareIndividuals.map { case (_, p) =>
+//            val hits = newHitMap.getOrElse(p.toVector, 1)
+//            //math.pow((math.abs(hits - maxHit) + 1) / (maxHit.toDouble - minHit + 1), 1.0 / 4)
+//           (math.abs(hits - minHit - maxHit) + 1) / (maxHit.toDouble - minHit + 1)
+//          }
+//        }
+
+        def genomeWeights =
+          rareIndividuals.map { case (_, p) =>
+            val hits = newHitMap.getOrElse(p.toVector, 1)
+            if(hits < fitOnRarest) fitOnRarest.toDouble - hits else 1.0
+          }
+
         WDFEMGMM.initializeAndFit(
           iterations = iterations,
           tolerance = tolerance,
-          x = genomes,
+          x = rareIndividuals.map(_._1),
+          dataWeights = Some(genomeWeights),
           minClusterSize = minClusterSize,
           random = random
         ) map { case (newGMM, _) =>
@@ -276,15 +308,10 @@ object PPSE2Operations {
 
         if (genomes.size < minClusterSize * 2) (newHitMap, None, newDensityMap)
         else {
-          def sortedIndividuals =
-            (genomes zip patterns).sortBy { case (_, p) => newHitMap.getOrElse(p.toVector, 1) }
-
-          def rareIndividuals = sortedIndividuals.take(fitOnRarest)
-
           def newGMM =
             updateGMM(
-              genomes = rareIndividuals.map(_._1),
-              patterns = rareIndividuals.map(_._2),
+              genomes = genomes,
+              patterns = patterns,
               newHitMap = newHitMap,
               iterations = iterations,
               tolerance = tolerance,

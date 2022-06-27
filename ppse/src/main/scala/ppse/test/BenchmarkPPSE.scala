@@ -51,30 +51,32 @@ object BenchmarkPPSE extends App {
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
       val ppse = EMPPSE(
-        lambda = 10,
-        phenotype = Benchmark.pow,
+        lambda = 100,
+        phenotype = Benchmark.squareInSquare,
         pattern =
           boundedGrid(
             lowBound = Vector(0.0, 0.0),
             highBound = Vector(1.0, 1.0),
             definition = Vector(50, 50)),
-        continuous = Vector.fill(2)(C(0.0, 1.0)),
-        dilation = 2.0,
+        continuous = Vector.fill(6)(C(0.0, 1.0)),
+        dilation = 1.0,
         fitOnRarest = 100)
 
       case class Converge(generation: Long, delta: Double)
       val converge = ListBuffer[Converge]()
 
-      val uniformSampling = Benchmark.uniformDensity(Benchmark.pow _ andThen ppse.pattern)
+      val uniformSampling = Benchmark.uniformDensity(Benchmark.squareInSquare _ andThen ppse.pattern)
 
       def evolution =
         ppse.
-          until(afterGeneration(1000)).
+          until(afterGeneration(2000)).
           trace { (s, is) =>
-            def result = EMPPSE.result(ppse, is, s)
-            val diff = Benchmark.compareToUniformBenchmark(result.map(r => r.pattern -> r.density), uniformSampling)
-            val c = Converge(s.evaluated, diff)
-            converge += c
+            if(s.generation % 100 == 0) {
+              def result = EMPPSE.result(ppse, is, s)
+              val diff = Benchmark.compareToUniformBenchmark(result.map(r => r.pattern -> r.density), uniformSampling.toVector)
+              val c = Converge(s.evaluated, diff)
+              converge += c
+            }
             println(s"Generation ${s.generation}")
           }
 
