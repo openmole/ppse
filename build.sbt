@@ -16,11 +16,10 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   libraryDependencies ++= Seq(
     "org.scalanlp" %% "breeze" % breezeVersion,
     "org.scalanlp" %% "breeze-natives" % breezeVersion
-  ) ,
+  ),
   libraryDependencies += "org.locationtech.jts" % "jts-core" % "1.18.1",
   scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps"),
   excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13")
-
 )
 
 
