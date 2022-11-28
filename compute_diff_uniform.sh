@@ -1,2 +1,2 @@
-sbt "project ppse" "runMain ppse.test.SampleUniformApp --trace /tmp/trace-unif.csv"
+sbt "project ppse" "runMain ppse.test.benchmarkUniform --trace /tmp/trace-unif.csv"
 

@@ -25,14 +25,27 @@ import ppse.em._
 import scopt._
 import scala.collection.mutable.ListBuffer
 
-@main def benchmarkPPSE(args: String*) =
+//object Benchmark {
+//  def compareToUniformBenchmark(allPattern: Vector[Vector[Int]], density: Vector[(Vector[Int], Double)], uniformDensity: Vector[Int] => Double) = {
+//    val densityMap = density.toMap
+//
+//    val deltas =
+//      for {
+//        (pp, dp) <- uniformDensity
+//        du = densityMap.getOrElse(pp, 0.0)
+//      } yield math.abs(dp - du)
+//
+//    //val index = Math.ceil(1 / 2.0 * deltas.size).toInt
+//    deltas.sum / deltas.size
+//  }
+//}
 
+
+@main def benchmarkPPSE(args: String*) =
 
   case class Config(
     map: Option[File] = None,
-    trace: Option[File] = None,
-    traceGMM: Option[File] = None,
-    traceHit: Option[File] = None)
+    trace: Option[File] = None)
 
   val builder = OParser.builder[Config]
 
@@ -42,9 +55,7 @@ import scala.collection.mutable.ListBuffer
       programName("ppsetest"),
       head("scopt", "4.x"),
       opt[String]('m', "map").action((x, c) => c.copy(map = Some(File(x)))),
-      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x)))),
-      opt[String]('g', "trace-gmm").action((x, c) => c.copy(traceGMM = Some(File(x)))),
-      opt[String]('h', "trace-hit").action((x, c) => c.copy(traceHit = Some(File(x))))
+      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x))))
     )
   }
 
@@ -62,8 +73,18 @@ import scala.collection.mutable.ListBuffer
         dilation = 1.0,
         fitOnRarest = 100)
 
-//      case class Converge(generation: Long, delta: Double)
-//      val converge = ListBuffer[Converge]()
+      def patternToSpace(pattern: Vector[Int]) =
+        def toSpace(x: Int) = x * 1.0 / 50.0
+        pattern.map(p => (toSpace(p), toSpace(p + 1)))
+
+      val allPatterns =
+        for
+          x <- 0 until 50
+          y <- 0 until 50
+        yield Vector(x, y)
+
+      case class Converge(generation: Long, delta: Double)
+      val converge = ListBuffer[Converge]()
 
 //      val uniformSampling = Benchmark.uniformDensity(Benchmark.squareInSquare _ andThen ppse.pattern)
 
@@ -71,12 +92,24 @@ import scala.collection.mutable.ListBuffer
         ppse.
           until(afterGeneration(500)).
           trace { (s, is) =>
-//            if(s.generation % 100 == 0) {
-//              def result = EMPPSE.result(ppse, is, s)
-//              //val diff = Benchmark.compareToUniformBenchmark(result.map(r => r.pattern -> r.density), uniformSampling.toVector)
-//              val c = Converge(s.evaluated, diff)
-//              converge += c
-//            }
+            if(s.generation % 10 == 0) {
+              def result = EMPPSE.result(ppse, is, s)
+
+              def referenceDensity(p: Vector[Int]) =
+                val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
+                DoublePoisson.inverse(minX, maxX, minY, maxY)
+
+              val indexPattern = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
+
+              val error =
+                allPatterns.map { p =>
+                  val density = indexPattern.getOrElse(p, 0.0)
+                  math.abs(referenceDensity(p) - density)
+                }.sum
+
+              val c = Converge(s.evaluated, error)
+              converge += c
+            }
             println(s"Generation ${s.generation}")
           }
 
@@ -86,15 +119,15 @@ import scala.collection.mutable.ListBuffer
 //      println(converge.map(c => s"${c.generation},${c.delta}").mkString("\n"))
 //
 //      //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
-      def result = EMPPSE.result(ppse, finalPopulation, finalState)
+      val result = EMPPSE.result(ppse, finalPopulation, finalState)
 //
 //      //println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
 
       config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0) || r.phenotype.exists(_ < 0.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
-//      config.trace.foreach { m =>
-//        m.delete(swallowIOExceptions = true)
-//        for (c <- converge) m.appendLine(s"${c.evaluated}, ${c.hitMap.size}")
-//      }
+      config.trace.foreach { m =>
+        m.delete(swallowIOExceptions = true)
+        for (c <- converge) m.appendLine(s"${c.generation}, ${c.delta}")
+      }
 //
 //      config.traceGMM.foreach { m =>
 //        m.delete(swallowIOExceptions = true)

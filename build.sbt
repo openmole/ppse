@@ -6,7 +6,7 @@ ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
 
 lazy val ppse = Project("ppse", file("ppse")).settings (
-  scalaVersion := "3.1.2",
+  scalaVersion := "3.2.1",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" cross CrossVersion.for3Use2_13,
   libraryDependencies += "org.openmole" %% "mgo" % "3.55",
@@ -26,7 +26,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
 
 lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   version := "1.0-SNAPSHOT",
-  scalaVersion := "3.1.2",
+  scalaVersion := "3.2.1",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   libraryDependencies ++= Seq(

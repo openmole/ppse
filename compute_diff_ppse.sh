@@ -1,3 +1,3 @@
 
-sbt "project ppse" "runMain ppse.test.SamplePPSE --trace-diff /tmp/diff-ppse.csv"
+sbt "project ppse" "runMain ppse.test.benchmarkPPSE --trace /tmp/trace-ppse.csv"
 

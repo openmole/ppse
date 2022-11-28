@@ -3,10 +3,10 @@ package ppse.test
 import scala.util.Random
 import better.files._
 import mgo.evolution.niche.boundedGrid
-import ppse.test.SampleUniform.uniform2D
+import ppse.test.BenchmarkUniform.uniform2D
 import scopt.OParser
 
-object SampleUniform {
+object BenchmarkUniform {
 
   type Pattern = Vector[Int]
   type DensityMap = Map[Pattern, Double]
@@ -41,10 +41,9 @@ object SampleUniform {
 }
 
 
-@main def sampleUniform(args: String*) = {
+@main def benchmarkUniform(args: String*) = {
 
   val func = DoublePoisson.density _
-  val max = 10000
 
   case class Config(
     map: Option[File] = None,
@@ -62,40 +61,58 @@ object SampleUniform {
     )
   }
 
-  val size = 20
 
   def pattern = boundedGrid(
     lowBound = Vector(0.0, 0.0),
     highBound = Vector(1.0, 1.0),
-    definition = Vector(size, size))(_)
+    definition = Vector(50, 50))(_)
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
-      config.map.foreach { f =>
-        def write(file: File, densities: Seq[(Vector[Double], Double)]) =
-          file.write(densities.filterNot(p => p._1.exists(_ > 1.0) || p._1.exists(_ < 0.0)).map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
-
-        val p = SampleUniform.uniformOutput(func, pattern, max, new Random(42), dimension = 2)
-
-        //println(s"Delta to uniform for $max points ${Benchmark.compareToUniformBenchmark(Benchmark.pow andThen pattern, p.toVector)}")
-
-        f.delete(swallowIOExceptions = true)
-        write(f, p)
-      }
-
-//      config.trace.foreach { f =>
+//      config.map.foreach { f =>
+//        def write(file: File, densities: Seq[(Vector[Double], Double)]) =
+//          file.write(densities.filterNot(p => p._1.exists(_ > 1.0) || p._1.exists(_ < 0.0)).map { case (c, d) => c.mkString(", ") + s", $d" }.mkString("\n"))
+//
+//        val p = BenchmarkUniform.uniformOutput(func, pattern, max, new Random(42), dimension = 2)
+//
+//        //println(s"Delta to uniform for $max points ${Benchmark.compareToUniformBenchmark(Benchmark.pow andThen pattern, p.toVector)}")
+//
 //        f.delete(swallowIOExceptions = true)
-//
-//        val unif = Benchmark.powDensityMap(Vector(50, 50))
-//
-//        for {
-//          points <- 100 to max by 100
-//        } {
-//          val p = SampleUniform.uniform2D(pattern, points)
-//          def deltaToUniform = Benchmark.compareToUniformBenchmark(p.toVector, unif.toVector)
-//          f.appendLine(s"$points, ${deltaToUniform}")
-//        }
+//        write(f, p)
 //      }
+
+      config.trace.foreach { f =>
+        f.delete(swallowIOExceptions = true)
+
+        val allPatterns =
+          for
+            x <- 0 until 50
+            y <- 0 until 50
+          yield Vector(x, y)
+
+        def patternToSpace(pattern: Vector[Int]) =
+          def toSpace(x: Int) = x * 1.0 / 50.0
+          pattern.map(p => (toSpace(p), toSpace(p + 1)))
+
+        def referenceDensity(p: Vector[Int]) =
+          val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
+          DoublePoisson.inverse(minX, maxX, minY, maxY)
+
+        for
+          points <- 1000 to 200000 by 1000
+        do
+          val p = BenchmarkUniform.uniform2D(pattern, points)
+
+          val indexPattern = p.groupMap(_._1)(_._2).view.mapValues(_.head).toMap
+
+          val error =
+            allPatterns.map { p =>
+              val density = indexPattern.getOrElse(p, 0.0)
+              math.abs(referenceDensity(p) - density)
+            }.sum
+
+          f.appendLine(s"$points, ${error}")
+      }
     case None =>
   }
 
