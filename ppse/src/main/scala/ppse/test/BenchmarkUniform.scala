@@ -10,7 +10,6 @@ object BenchmarkUniform {
 
   type Pattern = Vector[Int]
   type DensityMap = Map[Pattern, Double]
-  type PatternFunction = Vector[Double] => Pattern
 
   def uniform2D(pattern: Vector[Double] => Vector[Int], points: Int, random: Random = new Random(42)) = {
     val drawn = (0 until points).map(_ => Vector.fill(2)(random.nextDouble()))
@@ -43,8 +42,6 @@ object BenchmarkUniform {
 
 @main def benchmarkUniform(args: String*) = {
 
-  val func = DoublePoisson.density _
-
   case class Config(
     map: Option[File] = None,
     trace: Option[File] = None)
@@ -62,10 +59,11 @@ object BenchmarkUniform {
   }
 
 
-  def pattern = boundedGrid(
-    lowBound = Vector(0.0, 0.0),
-    highBound = Vector(1.0, 1.0),
-    definition = Vector(50, 50))(_)
+  def pattern(x: Vector[Double]) =
+    boundedGrid(
+      lowBound = Vector(0.0, 0.0),
+      highBound = Vector(1.0, 1.0),
+      definition = Vector(50, 50))(DoublePoisson.density(x))
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
@@ -99,7 +97,7 @@ object BenchmarkUniform {
           DoublePoisson.inverse(minX, maxX, minY, maxY)
 
         for
-          points <- 1000 to 200000 by 1000
+          points <- 1000 to 50000 by 1000
         do
           val p = BenchmarkUniform.uniform2D(pattern, points)
 
