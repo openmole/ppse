@@ -48,11 +48,11 @@ import scala.collection.mutable.ListBuffer
   //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
 
   val square = PatternSquare(
-    PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100),
-    PatternSquare.Square(Vector(0.25, 0.25), 0.1, 100),
-    PatternSquare.Square(Vector(0.25, 0.75), 0.1, 100),
-    PatternSquare.Square(Vector(0.75, 0.25), 0.1, 100),
-    PatternSquare.Square(Vector(0.75, 0.75), 0.1, 100)
+    PatternSquare.Square(Vector(0.5, 0.5), 0.05, 10),
+    PatternSquare.Square(Vector(0.25, 0.25), 0.05, 10),
+    PatternSquare.Square(Vector(0.25, 0.75), 0.05, 10),
+    PatternSquare.Square(Vector(0.75, 0.25), 0.05, 10),
+    PatternSquare.Square(Vector(0.75, 0.75), 0.05, 10)
   )
 
 //  println(PatternSquare.pattern(square, Vector(0.549, 0.549)))

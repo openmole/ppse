@@ -26,34 +26,24 @@ object PatternSquare:
       c >= sc - square.size / 2 && c < sc + square.size / 2
     }
 
-//  def patternExtern(square: PatternSquare, point: Vector[Double]) =
-//    grid(square, point)
-//
-
   def patternIntern(square: Square, point: Vector[Double]) =
     def grid(size: Int, x: Vector[Double]) = x.map(_ * size).map(_.floor.toInt)
     val z = 1 / square.size
     grid(square.grid, (point zip square.center).map((c, sc) => (c - sc + square.size / 2) * z))
 
   def pattern(ps: PatternSquare, point: Vector[Double]) =
-    (ps.squares.zipWithIndex).find((s, _) => inSquare(s, point)) match
+    ps.squares.zipWithIndex.find((s, _) => inSquare(s, point)) match
       case None => Vector.fill(point.size + 1)(-1)
       case Some(s, i) => Vector(i) ++ patternIntern(s, point)
-
-//  def patternDensity(square: PatternSquare, dim: Int = 2) =
-//    math.pow(square.s, dim) / math.pow(square.g, dim)
 
   def patternDensity(ps: PatternSquare, p: Vector[Int]) =
     p.head match
       case -1 => patternDensityForRemaining(ps)
       case i => patternDensityForSquare(ps.squares(i))
 
-  def patternDensityForSquare(square: Square) =
-    math.pow(square.size, square.dimension) / math.pow(square.grid, square.dimension)
-
-  def patternDensityForRemaining(patternSquare: PatternSquare) =
-    def volume(square: Square) = math.pow(square.size, square.dimension)
-    1.0 - patternSquare.squares.map(volume).sum
+  def volume(square: Square) = math.pow(square.size, square.dimension)
+  def patternDensityForSquare(square: Square) = volume(square) / math.pow(square.grid, square.dimension)
+  def patternDensityForRemaining(patternSquare: PatternSquare) = 1.0 - patternSquare.squares.map(volume).sum
 
   def allPatterns2D(patternSquare: PatternSquare): Vector[Vector[Int]] =
     Vector(Vector(-1, -1, -1)) ++ {
