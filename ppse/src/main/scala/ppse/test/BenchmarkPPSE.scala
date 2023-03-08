@@ -17,12 +17,15 @@ package ppse.test
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import better.files._
-import mgo.evolution._
-import mgo.evolution.niche._
+import better.files.*
+import breeze.stats.DescriptiveStats
+import mgo.evolution.*
+import mgo.evolution.niche.*
+import org.apache.commons.math3.random.Well44497b
 import ppse.em.EMPPSE.Individual
-import ppse.em._
-import scopt._
+import ppse.em.*
+import scopt.*
+
 import scala.collection.mutable.ListBuffer
 
 //object Benchmark {
@@ -42,6 +45,17 @@ import scala.collection.mutable.ListBuffer
 
 
 @main def benchmarkPPSE(args: String*) =
+  //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
+
+  val square = PatternSquare(
+    PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100),
+    PatternSquare.Square(Vector(0.25, 0.25), 0.1, 100),
+    PatternSquare.Square(Vector(0.25, 0.75), 0.1, 100),
+    PatternSquare.Square(Vector(0.75, 0.25), 0.1, 100),
+    PatternSquare.Square(Vector(0.75, 0.75), 0.1, 100)
+  )
+
+//  println(PatternSquare.pattern(square, Vector(0.549, 0.549)))
 
   case class Config(
     map: Option[File] = None,
@@ -61,72 +75,100 @@ import scala.collection.mutable.ListBuffer
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
+//      def pattern(x: Vector[Double]) =
+//        val p = x.map(_ * 100).map(_.floor.toInt)
+//        p.map( c =>
+//          if c > 100 then 101
+//          else if c < 0 then -1
+//          else c
+//        )
+
       val ppse = EMPPSE(
         lambda = 100,
-        phenotype = DoublePoisson.density,
-        pattern =
-          boundedGrid(
-            lowBound = Vector(0.0, 0.0),
-            highBound = Vector(1.0, 1.0),
-            definition = Vector(50, 50)),
+        phenotype = identity,
+        pattern = PatternSquare.pattern(square, _),
         continuous = Vector.fill(2)(C(0.0, 1.0)),
         dilation = 1.0,
         fitOnRarest = 100)
 
-      def patternToSpace(pattern: Vector[Int]) =
-        def toSpace(x: Int) = x * 1.0 / 50.0
-        pattern.map(p => (toSpace(p), toSpace(p + 1)))
+//      def patternToSpace(pattern: Vector[Int]) =
+//        def toSpace(x: Int) = x * 1.0 / 50.0
+//        pattern.map(p => (toSpace(p), toSpace(p + 1)))
 
-      val allPatterns =
-        for
-          x <- 0 until 50
-          y <- 0 until 50
-        yield Vector(x, y)
+      val allPatterns = PatternSquare.allPatterns2D(square)
 
-      case class Converge(generation: Long, delta: Double)
+      case class Converge(generation: Long, error: Double, missed: Int)
       val converge = ListBuffer[Converge]()
 
 //      val uniformSampling = Benchmark.uniformDensity(Benchmark.squareInSquare _ andThen ppse.pattern)
 
       def evolution =
         ppse.
-          until(afterGeneration(500)).
+          until(afterGeneration(5000)).
           trace { (s, is) =>
-            if(s.generation % 10 == 0) {
+            if(s.generation > 0 && s.generation % 100 == 0) {
               def result = EMPPSE.result(ppse, is, s)
 
               def referenceDensity(p: Vector[Int]) =
-                val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
-                DoublePoisson.inverse(minX, maxX, minY, maxY)
+                if p.head == 1 then 0 else PatternSquare.patternDensity(square, p)
+//                val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
+////                DoublePoisson.inverse(minX, maxX, minY, maxY)
+//                0.0
 
-              val indexPattern = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
+              val indexPattern =
+                val all = allPatterns.toSet
+                val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
+                map.filter((k, _) => all.contains(k))
 
-              val error =
-                allPatterns.map { p =>
-                  val density = indexPattern.getOrElse(p, 0.0)
-                  math.abs(referenceDensity(p) - density)
-                }.sum
+              println(indexPattern(Vector(-1, -1, -1)))
 
-              val c = Converge(s.evaluated, error)
+              val avgError =
+                DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
+
+//              val error =
+//                allPatterns.map { p =>
+//                  val density = indexPattern.getOrElse(p, 1.0)
+//                  ///println(s"density $density ${referenceDensity(p)}")
+//                  math.abs(density - referenceDensity(p))
+//                }.sum
+
+              val missed = allPatterns.size - indexPattern.size
+              val c = Converge(s.evaluated, avgError, missed)
               converge += c
+
+//
+//              println(s.s.hitmap)
+              println(s"error $avgError $missed")
             }
             println(s"Generation ${s.generation}")
           }
 
 
-      val (finalState, finalPopulation) = evolution.eval(new util.Random(42))
+      val rng = newRNG(42)
+      val (finalState, finalPopulation) = evolution.eval(rng)
 
 //      println(converge.map(c => s"${c.generation},${c.delta}").mkString("\n"))
 //
 //      //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
       val result = EMPPSE.result(ppse, finalPopulation, finalState)
+      println(finalState.s.gmm.map(g => GMM.toString(g._1)))
 //
+//      val indexPattern = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
+//      val map =
+//        (0 until 50) map { x =>
+//          (0 until 50) map { y =>
+//            indexPattern.getOrElse(Vector(x, y), 0.0)
+//          }
+//        }
+//
+//      VisuSquare.displayMap(map)
+
 //      //println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
 
       config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0) || r.phenotype.exists(_ < 0.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
       config.trace.foreach { m =>
         m.delete(swallowIOExceptions = true)
-        for (c <- converge) m.appendLine(s"${c.generation}, ${c.delta}")
+        for (c <- converge) m.appendLine(s"${c.generation}, ${c.error}, ${c.missed}")
       }
 //
 //      config.traceGMM.foreach { m =>

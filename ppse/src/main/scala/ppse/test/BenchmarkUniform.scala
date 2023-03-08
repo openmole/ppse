@@ -1,7 +1,8 @@
 package ppse.test
 
 import scala.util.Random
-import better.files._
+import better.files.*
+import breeze.stats.DescriptiveStats
 import mgo.evolution.niche.boundedGrid
 import ppse.test.BenchmarkUniform.uniform2D
 import scopt.OParser
@@ -58,12 +59,31 @@ object BenchmarkUniform {
     )
   }
 
+  val square = PatternSquare(
+    PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100),
+    PatternSquare.Square(Vector(0.25, 0.25), 0.1, 100),
+    PatternSquare.Square(Vector(0.25, 0.75), 0.1, 100),
+    PatternSquare.Square(Vector(0.75, 0.25), 0.1, 100),
+    PatternSquare.Square(Vector(0.75, 0.75), 0.1, 100)
+  )
 
-  def pattern(x: Vector[Double]) =
-    boundedGrid(
-      lowBound = Vector(0.0, 0.0),
-      highBound = Vector(1.0, 1.0),
-      definition = Vector(50, 50))(DoublePoisson.density(x))
+  def pattern(x: Vector[Double]) = PatternSquare.pattern(square, x)
+//
+//    def p(x: Vector[Double]) =
+//      val p = x.map(_ * 100).map(_.floor.toInt)
+//      p.map(c =>
+//        if c > 100 then 101
+//        else if c < 0 then -1
+//        else c
+//      )
+//    p(ExternalSquare.dilate(square, x))
+
+//
+//  def pattern(x: Vector[Double]) =
+//    boundedGrid(
+//      lowBound = Vector(0.0, 0.0),
+//      highBound = Vector(1.0, 1.0),
+//      definition = Vector(50, 50))(ExternalSquare.dilate(square, x))
 
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
@@ -82,34 +102,36 @@ object BenchmarkUniform {
       config.trace.foreach { f =>
         f.delete(swallowIOExceptions = true)
 
-        val allPatterns =
-          for
-            x <- 0 until 50
-            y <- 0 until 50
-          yield Vector(x, y)
+        val allPatterns = PatternSquare.allPatterns2D(square)
 
-        def patternToSpace(pattern: Vector[Int]) =
-          def toSpace(x: Int) = x * 1.0 / 50.0
-          pattern.map(p => (toSpace(p), toSpace(p + 1)))
+//        def patternToSpace(pattern: Vector[Int]) =
+//          def toSpace(x: Int) = x * 1.0 / 50.0
+//          pattern.map(p => (toSpace(p), toSpace(p + 1)))
 
-        def referenceDensity(p: Vector[Int]) =
-          val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
-          DoublePoisson.inverse(minX, maxX, minY, maxY)
+        def referenceDensity(p: Vector[Int]) = PatternSquare.patternDensity(square, p)
+//          val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
+//          DoublePoisson.inverse(minX, maxX, minY, maxY)
 
         for
-          points <- 1000 to 50000 by 1000
+          points <- 10000 to 500000 by 10000
         do
           val p = BenchmarkUniform.uniform2D(pattern, points)
 
-          val indexPattern = p.groupMap(_._1)(_._2).view.mapValues(_.head).toMap
+          val indexPattern =
+            val all = allPatterns.toSet
+            val map = p.groupMap(_._1)(_._2).view.mapValues(_.head).toMap
+            map.filter((k, _) => all.contains(k))
 
-          val error =
-            allPatterns.map { p =>
-              val density = indexPattern.getOrElse(p, 0.0)
-              math.abs(referenceDensity(p) - density)
-            }.sum
+          val avgError =
+            DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
 
-          f.appendLine(s"$points, ${error}")
+          //          val error =
+//            allPatterns.map { p =>
+//              val density = indexPattern.getOrElse(p, 1.0)
+//              math.abs(referenceDensity(p) - density)
+//            }.sum
+
+          f.appendLine(s"$points, ${avgError}, ${allPatterns.size - indexPattern.size}")
       }
     case None =>
   }

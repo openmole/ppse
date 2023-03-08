@@ -224,42 +224,28 @@ object PPSE2Operations {
       minClusterSize: Int,
       random: Random) = {
 
-//        def sortedIndividuals =
-//          (genomes zip patterns).sortBy { case (_, p) => newHitMap.getOrElse(p.toVector, 1) }
-//
-//        def rareIndividuals = sortedIndividuals.take(fitOnRarest)
+      val totalHits = newHitMap.values.sum
 
-
-      def rareIndividuals = {
+      def rareIndividuals =
         val pop = (genomes zip patterns)
-        val rare = pop.filter { case (_, p) => newHitMap.getOrElse(p.toVector, 1) < fitOnRarest }
-        if(rare.size < minClusterSize) pop
-        else rare
-      }
+        if pop.size > fitOnRarest
+        then
+          val weighted = (genomes zip patterns).map { p => (totalHits.toDouble - newHitMap.getOrElse(p._2.toVector, 0), p) }
+          ppse.tool.multinomialDraw(weighted.toVector, fitOnRarest, random).toArray
+        else pop
 
-
-
-      //        def genomeWeights = {
-//          val maxHit = newHitMap.values.max
-//          val minHit = newHitMap.values.min
-//          rareIndividuals.map { case (_, p) =>
-//            val hits = newHitMap.getOrElse(p.toVector, 1)
-//            //math.pow((math.abs(hits - maxHit) + 1) / (maxHit.toDouble - minHit + 1), 1.0 / 4)
-//           (math.abs(hits - minHit - maxHit) + 1) / (maxHit.toDouble - minHit + 1)
-//          }
+//      def genomeWeights =
+//        rareIndividuals.map { (_, p) =>
+//          val hits = newHitMap.getOrElse(p.toVector, 0)
+//          (totalHits - hits) / totalHits.toDouble
+//          //1.0
 //        }
-
-      def genomeWeights =
-        rareIndividuals.map { case (_, p) =>
-          val hits = newHitMap.getOrElse(p.toVector, 1)
-          if(hits < fitOnRarest) fitOnRarest.toDouble - hits else 1.0
-        }
 
       WDFEMGMM.initializeAndFit(
         iterations = iterations,
         tolerance = tolerance,
         x = rareIndividuals.map(_._1),
-        dataWeights = Some(genomeWeights),
+        //dataWeights = Some(genomeWeights),
         minClusterSize = minClusterSize,
         random = random
       ) map { case (newGMM, _) =>
@@ -294,7 +280,7 @@ object PPSE2Operations {
         addHits(offspringPatterns, hitMap)
       }
 
-      def newDensityMap = {
+      def newDensityMap =
         def offSpringDensities = {
           val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
           groupedGenomes.view.mapValues(v => v.map(p => 1 / p._2)).toSeq
@@ -303,7 +289,6 @@ object PPSE2Operations {
         offSpringDensities.foldLeft(densityMap) { case (map, (pattern, densities)) =>
           map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
         }
-      }
 
       if (genomes.size < minClusterSize * 2) (newHitMap, None, newDensityMap)
       else {

@@ -332,6 +332,32 @@ package ppse :
       sampleArray(sampler, n - 1, newState, newSample :: res)
     else (state, res.reverse.toArray)
 
+  /* --------- Multinomial ------------------- */
+
+  def multinomialDraw[T](s: Vector[(Double, T)], n: Int, rng: util.Random): Vector[T] = {
+    assert(!s.isEmpty, "Input sequence should not be empty")
+    assert(n <= s.size)
+
+    def select(remaining: List[(Double, T)], value: Double, begin: List[(Double, T)] = List.empty): (T, List[(Double, T)]) =
+      remaining match {
+        case (weight, e) :: tail =>
+          if (value <= weight) (e, begin.reverse ::: tail)
+          else select(tail, value - weight, (weight, e) :: begin)
+        case _ => sys.error(s"Bug $remaining $value $begin")
+      }
+
+    def drawN(n: Int, list: List[(Double, T)], acc: List[T] = List.empty): Vector[T] =
+      if n == 0
+      then acc.toVector
+      else
+        val totalWeight = list.unzip._1.sum
+        val (t, l) = select(list, rng.nextDouble * totalWeight)
+        drawN(n - 1, l, t :: acc)
+
+    drawN(n, s.toList)
+  }
+
+
 
   /* --------- Evolutionnary algorithm -------- */
 
@@ -371,21 +397,30 @@ package ppse :
     minClusterSize: Int,
     random: Random) =
 
-    def rarestIndividuals = (genomes zip patterns).sortBy { case (_, p) => hitMap.getOrElse(p.toVector, 1) }.take(fitOnRarest)
-    def rarestGenomes = rarestIndividuals.map(_._1)
+    val totalHits = hitMap.values.sum
+    val rareIndividuals =
+      if genomes.size > fitOnRarest
+      then
+        val weighted = (genomes zip patterns).map { (g, p) => (totalHits.toDouble - hitMap.getOrElse(p.toVector, 0), (g, p)) }
+        multinomialDraw(weighted.toVector, fitOnRarest, random).toArray
+      else genomes zip patterns
 
-    val genomeWeights =
-      rarestIndividuals.map { case (_, p) =>
-        val hits = hitMap.getOrElse(p.toVector, 1)
-        if(hits < fitOnRarest) fitOnRarest.toDouble - hits else 1.0
+    //def rarestIndividuals = (genomes zip patterns).sortBy { case (_, p) => hitMap.getOrElse(p.toVector, 1) }.take(fitOnRarest)
+    //def genomeWeights = Array.fill(rarestGenomes.size)(1.0)
+
+    def genomeWeights =
+      rareIndividuals.map { (_, p) =>
+        val hits = hitMap.getOrElse(p.toVector, 0)
+        (totalHits - hits) / totalHits.toDouble
+        //if (hits < fitOnRarest) fitOnRarest.toDouble - hits else 1.0
       }
 
-    val (means, covariances, clusterWeights) = clusterize(rarestGenomes, genomeWeights, minClusterSize, random)
+    val (means, covariances, clusterWeights) = clusterize(rareIndividuals.map(_._1), genomeWeights, minClusterSize, random)
 
     def initialGMM = GMM(means = means, covariances = covariances, weights = clusterWeights)
 
     fitGMM(
-      x = rarestGenomes,
+      x = rareIndividuals.map(_._1),
       dataWeights = genomeWeights,
       gmm = initialGMM,
       iterations = iterations,
