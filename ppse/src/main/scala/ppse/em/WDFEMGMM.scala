@@ -34,7 +34,7 @@ object WDFEMGMM  {
     dataWeights: Option[Array[Double]] = None,
     minClusterSize: Int,
     random: Random): Try[(GMM, Seq[Double])] = {
-    def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0))
+    def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0 / x.length))
 
     // initialize parameters using KMeans
     val (means, covariances, weights) = Clustering.build(x, dataWeigthsValue, minClusterSize)

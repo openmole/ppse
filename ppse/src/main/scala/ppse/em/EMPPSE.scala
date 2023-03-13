@@ -224,13 +224,13 @@ object PPSE2Operations {
       minClusterSize: Int,
       random: Random) = {
 
-      val totalHits = newHitMap.values.sum
+      val maxHits = newHitMap.values.max
 
       def rareIndividuals =
         val pop = (genomes zip patterns)
         if pop.size > fitOnRarest
         then
-          val weighted = (genomes zip patterns).map { p => (totalHits.toDouble - newHitMap.getOrElse(p._2.toVector, 0), p) }
+          val weighted = (genomes zip patterns).map { p => (maxHits.toDouble - newHitMap.getOrElse(p._2.toVector, 0), p) }
           ppse.tool.multinomialDraw(weighted.toVector, fitOnRarest, random).toArray
         else pop
 
