@@ -27,7 +27,7 @@ object Clustering {
   }
 
   def build(x: Array[Array[Double]], dataWeights: Array[Double], minPoints: Int): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
-    val pointSize = x.head.length
+    //val pointSize = x.head.length
 
     def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
       def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
@@ -39,7 +39,7 @@ object Clustering {
       val weight = Array(1.0)
       val covariance = {
         val clusterMatrix = Breeze.arrayToDenseMatrix(x)
-        val centroidVector = new DenseVector(centroids)
+        val centroidVector = new DenseVector[Double](centroids)
         Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
       }
       (Array(centroids), Array(covariance), weight)
@@ -50,12 +50,20 @@ object Clustering {
     import jsat.linear.distancemetrics._
 
     val hdbScan = new HDBSCAN
+    /*
+     Setting the number of neighbors to consider, acts as a smoothing over the density estimate (minPoints) and
+     the minimum number of data points needed to form a cluster (minClusterSize) to the same value.
+     */
     hdbScan.setMinPoints(minPoints)
+    hdbScan.setMinClusterSize(minPoints)
     
-    if (x.size <= hdbScan.getMinPoints) buildSingleCluster()
+    if (x.length <= hdbScan.getMinPoints) buildSingleCluster()
     else {
       val dataSet = {
-        val dataPoints = (x zip dataWeights).map { case (p, w) => new DataPoint(new jsat.linear.DenseVector(p), w) }
+        val dataPoints = (x zip dataWeights).map {
+          case (p, w) =>
+            new DataPoint(new jsat.linear.DenseVector(p), w)
+        }
         new SimpleDataSet(dataPoints.toList.asJava)
       }
 
@@ -74,9 +82,10 @@ object Clustering {
 
         val covariances = (clusters zip centroids).map { case (cluster, centroid) =>
           val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
-          val centroidVector = new DenseVector(centroid)
+          val centroidVector = new DenseVector[Double](centroid)
           cov(clusterMatrix, centroidVector)
         }
+        assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
         (centroids, covariances.map(Breeze.matrixToArray), weights)
       } else buildSingleCluster()
