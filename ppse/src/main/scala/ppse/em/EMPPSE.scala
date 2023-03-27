@@ -98,8 +98,9 @@ object EMPPSE {
 
   def breeding[P](
     continuous: Vector[C],
-    lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual[P], Genome] =
-    PPSE2Operations.breeding(continuous, identity[Genome] _, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
+    lambda: Int,
+    explorationProbability: Double): Breeding[EvolutionState[EMPPSEState], Individual[P], Genome] =
+    PPSE2Operations.breeding(continuous, identity[Genome] _, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get, explorationProbability)
 
   def elitism[P: CanBeNaN](
     pattern: P => Vector[Int],
@@ -138,7 +139,7 @@ object EMPPSE {
     def step(t: EMPPSE) =
       (s, pop, rng) =>
         deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
-          EMPPSE.breeding(t.continuous, t.lambda),
+          EMPPSE.breeding(t.continuous, t.lambda, t.explorationProbability),
           EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
           EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.fitOnRarest),
           Focus[EvolutionState[EMPPSEState]](_.generation),
@@ -166,6 +167,7 @@ case class EMPPSE(
   phenotype: Vector[Double] => Vector[Double],
   pattern: Vector[Double] => Vector[Int],
   continuous: Vector[C],
+  explorationProbability: Double = 0.1,
   iterations: Int = 1000,
   tolerance: Double = 0.0001,
   warmupSampler: Int = 10000,
@@ -181,14 +183,19 @@ object PPSE2Operations {
     buildGenome: ((Array[Double], Double)) => G,
     lambda: Int,
     //reject: Option[G => Boolean],
-    gmm: S => Option[(GMM, RejectionSampler.State)]
+    gmm: S => Option[(GMM, RejectionSampler.State)],
+    explorationProbability: Double,
   ): Breeding[S, I, G] =
     (s, population, rng) => {
 
       def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Array.fill(genomeLength)(() => rng.nextDouble()).map(_())
+      def randomIndividuals = (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng), 1.0)).toVector
+
+      val explorationStep = rng.nextDouble() < explorationProbability
 
       gmm(s) match {
-        case None => (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng), 1.0)).toVector
+        case None => randomIndividuals
+        case _ if explorationStep => randomIndividuals
         case Some((gmmValue, rejectionSamplerState)) =>
 
           val sampler = EMPPSE.toSampler(gmmValue, rng)
@@ -270,28 +277,26 @@ object PPSE2Operations {
       warmupSampler: Int,
       minClusterSize: Int,
       fitOnRarest: Int,
-      random: Random): (HitMap, Option[(GMM, RejectionSampler.State)], DensityMap) = {
+      random: Random): (HitMap, Option[(GMM, RejectionSampler.State)], DensityMap) =
 
-      val newHitMap = {
+      val newHitMap =
         def addHits(offspringPatterns: Array[Array[Int]], hitmap: HitMap): HitMap = {
           def hits(map: HitMap, c: Vector[Int]) = map.updated(c, map.getOrElse(c, 0) + 1)
           offspringPatterns.foldLeft(hitmap)((m, p) => hits(m, p.toVector))
         }
         addHits(offspringPatterns, hitMap)
-      }
 
       def newDensityMap =
-        def offSpringDensities = {
+        def offSpringDensities =
           val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
           groupedGenomes.view.mapValues(v => v.map(p => 1 / p._2)).toSeq
-        }
 
         offSpringDensities.foldLeft(densityMap) { case (map, (pattern, densities)) =>
           map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
         }
 
       if (genomes.size < minClusterSize * 2) (newHitMap, None, newDensityMap)
-      else {
+      else
         def newGMM =
           updateGMM(
             genomes = genomes,
@@ -306,8 +311,6 @@ object PPSE2Operations {
           )
 
         (newHitMap, newGMM.toOption, newDensityMap)
-      }
-    }
 
     def offSpringWithNoNan = filterNaN(candidates, phenotype)
     def keepFirst(i: Vector[I]) = Vector(i.head)
