@@ -44,6 +44,8 @@ import scala.collection.mutable.ListBuffer
 //}
 
 
+case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: Option[GMM])
+
 @main def benchmarkPPSE(args: String*) =
   //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
 
@@ -54,12 +56,13 @@ import scala.collection.mutable.ListBuffer
     PatternSquare.Square(Vector(0.75, 0.25), 0.01, 10),
     PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
   )
-
+  
 //  println(PatternSquare.pattern(square, Vector(0.549, 0.549)))
 
   case class Config(
     map: Option[File] = None,
-    trace: Option[File] = None)
+    trace: Option[File] = None,
+    draw: Option[File] = None)
 
   val builder = OParser.builder[Config]
 
@@ -69,7 +72,8 @@ import scala.collection.mutable.ListBuffer
       programName("ppsetest"),
       head("scopt", "4.x"),
       opt[String]('m', "map").action((x, c) => c.copy(map = Some(File(x)))),
-      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x))))
+      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x)))),
+      opt[String]('d', "draw").action((x, c) => c.copy(draw = Some(File(x))))
     )
   }
 
@@ -97,8 +101,15 @@ import scala.collection.mutable.ListBuffer
 
       val allPatterns = PatternSquare.allPatterns2D(square)
 
-      case class Converge(generation: Long, error: Double, missed: Int)
-      val converge = ListBuffer[Converge]()
+      object RunInfo:
+        case class Converge(error: Double, missed: Int)
+        case class Draw(points: Vector[Vector[Double]], gmm: Option[GMM])
+
+
+
+      case class RunInfo(evaluation: Long, converge: RunInfo.Converge, draw: RunInfo.Draw)
+
+      val runInfo = ListBuffer[RunInfo]()
 
 //      val uniformSampling = Benchmark.uniformDensity(Benchmark.squareInSquare _ andThen ppse.pattern)
 
@@ -122,23 +133,27 @@ import scala.collection.mutable.ListBuffer
 
               println(indexPattern(Vector(-1, -1, -1)))
 
-              val avgError =
-                DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
+              val converge =
+                val avgError =
+                  DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
 
-//              val error =
-//                allPatterns.map { p =>
-//                  val density = indexPattern.getOrElse(p, 1.0)
-//                  ///println(s"density $density ${referenceDensity(p)}")
-//                  math.abs(density - referenceDensity(p))
-//                }.sum
+                  //              val error =
+                  //                allPatterns.map { p =>
+                  //                  val density = indexPattern.getOrElse(p, 1.0)
+                  //                  ///println(s"density $density ${referenceDensity(p)}")
+                  //                  math.abs(density - referenceDensity(p))
+                  //                }.sum
 
-              val missed = allPatterns.size - indexPattern.size
-              val c = Converge(s.evaluated, avgError, missed)
-              converge += c
+                val missed = allPatterns.size - indexPattern.size
+                RunInfo.Converge(avgError, missed)
 
-//
+              val draw = RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))
+              runInfo += RunInfo(s.evaluated, converge, draw)
+
+
+              //
 //              println(s.s.hitmap)
-              println(s"error $avgError $missed")
+              println(s"error ${converge.error} ${converge.missed}")
             }
             println(s"Generation ${s.generation}")
           }
@@ -168,7 +183,18 @@ import scala.collection.mutable.ListBuffer
       config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0) || r.phenotype.exists(_ < 0.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
       config.trace.foreach { m =>
         m.delete(swallowIOExceptions = true)
-        for (c <- converge) m.appendLine(s"${c.generation}, ${c.error}, ${c.missed}")
+        for c <- runInfo do m.appendLine(s"${c.evaluation}, ${c.converge.error}, ${c.converge.missed}")
+      }
+
+      config.draw.foreach { f =>
+        import io.circe.*
+        import io.circe.generic.auto.*
+        import io.circe.syntax.*
+
+        f.delete(swallowIOExceptions = true)
+
+        def draw = runInfo.map(i => PPSEDrawState(i.evaluation, i.draw.points, i.draw.gmm)).toSeq
+        f.write(draw.asJson.noSpaces)
       }
 //
 //      config.traceGMM.foreach { m =>

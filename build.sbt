@@ -1,6 +1,7 @@
 name := "ppse"
 
 val breezeVersion = "2.0.1-RC2"
+val circeVersion = "0.14.5"
 
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
@@ -20,8 +21,21 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   libraryDependencies += "org.locationtech.jts" % "jts-core" % "1.18.1",
   libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.4" cross CrossVersion.for3Use2_13,
     scalacOptions ++= Seq("-Ymacro-annotations", "-language:postfixOps"),
+
+  libraryDependencies ++= Seq(
+    "io.circe" %% "circe-core",
+    "io.circe" %% "circe-generic",
+    "io.circe" %% "circe-parser"
+  ).map(_ % circeVersion),
+
   excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13")
 )
+
+/*lazy val visu = Project("visu", file("visu")) settings {
+  scalaVersion := "3.2.2",
+  libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.4",
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
+}*/
 
 
 
