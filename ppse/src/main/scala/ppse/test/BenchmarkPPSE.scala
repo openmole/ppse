@@ -56,7 +56,7 @@ case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: O
     PatternSquare.Square(Vector(0.75, 0.25), 0.01, 10),
     PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
   )
-  
+
 //  println(PatternSquare.pattern(square, Vector(0.549, 0.549)))
 
   case class Config(
@@ -107,7 +107,7 @@ case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: O
 
 
 
-      case class RunInfo(evaluation: Long, converge: RunInfo.Converge, draw: RunInfo.Draw)
+      case class RunInfo(evaluation: Long, converge: RunInfo.Converge, draw: Option[RunInfo.Draw])
 
       val runInfo = ListBuffer[RunInfo]()
 
@@ -147,7 +147,7 @@ case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: O
                 val missed = allPatterns.size - indexPattern.size
                 RunInfo.Converge(avgError, missed)
 
-              val draw = RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))
+              val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None
               runInfo += RunInfo(s.evaluated, converge, draw)
 
 
@@ -193,7 +193,7 @@ case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: O
 
         f.delete(swallowIOExceptions = true)
 
-        def draw = runInfo.map(i => PPSEDrawState(i.evaluation, i.draw.points, i.draw.gmm)).toSeq
+        def draw = runInfo.map(i => PPSEDrawState(i.evaluation, i.draw.get.points, i.draw.get.gmm)).toSeq
         f.write(draw.asJson.noSpaces)
       }
 //
