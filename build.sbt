@@ -31,13 +31,13 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13")
 )
 
-/*lazy val visu = Project("visu", file("visu")) settings {
+lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).settings (
   scalaVersion := "3.2.2",
-  libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.4",
-  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
-}*/
-
-
+  libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.2.0",
+  scalaJSUseMainModuleInitializer := true
+//  libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.4",
+//  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
+)
 
 lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   version := "1.0-SNAPSHOT",
