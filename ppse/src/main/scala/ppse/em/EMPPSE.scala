@@ -217,7 +217,7 @@ object PPSE2Operations {
     tolerance: Double,
     dilation: Double,
     warmupSampler: Int,
-    minClusterSize: Int = 10,
+    minClusterSize: Int = 3,
     fitOnRarest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
     def updateGMM(
