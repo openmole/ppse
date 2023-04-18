@@ -37,7 +37,13 @@ object WDFEMGMM  {
     def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0 / x.length))
 
     // initialize parameters using KMeans
-    val (means, covariances, weights) = Clustering.build(x, dataWeigthsValue, minClusterSize)
+    val (means, covariances, weights) = Try{Clustering.build(x, dataWeigthsValue, minClusterSize)} match {
+      case Success(v) => v
+      case Failure(e) =>
+        println("fail:")
+        e.printStackTrace()
+        Clustering.build(x, dataWeigthsValue, minClusterSize)
+    }
 
     assert(covariances.forall(_.forall(_.forall(!_.isNaN))),s"covariances with nan: ${covariances.mkString("\n")}")
 

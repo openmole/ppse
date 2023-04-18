@@ -43,8 +43,9 @@ import scala.util.Random
   def draw(i: Int, points: Int, rng: Random) =
     (0 until points).map(_ => drawInSquare(square.squares(i), rng))
 
-  val points = draw(0, 80, rng) ++ (1 to 4).flatMap(i => draw(i, 5, rng))
+  val points = draw(0, 80, rng) ++ (1 to 4).flatMap(i => draw(i, 3, rng))
 
   val clusters = Clustering.build(points.toArray, points.map(_ => 1.0).toArray, 3)
+  println("CLUSTERS")
+  println(clusters._1.toSeq.map{p => "POINT("+p.toSeq.mkString(" ")+")"}.mkString("\n"))
 
-  println(clusters._1.toSeq.map(_.toSeq).mkString)

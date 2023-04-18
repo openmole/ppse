@@ -62,6 +62,7 @@ object Clustering {
       val dataSet = {
         val dataPoints = (x zip dataWeights).map {
           case (p, w) =>
+//            println("Point("+p.mkString(" ")+")")
             new DataPoint(new jsat.linear.DenseVector(p), w)
         }
         new SimpleDataSet(dataPoints.toList.asJava)
@@ -85,6 +86,12 @@ object Clustering {
           val centroidVector = new DenseVector[Double](centroid)
           cov(clusterMatrix, centroidVector)
         }
+/*
+        println("centroids:")
+        centroids.map{p=>println("POINT("+p.mkString(" ")+")")}
+        covariances.map{p=>println("COV\n"+p)}
+*/
+        //assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
         (centroids, covariances.map(Breeze.matrixToArray), weights)
       } else buildSingleCluster()
