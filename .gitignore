@@ -11,3 +11,4 @@ pom.xml
 tags
 .bsp/
 .bsp/*
+package-lock.json
