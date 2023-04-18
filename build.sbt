@@ -2,12 +2,18 @@ name := "ppse"
 
 val breezeVersion = "2.0.1-RC2"
 val circeVersion = "0.14.5"
+val Scala3Version = "3.2.2"
+val laminarVersion = "15.0.1"
+val scalajsDomVersion = "2.0.0"
+val endpoints4SVersion = "1.9.0"
+val endpointCirceVersion = "2.3.0"
+
 
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
 
 lazy val ppse = Project("ppse", file("ppse")).settings (
-  scalaVersion := "3.2.2",
+  scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" cross CrossVersion.for3Use2_13,
   libraryDependencies += "org.openmole" %% "mgo" % "3.55",
@@ -34,7 +40,12 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
 lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).settings (
   scalaVersion := "3.2.2",
   libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.2.0",
-  scalaJSUseMainModuleInitializer := true
+  //scalaJSUseMainModuleInitializer := true,
+  libraryDependencies ++= Seq(
+    "io.circe" %% "circe-core",
+    "io.circe" %% "circe-generic",
+    "io.circe" %% "circe-parser"
+  ).map(_ % circeVersion),
 //  libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.4",
 //  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
 )
@@ -51,6 +62,60 @@ lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
 )
 
 //resolvers += Resolver.sonatypeRepo("snapshots")
+
+
+
+
+//Global / resolvers += Resolver.sonatypeRepo("staging")
+
+
+lazy val shared = project.in(file("visu/shared")) settings (
+  scalaVersion := Scala3Version,
+  libraryDependencies ++= Seq(
+    "org.endpoints4s" %%% "algebra" % endpoints4SVersion,
+    "org.endpoints4s" %%% "json-schema-circe" % endpointCirceVersion,
+    "io.circe" %% "circe-generic" % "0.14.3")
+) enablePlugins (ScalaJSPlugin)
+
+lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin) settings(
+  scalaVersion := Scala3Version,
+  scalaJSUseMainModuleInitializer := false,
+  webpackBundlingMode := BundlingMode.LibraryAndApplication(),
+  webpackNodeArgs := Seq("--openssl-legacy-provider"),
+  libraryDependencies ++= Seq(
+    "com.raquo" %%% "laminar" % laminarVersion,
+//    "org.openmole.scaladget" %%% "tools" % scaladgetVersion,
+//    "org.openmole.scaladget" %%% "svg" % scaladgetVersion,
+//    "org.openmole.scaladget" %%% "bootstrapnative" % scaladgetVersion,
+    "org.scala-js" %%% "scalajs-dom" % scalajsDomVersion,
+    "org.openmole.endpoints4s" %%% "xhr-client" % "5.1.0+n"
+  )
+) dependsOn (shared)
+
+lazy val server = project.in(file("visu/server")) settings(
+  scalaVersion := Scala3Version,
+  libraryDependencies ++= Seq(
+//    "com.lihaoyi" %% "scalatags" % scalatagsVersion,
+    "org.endpoints4s" %% "http4s-server" % "10.1.0",
+    "org.http4s" %% "http4s-blaze-server" % "0.23.12",
+    "io.circe" %% "circe-parser" % "0.14.3",
+//    "com.raquo" %%% "laminar" % laminarVersion
+
+    //    "org.endpoints4s" %% "akka-http-server" % "6.1.0+n",
+    //    "com.typesafe.akka" %% "akka-stream" % "2.6.18" //cross CrossVersion.for3Use2_13
+  ),
+
+  Compile / compile := {
+    val jsBuild = (client / Compile / fullOptJS / webpack).value.head.data
+
+    val demoTarget = target.value
+    val demoResource = (client / Compile / resourceDirectory).value
+
+    IO.copyFile(jsBuild, demoTarget / "webapp/js/demo.js")
+    IO.copyDirectory(demoResource, demoTarget)
+    (Compile / compile).value
+  }
+) dependsOn (shared)
 
 
 
