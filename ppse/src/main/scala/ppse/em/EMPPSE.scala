@@ -217,7 +217,7 @@ object PPSE2Operations {
     tolerance: Double,
     dilation: Double,
     warmupSampler: Int,
-    minClusterSize: Int = 3,
+    minClusterSize: Int = 2,
     fitOnRarest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
     def updateGMM(
@@ -259,6 +259,7 @@ object PPSE2Operations {
         minClusterSize = minClusterSize,
         random = random
       ) map { case (newGMM, _) =>
+        //println("GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( " " ))
         val dilatedGMM = EMGMM.dilate(newGMM, dilation)
         val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
