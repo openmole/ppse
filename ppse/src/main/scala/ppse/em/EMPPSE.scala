@@ -237,9 +237,12 @@ object PPSE2Operations {
         val pop = (genomes zip patterns)
         if pop.size > fitOnRarest
         then
-          val weighted = (genomes zip patterns).map { p => (maxHits.toDouble - newHitMap.getOrElse(p._2.toVector, 0), p) }
+          val weighted = (genomes zip patterns).map { p =>
+            val weight = maxHits.toDouble - newHitMap.getOrElse(p._2.toVector, 0)
+            (weight, (p, weight))
+          }
           ppse.tool.multinomialDraw(weighted.toVector, fitOnRarest, random).toArray
-        else pop
+        else pop.map(p => (p, 1.0))
 
 //      def genomeWeights =
 //        rareIndividuals.map { (_, p) =>
@@ -251,8 +254,8 @@ object PPSE2Operations {
       WDFEMGMM.initializeAndFit(
         iterations = iterations,
         tolerance = tolerance,
-        x = rareIndividuals.map(_._1),
-        //dataWeights = Some(genomeWeights),
+        x = rareIndividuals.map(_._1._1),
+        dataWeights = Some(rareIndividuals.map(_._2)),
         minClusterSize = minClusterSize,
         random = random
       ) map { case (newGMM, _) =>
