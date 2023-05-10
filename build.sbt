@@ -77,7 +77,7 @@ lazy val shared = project.in(file("visu/shared")) settings (
     "io.circe" %% "circe-generic" % "0.14.3")
 ) enablePlugins (ScalaJSPlugin)
 
-lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin) settings(
+lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin, ScalablyTypedConverterPlugin) settings(
   scalaVersion := Scala3Version,
   scalaJSUseMainModuleInitializer := false,
   webpackBundlingMode := BundlingMode.LibraryAndApplication(),
@@ -89,7 +89,11 @@ lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, S
 //    "org.openmole.scaladget" %%% "bootstrapnative" % scaladgetVersion,
     "org.scala-js" %%% "scalajs-dom" % scalajsDomVersion,
     "org.openmole.endpoints4s" %%% "xhr-client" % "5.1.0+n"
-  )
+  ),
+  Compile / npmDependencies ++= Seq(
+    //"react-router-dom" -> "5.1.2",
+    "@types/fabric" -> "5.3.2"
+  ),
 ) dependsOn (shared)
 
 lazy val server = project.in(file("visu/server")) settings(

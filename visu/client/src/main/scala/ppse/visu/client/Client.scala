@@ -13,6 +13,8 @@ import com.raquo.laminar.api.L._
 
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
 
+import typings.fabric.mod.fabric.Ellipse
+
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
 object App {
@@ -20,6 +22,7 @@ object App {
   //def main(args: Array[String]): Unit = {
 
   def graph() = {
+    
     println("Hello world!")
 
     val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]
