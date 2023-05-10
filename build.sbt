@@ -91,8 +91,8 @@ lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, S
     "org.openmole.endpoints4s" %%% "xhr-client" % "5.1.0+n"
   ),
   Compile / npmDependencies ++= Seq(
-    //"react-router-dom" -> "5.1.2",
-    "@types/fabric" -> "5.3.2"
+    "fabric" -> "5.3.0",
+    "@types/fabric" -> "5.3.0"
   ),
 ) dependsOn (shared)
 

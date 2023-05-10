@@ -13,7 +13,8 @@ import com.raquo.laminar.api.L._
 
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
 
-import typings.fabric.mod.fabric.Ellipse
+import typings.fabric.mod.fabric
+import typings.fabric.fabricImplMod
 
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
@@ -22,30 +23,46 @@ object App {
   //def main(args: Array[String]): Unit = {
 
   def graph() = {
-    
+
     println("Hello world!")
+    val c = new fabric.Canvas("canvas")
 
-    val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]
-    println(canvas)
+    val o = fabricImplMod.IEllipseOptions()
 
-    val w = 300
-    canvas.width = w
-    canvas.height = w
+    o.left = 215
+    o.top = 100
+    o.rx = 90
+    o.ry = 50
+    o.fill = "red"
+    o.borderColor = "blue"
+    val e = new fabric.Ellipse(o)
 
-    type Ctx2D = CanvasRenderingContext2D
-    val ctx = canvas.getContext("2d").asInstanceOf[Ctx2D]
+    c.add(e)
 
-    ctx.strokeStyle = "red"
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(w / 3, 0)
-    ctx.lineTo(w / 3, w / 3)
-    ctx.moveTo(w * 2 / 3, 0)
-    ctx.lineTo(w * 2 / 3, w / 3)
-    ctx.moveTo(w, w / 2)
-    ctx.arc(w / 2, w / 2, w / 2, 0, 3.14)
+    c.setWidth(document.body.scrollWidth)
+    c.setHeight(250)
 
-    ctx.stroke()
+//    val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]
+//    println(canvas)
+//
+//    val w = 300
+//    canvas.width = w
+//    canvas.height = w
+//
+//    type Ctx2D = CanvasRenderingContext2D
+//    val ctx = canvas.getContext("2d").asInstanceOf[Ctx2D]
+//
+//    ctx.strokeStyle = "red"
+//    ctx.lineWidth = 3
+//    ctx.beginPath()
+//    ctx.moveTo(w / 3, 0)
+//    ctx.lineTo(w / 3, w / 3)
+//    ctx.moveTo(w * 2 / 3, 0)
+//    ctx.lineTo(w * 2 / 3, w / 3)
+//    ctx.moveTo(w, w / 2)
+//    ctx.arc(w / 2, w / 2, w / 2, 0, 3.14)
+//
+//    ctx.stroke()
 //    val nodes = Seq(
 //      Graph.task("one", 400, 600),
 //      Graph.task("two", 1000, 600),
