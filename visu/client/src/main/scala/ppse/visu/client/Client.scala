@@ -9,10 +9,10 @@ import org.scalajs.dom.html.Canvas
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
-import com.raquo.laminar.api.L._
+import com.raquo.laminar.api.L.*
+import ppse.visu.shared.Data
 
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
-
 import typings.fabric.mod.fabric
 import typings.fabric.fabricImplMod
 
@@ -36,19 +36,36 @@ object App:
 
     val c = new fabric.Canvas("canvas")
 
+    APIClient.ellipse(Data.CovarianceParameters(100,100, Array(Array(8.4213,0),Array(0.0,0.9387)))).future.foreach{
+      ep =>
+      val o = fabricImplMod.IEllipseOptions()
+
+      o.left = ep.centerX
+      o.top = ep.centerY
+      o.rx = ep.radiusX
+      o.ry = ep.radiusY
+      o.fill = "green"
+
+      o.borderColor = "blue"
+      val e = new fabric.Ellipse(o)
+      e.rotate(ep.angle)
+      c.add(e)
+    }
+/*
     val o = fabricImplMod.IEllipseOptions()
 
-    o.left = 215
-    o.top = 100
-    o.rx = 90
-    o.ry = 50
+    o.left = 5
+    o.top = 5
+    o.rx = 23.66431913239847
+    o.ry = 15.49193338482967
     o.fill = "red"
 
     o.borderColor = "blue"
     val e = new fabric.Ellipse(o)
-    e.rotate(30)
+    e.rotate(45.0)
 
     c.add(e)
+*/
 
     c.setWidth(xSize)
     c.setHeight(ySize)

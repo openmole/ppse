@@ -86,11 +86,11 @@ object Clustering {
           val centroidVector = new DenseVector[Double](centroid)
           cov(clusterMatrix, centroidVector)
         }
-/*
+
         println("centroids:")
         centroids.map{p=>println("POINT("+p.mkString(" ")+")")}
         covariances.map{p=>println("COV\n"+p)}
-*/
+
         //assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
         (centroids, covariances.map(Breeze.matrixToArray), weights)

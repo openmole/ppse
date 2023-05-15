@@ -37,6 +37,12 @@ trait APIEndpoint
       ok(jsonResponse[Data.RunData])
     )
 
+  val ellipse: Endpoint[Data.CovarianceParameters, Data.EllipseParameters] =
+    endpoint(
+      post(path / "ellipse", jsonRequest[Data.CovarianceParameters]),
+      ok(jsonResponse[Data.EllipseParameters])
+    )
+
   // Generically derive the JSON schema of our `Counter`
   // and `Increment` case classes defined thereafter
 //  implicit lazy val fooEnc: Encoder[Data.Foo] = implicitly //JsonSchema[Data.Foo]

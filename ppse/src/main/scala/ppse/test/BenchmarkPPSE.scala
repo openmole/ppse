@@ -92,7 +92,7 @@ import scala.collection.mutable.ListBuffer
         phenotype = identity,
         pattern = PatternSquare.pattern(square, _),
         continuous = Vector.fill(2)(C(0.0, 1.0)),
-        dilation = 1.0,
+        dilation = 2.0,
         fitOnRarest = 100)
 
 //      def patternToSpace(pattern: Vector[Int]) =

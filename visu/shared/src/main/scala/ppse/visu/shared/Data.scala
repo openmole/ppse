@@ -22,4 +22,6 @@ object Data {
 
   case class RunState(evaluation: Long)
   case class RunData(states: Seq[RunState])
+  case class CovarianceParameters(meanX: Double, meanY: Double, covariance: Array[Array[Double]])
+  case class EllipseParameters(centerX: Double, centerY: Double, radiusX:Double, radiusY: Double, angle: Double)
 }
