@@ -24,7 +24,12 @@ object App {
 
   def graph() = {
 
-    println("Hello world!")
+    def xSize = 800 // document.body.clientWidth
+    def ySize = 800 //document.body.clientHeight
+
+    def toX(v: Double) = v * xSize
+    def toY(v: Double) = v * ySize
+
     val c = new fabric.Canvas("canvas")
 
     val o = fabricImplMod.IEllipseOptions()
@@ -39,8 +44,8 @@ object App {
 
     c.add(e)
 
-    c.setWidth(document.body.scrollWidth)
-    c.setHeight(250)
+    c.setWidth(xSize)
+    c.setHeight(ySize)
 
 //    val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]
 //    println(canvas)
