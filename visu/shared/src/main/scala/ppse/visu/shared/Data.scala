@@ -20,7 +20,13 @@ package ppse.visu.shared
 object Data {
   case class Foo(bar: Int)
 
-  case class GMMData()
-  case class RunState(evaluation: Long)
+  type PointData = Vector[Double]
+
+  case class GMMData(
+    means: Array[Array[Double]],
+    covariances: Array[Array[Array[Double]]],
+    weights: Array[Double])
+
+  case class RunState(evaluation: Long, gmm: Option[GMMData], point: Seq[PointData])
   case class RunData(states: Seq[RunState])
 }

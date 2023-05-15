@@ -30,8 +30,22 @@ class APIServer(data: java.io.File)
 
   val runDataRoute =
     runData.implementedBy { _ =>
+      def toGMMData(gmm: ppse.em.GMM) =
+        Data.GMMData(gmm.means, gmm.covariances, gmm.weights)
+
+
       val d = Serialization.load(data.listFiles().head)
-      Data.RunData(d.states.map(d => Data.RunState(d.evaluation)))
+
+      def toStateData =
+        d.states.map { s =>
+          Data.RunState(
+            s.evaluation,
+            s.gmm.map(toGMMData),
+            s.point
+          )
+        }
+
+      Data.RunData(toStateData)
     }
 
 
