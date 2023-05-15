@@ -18,11 +18,15 @@ import typings.fabric.fabricImplMod
 
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
-object App {
+object App:
 
   //def main(args: Array[String]): Unit = {
 
-  def graph() = {
+  def graph() =
+
+    APIClient.runData(()).future.foreach { data =>
+      println(data)
+    }
 
     def xSize = 800 // document.body.clientWidth
     def ySize = 800 //document.body.clientHeight
@@ -89,22 +93,5 @@ object App {
 //
 //    println(containerNode)
 //    render(containerNode, graphCreator.svgNode)
-  }
-}
 
-//object Post extends autowire.Client[ByteBuffer, Pickler, Pickler] {
-//
-//  override def doCall(req: Request): Future[ByteBuffer] = {
-//    dom.ext.Ajax.post(
-//      url = req.path.mkString("/"),
-//      data = Pickle.intoBytes(req.args),
-//      responseType = "arraybuffer",
-//      headers = Map("Content-Type" -> "application/octet-stream")
-//    ).map(r => TypedArrayBuffer.wrap(r.response.asInstanceOf[ArrayBuffer]))
-//  }
-//
-//  override def read[Result: Pickler](p: ByteBuffer) = Unpickle[Result].fromBytes(p)
-//
-//  override def write[Result: Pickler](r: Result) = Pickle.intoBytes(r)
-//
-//}
+

@@ -24,6 +24,7 @@ import mgo.evolution.niche.*
 import org.apache.commons.math3.random.Well44497b
 import ppse.em.EMPPSE.Individual
 import ppse.em.*
+import ppse.tool.Serialization
 import scopt.*
 
 import scala.collection.mutable.ListBuffer
@@ -44,7 +45,6 @@ import scala.collection.mutable.ListBuffer
 //}
 
 
-case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: Option[GMM])
 
 @main def benchmarkPPSE(args: String*) =
   //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
@@ -187,14 +187,8 @@ case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: O
       }
 
       config.draw.foreach { f =>
-        import io.circe.*
-        import io.circe.generic.auto.*
-        import io.circe.syntax.*
-
-        f.delete(swallowIOExceptions = true)
-
-        def draw = runInfo.map(i => PPSEDrawState(i.evaluation, i.draw.get.points, i.draw.get.gmm)).toSeq
-        f.write(draw.asJson.noSpaces)
+        def draw = Serialization.PPSEEvolution(runInfo.map(i => Serialization.PPSEDrawState(i.evaluation, i.draw.get.points, i.draw.get.gmm)).toSeq)
+        Serialization.save(draw, f.toJava)
       }
 //
 //      config.traceGMM.foreach { m =>

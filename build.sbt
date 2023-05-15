@@ -12,6 +12,11 @@ val endpointCirceVersion = "2.3.0"
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
 
+def excludeConflicting = Seq(
+  excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13"),
+  excludeDependencies += ExclusionRule(organization = "org.scala-lang.modules", name ="scala-collection-compat_2.13")
+)
+
 lazy val ppse = Project("ppse", file("ppse")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
@@ -34,7 +39,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
     "io.circe" %% "circe-parser"
   ).map(_ % circeVersion),
 
-  excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13")
+  excludeConflicting
 )
 
 lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).settings (
@@ -74,7 +79,7 @@ lazy val shared = project.in(file("visu/shared")) settings (
   libraryDependencies ++= Seq(
     "org.endpoints4s" %%% "algebra" % endpoints4SVersion,
     "org.endpoints4s" %%% "json-schema-circe" % endpointCirceVersion,
-    "io.circe" %% "circe-generic" % "0.14.3")
+    "io.circe" %% "circe-generic" % circeVersion)
 ) enablePlugins (ScalaJSPlugin)
 
 lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin, ScalablyTypedConverterPlugin) settings(
@@ -102,7 +107,7 @@ lazy val server = project.in(file("visu/server")) settings(
 //    "com.lihaoyi" %% "scalatags" % scalatagsVersion,
     "org.endpoints4s" %% "http4s-server" % "10.1.0",
     "org.http4s" %% "http4s-blaze-server" % "0.23.12",
-    "io.circe" %% "circe-parser" % "0.14.3",
+    "io.circe" %% "circe-parser" % circeVersion,
 //    "com.raquo" %%% "laminar" % laminarVersion
 
     //    "org.endpoints4s" %% "akka-http-server" % "6.1.0+n",
@@ -118,8 +123,14 @@ lazy val server = project.in(file("visu/server")) settings(
     IO.copyFile(jsBuild, demoTarget / "webapp/js/demo.js")
     IO.copyDirectory(demoResource, demoTarget)
     (Compile / compile).value
-  }
-) dependsOn (shared)
+  },
+
+  run := Def.taskDyn {
+    (Compile / run).toTask(" " + ((Compile / target).value.getParentFile / "data"))
+  }.value,
+
+  excludeConflicting
+) dependsOn (shared, ppse)
 
 
 

@@ -19,4 +19,7 @@ package ppse.visu.shared
 
 object Data {
   case class Foo(bar: Int)
+
+  case class RunState(evaluation: Long)
+  case class RunData(states: Seq[RunState])
 }

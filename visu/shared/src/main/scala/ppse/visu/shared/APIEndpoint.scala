@@ -31,6 +31,12 @@ trait APIEndpoint
       ok(jsonResponse[Data.Foo])
     )
 
+  val runData: Endpoint[Unit, Data.RunData] =
+    endpoint(
+      post(path / "run-data", jsonRequest[Unit]),
+      ok(jsonResponse[Data.RunData])
+    )
+
   // Generically derive the JSON schema of our `Counter`
   // and `Increment` case classes defined thereafter
 //  implicit lazy val fooEnc: Encoder[Data.Foo] = implicitly //JsonSchema[Data.Foo]
