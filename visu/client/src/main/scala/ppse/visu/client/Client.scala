@@ -9,10 +9,10 @@ import org.scalajs.dom.html.Canvas
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
-import com.raquo.laminar.api.L._
+import com.raquo.laminar.api.L.*
+import ppse.visu.shared.Data
 
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
-
 import typings.fabric.mod.fabric
 import typings.fabric.fabricImplMod
 
@@ -35,7 +35,9 @@ object App:
     render(containerNode, content)
     run()
 
-  def run() =
+  def run() = APIClient.runData(()).future.foreach { s =>
+    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
+
     def xSize = 800 // document.body.clientWidth
     def ySize = 800 //document.body.clientHeight
 
@@ -43,22 +45,41 @@ object App:
     def toY(v: Double) = v * ySize
 
     val c = new fabric.Canvas("canvas")
+    c.setWidth(xSize)
+    c.setHeight(ySize)
+
     val o = fabricImplMod.IEllipseOptions()
 
-    o.left = 215
-    o.top = 100
-    o.rx = 90
-    o.ry = 50
+    o.left = toX(ep.centerX)
+    o.top = toY(ep.centerY)
+    o.rx = toX(ep.radiusX)
+    o.ry = toY(ep.radiusY)
+    o.fill = "green"
+
+    o.borderColor = "blue"
+
+    val e = new fabric.Ellipse(o)
+
+    e.rotate(ep.angle)
+    c.add(e)
+  }
+/*
+>>>>>>> d912a8eb19dd170cd0c3bdb8472f9576acb40855
+    val o = fabricImplMod.IEllipseOptions()
+
+    o.left = 5
+    o.top = 5
+    o.rx = 23.66431913239847
+    o.ry = 15.49193338482967
     o.fill = "red"
 
     o.borderColor = "blue"
     val e = new fabric.Ellipse(o)
-    e.rotate(30)
+    e.rotate(45.0)
 
     c.add(e)
+*/
 
-    c.setWidth(xSize)
-    c.setHeight(ySize)
 
 
 //    val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]

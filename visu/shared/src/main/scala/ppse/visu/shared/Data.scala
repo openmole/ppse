@@ -25,8 +25,11 @@ object Data {
   case class GMMData(
     means: Array[Array[Double]],
     covariances: Array[Array[Array[Double]]],
-    weights: Array[Double])
+    weights: Array[Double],
+    parameters: Array[EllipseParameters])
 
   case class RunState(evaluation: Long, gmm: Option[GMMData], point: Seq[PointData])
   case class RunData(states: Seq[RunState])
+  //case class CovarianceParameters(meanX: Double, meanY: Double, covariance: Array[Array[Double]])
+  case class EllipseParameters(centerX: Double, centerY: Double, radiusX:Double, radiusY: Double, angle: Double)
 }

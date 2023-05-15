@@ -217,7 +217,7 @@ object PPSE2Operations {
     tolerance: Double,
     dilation: Double,
     warmupSampler: Int,
-    minClusterSize: Int = 2,
+    minClusterSize: Int = 3,
     fitOnRarest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
     def updateGMM(
@@ -238,7 +238,7 @@ object PPSE2Operations {
         if pop.size > fitOnRarest
         then
           val weighted = (genomes zip patterns).map { p =>
-            val weight = maxHits.toDouble - newHitMap.getOrElse(p._2.toVector, 0)
+            val weight = maxHits.toDouble + 1 - newHitMap.getOrElse(p._2.toVector, 0)
             (weight, (p, weight))
           }
           ppse.tool.multinomialDraw(weighted.toVector, fitOnRarest, random).toArray
@@ -259,7 +259,7 @@ object PPSE2Operations {
         minClusterSize = minClusterSize,
         random = random
       ) map { case (newGMM, _) =>
-        //println("GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( " " ))
+        println("GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( "\n" ))
         val dilatedGMM = EMGMM.dilate(newGMM, dilation)
         val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 

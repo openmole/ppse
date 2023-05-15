@@ -142,7 +142,7 @@ object WDFEMGMM  {
     weights: Array[Double]): Try[(Double, Array[Array[Double]])] = {
     // for each point and each component
     // the matrix containing the probability of point i for component k multiplied by the weight (coefficient) of component k
-    assert(weights.forall(p=> p <= 1.0 && p >= 0), s"weights=${weights}")
+    assert(weights.forall(p=> p <= 1.0 && p >= 0), s"weights=${weights.mkString(",")}")
     //assert(dataWeights.forall(p=> p >= 1.0), s"dataweights=${dataWeights}")
     //assert(x.rows>10,s"data=$x")
     compute_log_likelihood(Breeze.arrayToDenseMatrix(x), Breeze.arrayToDenseVector(dataWeights), Breeze.arrayToDenseMatrix(means), covariances.map(Breeze.arrayToDenseMatrix), Breeze.arrayToDenseVector(weights)) map { resp =>
