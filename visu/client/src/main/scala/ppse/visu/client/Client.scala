@@ -23,11 +23,19 @@ object App:
   //def main(args: Array[String]): Unit = {
 
   def graph() =
+    val containerNode = document.querySelector("#content")
+//    EventStream.fromFuture(APIClient.runData(()).future).foreach { data =>
+//      println(data)
+//    }
 
-    APIClient.runData(()).future.foreach { data =>
-      println(data)
-    }
+    val content =
+      div(
+        canvasTag(idAttr := "canvas")
+      )
+    render(containerNode, content)
+    run()
 
+  def run() =
     def xSize = 800 // document.body.clientWidth
     def ySize = 800 //document.body.clientHeight
 
@@ -35,7 +43,6 @@ object App:
     def toY(v: Double) = v * ySize
 
     val c = new fabric.Canvas("canvas")
-
     val o = fabricImplMod.IEllipseOptions()
 
     o.left = 215
@@ -52,6 +59,7 @@ object App:
 
     c.setWidth(xSize)
     c.setHeight(ySize)
+
 
 //    val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]
 //    println(canvas)

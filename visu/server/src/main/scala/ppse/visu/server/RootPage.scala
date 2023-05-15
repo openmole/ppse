@@ -22,7 +22,7 @@ object RootPage {
 </head>
 <body>
 <!-- Include Scala.js compiled code -->
-<canvas id="canvas"></canvas>
+<div id="content"></div>
 <script>visualisation.graph();</script>
 </body>
 </html>
