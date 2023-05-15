@@ -97,7 +97,8 @@ lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, S
   ),
   Compile / npmDependencies ++= Seq(
     "fabric" -> "5.3.0",
-    "@types/fabric" -> "5.3.0"
+    "@types/fabric" -> "5.3.0",
+    "@svgdotjs/svg.js" -> "3.1.2"
   ),
 ) dependsOn (shared)
 
