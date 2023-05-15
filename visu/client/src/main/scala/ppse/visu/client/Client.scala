@@ -39,8 +39,10 @@ object App {
     o.rx = 90
     o.ry = 50
     o.fill = "red"
+
     o.borderColor = "blue"
     val e = new fabric.Ellipse(o)
+    e.rotate(30)
 
     c.add(e)
 
