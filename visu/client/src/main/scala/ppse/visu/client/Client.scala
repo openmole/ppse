@@ -36,7 +36,7 @@ object App:
     run()
 
   def run() = APIClient.runData(()).future.foreach { s =>
-    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
+    val points = s.states.last.point
 
     def xSize = 800 // document.body.clientWidth
     def ySize = 800 //document.body.clientHeight
@@ -45,26 +45,39 @@ object App:
     def toY(v: Double) = v * ySize
 
     val c = new fabric.Canvas("canvas")
-    c.setWidth(xSize)
-    c.setHeight(ySize)
+    c.setWidth(xSize*2)
+    c.setHeight(ySize*2)
 
+    points.foreach { point=>
+      val o = fabricImplMod.IEllipseOptions()
+      o.left = toX(point(0))
+      o.top = toY(point(1))
+      o.rx = 1
+      o.ry = 1
+      o.fill = "black"
+      o.opacity = 0.5
+      val p = new fabric.Ellipse(o)
+      c.add(p)
+    }
     val o = fabricImplMod.IEllipseOptions()
 
-    o.left = toX(ep.centerX)
-    o.top = toY(ep.centerY)
-    o.rx = toX(ep.radiusX)
-    o.ry = toY(ep.radiusY)
-    o.fill = "green"
+    val eps = s.states.last.gmm.last.parameters.foreach { ep =>
+      o.left = toX(ep.centerX)
+      o.top = toY(ep.centerY)
+      o.rx = toX(ep.radiusX)
+      o.ry = toY(ep.radiusY)
+      o.fill = "transparent"
+      o.stroke = "green"
+      o.strokeWidth = 1
+      o.opacity = 0.5
 
-    o.borderColor = "blue"
+      val e = new fabric.Ellipse(o)
 
-    val e = new fabric.Ellipse(o)
-
-    e.rotate(ep.angle)
-    c.add(e)
+      e.rotate(ep.angle)
+      c.add(e)
+    }
   }
 /*
->>>>>>> d912a8eb19dd170cd0c3bdb8472f9576acb40855
     val o = fabricImplMod.IEllipseOptions()
 
     o.left = 5
