@@ -16,6 +16,8 @@ import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
 import typings.fabric.mod.fabric
 import typings.fabric.fabricImplMod
 
+import typings.svgdotjsSvgJs.mod.*
+
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
 object App:
@@ -30,10 +32,59 @@ object App:
 
     val content =
       div(
+        div(idAttr := "svg-draw"),
         canvasTag(idAttr := "canvas")
       )
+
+
+//    val s = Svg("svg-draw")
+//    s.ellipse(200, 100)
+
     render(containerNode, content)
-    run()
+    runSVG()
+
+  def runSVG() = APIClient.runData(()).future.foreach { s =>
+    val ep = s.states.last.gmm.get.parameters.head
+    def xSize = 800 // document.body.clientWidth
+    def ySize = 800 //document.body.clientHeight
+
+    def toX(v: Double) = v * xSize
+    def toY(v: Double) = v * ySize
+
+    val draw = Svg().addTo("body").size(toX(xSize), toY(ySize))
+
+    draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).translate(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle)
+
+//    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
+//
+//    def xSize = 800 // document.body.clientWidth
+//
+//    def ySize = 800 //document.body.clientHeight
+//
+//    def toX(v: Double) = v * xSize
+//
+//    def toY(v: Double) = v * ySize
+//
+//    val c = new fabric.Canvas("canvas")
+//    c.setWidth(xSize)
+//    c.setHeight(ySize)
+//
+//    val o = fabricImplMod.IEllipseOptions()
+//
+//    o.left = toX(ep.centerX)
+//    o.top = toY(ep.centerY)
+//    o.rx = toX(ep.radiusX)
+//    o.ry = toY(ep.radiusY)
+//    o.fill = "green"
+//
+//    o.borderColor = "blue"
+//
+//    val e = new fabric.Ellipse(o)
+//
+//    e.rotate(ep.angle)
+//    c.add(e)
+  }
+
 
   def run() = APIClient.runData(()).future.foreach { s =>
     val ep = s.states.view.flatMap(_.gmm).head.parameters.head
