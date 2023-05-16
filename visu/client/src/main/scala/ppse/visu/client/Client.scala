@@ -44,18 +44,36 @@ object App:
     runSVG()
 
   def runSVG() = APIClient.runData(()).future.foreach { s =>
-    val ep = s.states.last.gmm.get.parameters.head
+    /*val ep = s.states.last.gmm.get.parameters.head*/
     def xSize = 800 // document.body.clientWidth
     def ySize = 800 //document.body.clientHeight
 
     def toX(v: Double) = v * xSize
     def toY(v: Double) = v * ySize
 
-    val draw = Svg().addTo("body").size(toX(xSize), toY(ySize))
+    val draw = Svg().addTo("body").size(2*xSize, 2*ySize)
 
-    draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).translate(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle)
+    /*draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).translate(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle)*/
 
-//    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
+    val points = s.states.last.point
+    points.foreach { point =>
+      val stroke = StrokeData()
+      stroke.width = 1
+      stroke.color = "#ccc"
+      stroke.opacity = 0.5
+      draw.circle(1).translate(toX(point(0)), toY(point(1))).stroke(stroke)
+    }
+
+    val eps = s.states.last.gmm.last.parameters.foreach { ep =>
+      val stroke = StrokeData()
+      stroke.width = 1
+      stroke.color = "#f00"
+      stroke.opacity = 0.2
+      println(ep.centerX+"   "+ep.centerY)
+      draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).center(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle).stroke(stroke).fill("none")
+    }
+
+    //    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
 //
 //    def xSize = 800 // document.body.clientWidth
 //
@@ -86,6 +104,7 @@ object App:
   }
 
 
+/*
   def run() = APIClient.runData(()).future.foreach { s =>
     val points = s.states.last.point
 
@@ -128,6 +147,7 @@ object App:
       c.add(e)
     }
   }
+*/
 /*
     val o = fabricImplMod.IEllipseOptions()
 
