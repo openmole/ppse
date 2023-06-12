@@ -10,6 +10,7 @@ import org.scalajs.dom.html.Canvas
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
 import com.raquo.laminar.api.L.*
+import com.raquo.laminar.api.features.unitArrows
 import ppse.visu.shared.Data
 
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
@@ -17,6 +18,7 @@ import typings.fabric.mod.fabric
 import typings.fabric.fabricImplMod
 
 import typings.svgdotjsSvgJs.mod.*
+import typings.bootstrapNative.{mod => bstrp}
 
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
@@ -30,10 +32,22 @@ object App:
 //      println(data)
 //    }
 
+    val dataFile: Var[Option[String]] = Var(None)
+
     val content =
       div(
+        div(idAttr := "test"),
+        div(
+          button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "dropdownMenuButton1", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
+          ul(cls := "dropdown-menu", aria.labelledBy := "dropdownMenuButton1",
+            children <--
+              EventStream.fromFuture(APIClient.listRunData(()).future).map { data =>
+                data.map(d => li(cls := "dropdown-item", d, onClick --> { dataFile.set(Some(d)) }))
+              }
+          ),
+        ),
         div(idAttr := "svg-draw"),
-        canvasTag(idAttr := "canvas")
+        dataFile --> { v => v.foreach(runSVG) }
       )
 
 
@@ -41,9 +55,8 @@ object App:
 //    s.ellipse(200, 100)
 
     render(containerNode, content)
-    runSVG()
 
-  def runSVG() = APIClient.runData(()).future.foreach { s =>
+  def runSVG(d: String) = APIClient.runData(d).future.foreach { s =>
     /*val ep = s.states.last.gmm.get.parameters.head*/
     def xSize = 800 // document.body.clientWidth
     def ySize = 800 //document.body.clientHeight
@@ -51,7 +64,7 @@ object App:
     def toX(v: Double) = v * xSize
     def toY(v: Double) = v * ySize
 
-    val draw = Svg().addTo("body").size(2*xSize, 2*ySize)
+    val draw = Svg().addTo("#svg-draw").size(2*xSize, 2*ySize)
 
     /*draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).translate(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle)*/
 
