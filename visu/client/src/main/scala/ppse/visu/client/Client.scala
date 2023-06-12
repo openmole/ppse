@@ -112,21 +112,28 @@ object App:
     /*draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).translate(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle)*/
 
     val points = state.point
+    val rect_stroke = StrokeData()
+    rect_stroke.width = 2
+    rect_stroke.color = "#0f0"
+    rect_stroke.opacity = 1.0
+    draw.rect(toX(1.0),toY(1.0)).stroke(rect_stroke).fill("none")
+
+    val point_stroke = StrokeData()
+    point_stroke.width = 1
+    point_stroke.color = "#ccc"
+    point_stroke.opacity = 0.2
     points.foreach { point =>
-      val stroke = StrokeData()
-      stroke.width = 1
-      stroke.color = "#ccc"
-      stroke.opacity = 0.5
-      draw.circle(1).translate(toX(point(0)), toY(point(1))).stroke(stroke)
+      draw.circle(1).translate(toX(point(0)), toY(point(1))).stroke(point_stroke)
     }
 
-    state.gmm.last.parameters.foreach { ep =>
-      val stroke = StrokeData()
-      stroke.width = 1
-      stroke.color = "#f00"
-      stroke.opacity = 0.2
-      draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).center(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle).stroke(stroke).fill("none")
-    }
+    val gmm_stroke = StrokeData()
+    gmm_stroke.width = 4
+    gmm_stroke.color = "#f00"
+    gmm_stroke.opacity = 0.2
+    val eps =
+      state.gmm.last.parameters.foreach { ep =>
+        draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).center(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle).stroke(gmm_stroke).fill("none")
+      }
 
     //    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
 //

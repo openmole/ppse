@@ -2,8 +2,10 @@ package ppse.visu.server
 
 import cats.effect.*
 import endpoints4s.http4s.server
-import org.apache.commons.math3.linear.{Array2DRowRealMatrix, EigenDecomposition}
+import org.apache.commons.math3.linear.{Array2DRowRealMatrix, EigenDecomposition, MatrixUtils}
+import org.apache.commons.math3.random.{CorrelatedRandomVectorGenerator, GaussianRandomGenerator, JDKRandomGenerator}
 import org.http4s.*
+import ppse.em.GMM
 import ppse.tool.Serialization
 import ppse.visu.shared.{APIEndpoint, Data}
 import better.files.*
@@ -13,7 +15,8 @@ object APIServer:
   def ellipseRoute(meanX: Double, meanY: Double, covariance: Array[Array[Double]]) =
     val m = new Array2DRowRealMatrix(covariance)
     val d = new EigenDecomposition(m)
-    val v = d.getRealEigenvalues.map(p => 2.0 * math.sqrt(2) * math.sqrt(p))
+    //val v = d.getRealEigenvalues.map(p => 2.0 * math.sqrt(2) * math.sqrt(p))
+    val v = d.getRealEigenvalues.map(p => math.sqrt(5.991) * math.sqrt(p))// 95 % confidence interval
     val w = d.getEigenvector(0)
     val u = w.toArray.map(p => p / w.getNorm)
     val angle = 180.0 * math.atan(u(1) / u(0)) / math.Pi
@@ -51,7 +54,16 @@ class APIServer(data: java.io.File)
             s.point
           )
         }
-
+      /*
+      val means = Array(Array(0.5,0.5))
+      val covariances = Array(Array(Array(0.01,-0.005),Array(-0.005,0.01)))
+      val weights = Array(1.0)
+      import scala.jdk.CollectionConverters.*
+      val factory = new CorrelatedRandomVectorGenerator(means(0), new Array2DRowRealMatrix(covariances(0)), 1.0E-12, new GaussianRandomGenerator(new JDKRandomGenerator()))
+      val points = (0 to 10000).map(_=>factory.nextVector().toVector).toVector
+      def testData = Seq(Data.RunState(0L, Some(toGMMData(GMM(means, covariances, weights))), points))
+      Data.RunData(testData)
+      */
       Data.RunData(toStateData)
     }
 
