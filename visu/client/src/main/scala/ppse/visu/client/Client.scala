@@ -1,5 +1,7 @@
 package ppse.visu.client
 
+import com.raquo.airstream.core
+
 import java.nio.ByteBuffer
 import org.scalajs.dom.*
 
@@ -16,7 +18,6 @@ import ppse.visu.shared.Data
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
 import typings.fabric.mod.fabric
 import typings.fabric.fabricImplMod
-
 import typings.svgdotjsSvgJs.mod.*
 
 @JSExportTopLevel (name="visualisation")
@@ -24,6 +25,11 @@ import typings.svgdotjsSvgJs.mod.*
 object App:
 
   //def main(args: Array[String]): Unit = {
+  /*val ep = s.states.last.gmm.get.parameters.head*/
+  def xSize = 800 // document.body.clientWidth
+  def ySize = 800 //document.body.clientHeight
+  def toX(v: Double) = v * xSize
+  def toY(v: Double) = v * ySize
 
   def graph() =
     val containerNode = document.querySelector("#content")
@@ -31,23 +37,65 @@ object App:
 //      println(data)
 //    }
 
-    val dataFile: Var[Option[String]] = Var(None)
+    //val dataFile: Var[Option[String]] = Var(None)
+    val runData: Var[Option[Data.RunData]] = Var(None)
+    val selectedSlice: Var[Option[Long]] = Var(None)
+
+    def getData(d: String) = APIClient.runData(d).future.foreach { s => runData.set(Some(s)) }
+
+    lazy val draw =
+      Svg().addTo("#svg-draw").size(2 * xSize, 2 * ySize)
 
     val content =
       div(
         div(idAttr := "test"),
-        div(
-          button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectDataMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
-          ul(cls := "dropdown-menu", aria.labelledBy := "selectDataMenu",
-            children <--
-              EventStream.fromFuture(APIClient.listRunData(()).future).map { data =>
-                data.map(d => li(cls := "dropdown-item", d, onClick --> dataFile.set(Some(d))))
-              }
+        div(cls := "row",
+          div(
+            cls := "col-2",
+            button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectDataMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
+            ul(cls := "dropdown-menu", aria.labelledBy := "selectDataMenu",
+              children <--
+                EventStream.fromFuture(APIClient.listRunData(()).future).map { data =>
+                  data.map(d => li(cls := "dropdown-item", d, onClick --> getData(d)))
+                }
+            ),
           ),
-        ),
-        div(idAttr := "svg-draw"),
-        dataFile --> { v => v.foreach(runSVG) }
+          div(
+            cls := "col-6",
+            child <-- runData.signal.map {
+              case Some(data) =>
+                div(
+                  button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectStepMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Step"),
+                  ul(cls := "dropdown-menu", aria.labelledBy := "selectStepMenu",
+                    data.states.map: s =>
+                      li(cls := "dropdown-item", s.evaluation, onClick --> runSVG(draw, data, s.evaluation))
+//                  input(
+//                    `type` := "range", htmlAttr("list", com.raquo.laminar.codecs.StringAsIsCodec) := "tickmarks",
+//                    onChange.mapToValue --> Observer[String](v => selectedSlice.set(Some(v.toLong)))),
+//                  dataList(
+//                    idAttr := "tickmarks",
+//                    data.states.map: s =>
+//                      option(value := s.evaluation.toString, labelAttr := s.evaluation.toString)
+//                  )
+                  )
+                )
+              //,  minAttr := data.states.head.evaluation.toString, maxAttr := data.states.last.evaluation.toString, onRe)
+              case None => emptyNode
+            }
+          ),
+          div(
+            cls := "col-4",
+          ),
+          div(
+            cls := "col-12",
+            div(idAttr := "svg-draw")
+          ),
+        )
+//        (runData.signal combineWith selectedSlice.signal) --> Observer[(Option[Data.RunData], Option[Long])]{ (d, s) =>
+//          println("test")
+//          d.foreach(runSVG(_, s)) }
       )
+
 
 
 //    val s = Svg("svg-draw")
@@ -55,19 +103,15 @@ object App:
 
     render(containerNode, content)
 
-  def runSVG(d: String) = APIClient.runData(d).future.foreach { s =>
-    /*val ep = s.states.last.gmm.get.parameters.head*/
-    def xSize = 800 // document.body.clientWidth
-    def ySize = 800 //document.body.clientHeight
 
-    def toX(v: Double) = v * xSize
-    def toY(v: Double) = v * ySize
+  def runSVG(draw: Svg, d: Data.RunData, step: Long) =
+    val state = d.states.find(_.evaluation == step).get
 
-    val draw = Svg().addTo("#svg-draw").size(2*xSize, 2*ySize)
+    draw.clear()
 
     /*draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).translate(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle)*/
 
-    val points = s.states.last.point
+    val points = state.point
     points.foreach { point =>
       val stroke = StrokeData()
       stroke.width = 1
@@ -76,12 +120,11 @@ object App:
       draw.circle(1).translate(toX(point(0)), toY(point(1))).stroke(stroke)
     }
 
-    val eps = s.states.last.gmm.last.parameters.foreach { ep =>
+    state.gmm.last.parameters.foreach { ep =>
       val stroke = StrokeData()
       stroke.width = 1
       stroke.color = "#f00"
       stroke.opacity = 0.2
-      println(ep.centerX+"   "+ep.centerY)
       draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).center(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle).stroke(stroke).fill("none")
     }
 
@@ -113,7 +156,7 @@ object App:
 //
 //    e.rotate(ep.angle)
 //    c.add(e)
-  }
+
 
 
 /*
