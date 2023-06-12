@@ -8,7 +8,7 @@ import org.http4s.*
 import ppse.em.GMM
 import ppse.tool.Serialization
 import ppse.visu.shared.{APIEndpoint, Data}
-
+import better.files.*
 
 object APIServer:
 
@@ -31,7 +31,7 @@ class APIServer(data: java.io.File)
     with server.JsonEntitiesFromCodecs { //with server.ChunkedEntities {
 
   val runDataRoute =
-    runData.implementedBy { _ =>
+    runData.implementedBy { dataName =>
       def toGMMData(gmm: ppse.em.GMM) =
         val params =
           (gmm.means zip gmm.covariances) map { (m, c) =>
@@ -44,8 +44,7 @@ class APIServer(data: java.io.File)
           gmm.weights,
           params)
 
-
-      val d = Serialization.load(data.listFiles().head)
+      val d = Serialization.load((data.toScala / dataName).toJava)
 
       def toStateData =
         d.states.map { s =>
@@ -68,6 +67,10 @@ class APIServer(data: java.io.File)
       Data.RunData(toStateData)
     }
 
+  val listRunDataRoute =
+    listRunData.implementedBy { _ =>
+      data.listFiles(_.getName.endsWith(".json")).map(_.getName).toSeq
+    }
 
 
   //
@@ -75,7 +78,7 @@ class APIServer(data: java.io.File)
 //    uuidRoute ~ fooRoute
 
   val routes: HttpRoutes[IO] = HttpRoutes.of(
-    routesFromEndpoints(runDataRoute)
+    routesFromEndpoints(runDataRoute, listRunDataRoute)
   )
 
 }

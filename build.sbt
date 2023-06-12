@@ -2,7 +2,7 @@ name := "ppse"
 
 val breezeVersion = "2.0.1-RC2"
 val circeVersion = "0.14.5"
-val Scala3Version = "3.2.2"
+val Scala3Version = "3.3.0"
 val laminarVersion = "15.0.1"
 val scalajsDomVersion = "2.0.0"
 val endpoints4SVersion = "1.9.0"
@@ -98,7 +98,8 @@ lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, S
   Compile / npmDependencies ++= Seq(
     "fabric" -> "5.3.0",
     "@types/fabric" -> "5.3.0",
-    "@svgdotjs/svg.js" -> "3.1.2"
+    "@svgdotjs/svg.js" -> "3.1.2",
+    //"bootstrap.native" -> "5.0.7"
   ),
 ) dependsOn (shared)
 

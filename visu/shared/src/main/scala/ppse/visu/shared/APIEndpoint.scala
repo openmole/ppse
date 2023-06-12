@@ -13,10 +13,16 @@ trait APIEndpoint
     with algebra.circe.JsonEntitiesFromCodecs
     with circe.JsonSchemas {
 
-  val runData: Endpoint[Unit, Data.RunData] =
+  val runData: Endpoint[String, Data.RunData] =
     endpoint(
-      post(path / "run-data", jsonRequest[Unit]),
+      post(path / "run-data", jsonRequest[String]),
       ok(jsonResponse[Data.RunData])
+    )
+
+  val listRunData: Endpoint[Unit, Seq[String]] =
+    endpoint(
+      post(path / "list-data", jsonRequest[Unit]),
+      ok(jsonResponse[Seq[String]])
     )
 
 }
