@@ -18,7 +18,6 @@ import typings.fabric.mod.fabric
 import typings.fabric.fabricImplMod
 
 import typings.svgdotjsSvgJs.mod.*
-import typings.bootstrapNative.{mod => bstrp}
 
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
@@ -38,11 +37,11 @@ object App:
       div(
         div(idAttr := "test"),
         div(
-          button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "dropdownMenuButton1", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
-          ul(cls := "dropdown-menu", aria.labelledBy := "dropdownMenuButton1",
+          button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectDataMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
+          ul(cls := "dropdown-menu", aria.labelledBy := "selectDataMenu",
             children <--
               EventStream.fromFuture(APIClient.listRunData(()).future).map { data =>
-                data.map(d => li(cls := "dropdown-item", d, onClick --> { dataFile.set(Some(d)) }))
+                data.map(d => li(cls := "dropdown-item", d, onClick --> dataFile.set(Some(d))))
               }
           ),
         ),
