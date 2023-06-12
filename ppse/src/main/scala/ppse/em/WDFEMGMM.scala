@@ -1,12 +1,12 @@
 package ppse.em
 
 import better.files.File
-import breeze.linalg.Matrix._
-import breeze.linalg.Vector._
-import breeze.linalg._
-import breeze.numerics._
+import breeze.linalg.Matrix.*
+import breeze.linalg.Vector.*
+import breeze.linalg.*
+import breeze.numerics.*
 import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
-import org.apache.commons.math3.linear.{CholeskyDecomposition, NonPositiveDefiniteMatrixException}
+import org.apache.commons.math3.linear.{CholeskyDecomposition, DiagonalMatrix, NonPositiveDefiniteMatrixException}
 import org.apache.commons.math3.util.Pair
 import ppse.tool.Breeze
 
@@ -34,6 +34,7 @@ object WDFEMGMM  {
     dataWeights: Option[Array[Double]] = None,
     minClusterSize: Int,
     random: Random): Try[(GMM, Seq[Double])] = {
+    println("WDFEMGMM:initializeAndFit")
     def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0 / x.length))
 
     // initialize parameters using KMeans
@@ -47,7 +48,7 @@ object WDFEMGMM  {
 
     assert(covariances.forall(_.forall(_.forall(!_.isNaN))),s"covariances with nan: ${covariances.mkString("\n")}")
 
-    fit(
+    val res = fit(
       x = x,
       dataWeights = dataWeigthsValue,
       gmm = GMM(means = means, covariances = covariances, weights = weights),
@@ -55,6 +56,17 @@ object WDFEMGMM  {
       tolerance = tolerance,
       trace = IndexedSeq()
     )
+    println("WDFEMGMM:res/ + " + res.isSuccess)
+    res.foreach { case (newGMM, _) =>
+      println("GMM = " + newGMM.means.map { s => "POINT(" + s.mkString(" ") + ")" }.mkString("\n"))
+    }
+    if (res.isFailure)
+      println(res)
+    println("WDFEMGMM:/res")
+    if (res.isSuccess)
+      res
+    else
+      Success(GMM(means = means, covariances = covariances, weights = weights),Seq())
   }
 
 
@@ -190,13 +202,16 @@ object WDFEMGMM  {
       def density(vals: Array[Double], cholesky: Boolean = false) = {
         def covarianceMatrixInverse = {
           val covarianceMatrix = new Array2DRowRealMatrix(covarianceArray)
+          //println("matrix = "+covarianceMatrix)
           val covMatDec = new CholeskyDecomposition(covarianceMatrix)
+          //println("covMatDec = "+covMatDec)
           covMatDec.getSolver.getInverse
         }
 
         def getExponentTerm(values: Array[Double]) = {
           val centered = Array.tabulate(values.length) { i => values(i) - mMeans(i)}
           val preMultiplied = covarianceMatrixInverse.preMultiply(centered)
+          //println("preMultiplied = "+preMultiplied)
 
           var sum: Double = 0
           for (i <- 0 until preMultiplied.length) {
