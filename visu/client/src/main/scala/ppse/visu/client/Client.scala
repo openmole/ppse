@@ -12,6 +12,7 @@ import org.scalajs.dom.html.Canvas
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
 import com.raquo.laminar.api.L.*
+import com.raquo.laminar.codecs
 import com.raquo.laminar.api.features.unitArrows
 import ppse.visu.shared.Data
 
@@ -31,6 +32,8 @@ object App:
   def toX(v: Double) = v * xSize
   def toY(v: Double) = v * ySize
 
+  val forAttr = htmlAttr("for", codecs.StringAsIsCodec)
+
   def graph() =
     val containerNode = document.querySelector("#content")
 //    EventStream.fromFuture(APIClient.runData(()).future).foreach { data =>
@@ -39,9 +42,13 @@ object App:
 
     //val dataFile: Var[Option[String]] = Var(None)
     val runData: Var[Option[Data.RunData]] = Var(None)
-    val selectedSlice: Var[Option[Long]] = Var(None)
+    val selectedSlice: Var[Int] = Var(0)
 
-    def getData(d: String) = APIClient.runData(d).future.foreach { s => runData.set(Some(s)) }
+    def getData(d: String) =
+      APIClient.runData(d).future.foreach: s =>
+        selectedSlice.set(s.states.size - 1)
+        runData.set(Some(s))
+        runSVG(draw, s, selectedSlice.now())
 
     lazy val draw =
       Svg().addTo("#svg-draw").size(2 * xSize, 2 * ySize)
@@ -51,41 +58,41 @@ object App:
         div(idAttr := "test"),
         div(cls := "row",
           div(
-            cls := "col-2",
-            button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectDataMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
+            cls := "col-1 text-center",
+            button(`type` := "button", styleAttr := "margin-top: 10px", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectDataMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Data files"),
             ul(cls := "dropdown-menu", aria.labelledBy := "selectDataMenu",
               children <--
-                EventStream.fromFuture(APIClient.listRunData(()).future).map { data =>
+                EventStream.fromFuture(APIClient.listRunData(()).future).map: data =>
                   data.map(d => li(cls := "dropdown-item", d, onClick --> getData(d)))
-                }
             ),
           ),
           div(
-            cls := "col-6",
+            cls := "col-5",
             child <-- runData.signal.map {
               case Some(data) =>
                 div(
-                  button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectStepMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Step"),
-                  ul(cls := "dropdown-menu", aria.labelledBy := "selectStepMenu",
-                    data.states.map: s =>
-                      li(cls := "dropdown-item", s.evaluation, onClick --> runSVG(draw, data, s.evaluation))
-//                  input(
-//                    `type` := "range", htmlAttr("list", com.raquo.laminar.codecs.StringAsIsCodec) := "tickmarks",
-//                    onChange.mapToValue --> Observer[String](v => selectedSlice.set(Some(v.toLong)))),
-//                  dataList(
-//                    idAttr := "tickmarks",
+//                  button(`type` := "button", cls := "btn btn-secondary dropdown-toggle", idAttr := "selectStepMenu", dataAttr("bs-toggle") := "dropdown", aria.expanded := false, "Step"),
+//                  ul(cls := "dropdown-menu", aria.labelledBy := "selectStepMenu",
 //                    data.states.map: s =>
-//                      option(value := s.evaluation.toString, labelAttr := s.evaluation.toString)
-//                  )
+//                      li(cls := "dropdown-item", s.evaluation, onClick --> runSVG(draw, data, s.evaluation))
+                  label(forAttr := "stepRange", cls := "form-label", child <-- selectedSlice.signal.map(s => s"Number of model evaluations: ${data.states(s).evaluation}")),
+                  input(
+                    `type` := "range",
+                    idAttr := "stepRange",
+                    cls := "form-range",
+                    minAttr := "0",
+                    maxAttr := (data.states.size - 1).toString,
+                    stepAttr := "1",
+                    value := selectedSlice.now().toString,
+                    onInput.mapToValue --> { v => selectedSlice.set(v.toInt) },
+                    onChange.mapToValue --> Observer[String] { v => runSVG(draw, data, v.toInt) }
                   )
                 )
               //,  minAttr := data.states.head.evaluation.toString, maxAttr := data.states.last.evaluation.toString, onRe)
               case None => emptyNode
             }
           ),
-          div(
-            cls := "col-4",
-          ),
+          div(cls := "col-6"),
           div(
             cls := "col-12",
             div(idAttr := "svg-draw")
@@ -104,8 +111,8 @@ object App:
     render(containerNode, content)
 
 
-  def runSVG(draw: Svg, d: Data.RunData, step: Long) =
-    val state = d.states.find(_.evaluation == step).get
+  def runSVG(draw: Svg, d: Data.RunData, slice: Int) =
+    val state = d.states(slice)
 
     draw.clear()
 
