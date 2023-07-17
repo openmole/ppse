@@ -22,6 +22,13 @@ import util.{Failure, Success, Try}
  */
 object WDFEMGMM  {
 
+
+  def scale(means: Array[Array[Double]], variances: Array[Array[Array[Double]]], factor: Double) =
+    def scaledMeans = means.map(_.map(_ * factor))
+    val factorSq = math.pow(factor, 2)
+    def scaledVariances = variances.map(_.map(_.map(_ * factorSq)))
+    (scaledMeans, scaledVariances)
+
   /**
    * Full covariance Gaussian Mixture Model, trained using Expectation Maximization.
    *
@@ -33,41 +40,53 @@ object WDFEMGMM  {
     x: Array[Array[Double]],
     dataWeights: Option[Array[Double]] = None,
     minClusterSize: Int,
-    random: Random): Try[(GMM, Seq[Double])] = {
+    random: Random): Try[(GMM, Seq[Double])] =
+
     println("WDFEMGMM:initializeAndFit")
     def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0 / x.length))
 
     // initialize parameters using KMeans
-    val (means, covariances, weights) = Try{Clustering.build(x, dataWeigthsValue, minClusterSize)} match {
-      case Success(v) => v
-      case Failure(e) =>
-        println("fail:")
-        e.printStackTrace()
-        Clustering.build(x, dataWeigthsValue, minClusterSize)
-    }
+    val (means, covariances, weights) = Clustering.build(x, dataWeigthsValue, minClusterSize)
+//      Try{Clustering.build(x, dataWeigthsValue, minClusterSize)} match
+//        case Success(v) => v
+//        case Failure(e) =>
+//          println("fail:")
+//          e.printStackTrace()
+//          Clustering.build(x, dataWeigthsValue, minClusterSize)
 
     assert(covariances.forall(_.forall(_.forall(!_.isNaN))),s"covariances with nan: ${covariances.mkString("\n")}")
 
+    val factor = 10e6
+
+    val (scaledMeans, scaledVariances) = scale(means, covariances, factor)
     val res = fit(
       x = x,
       dataWeights = dataWeigthsValue,
-      gmm = GMM(means = means, covariances = covariances, weights = weights),
+      gmm = GMM(means = scaledMeans, covariances = scaledVariances, weights = weights),
       iterations = iterations,
       tolerance = tolerance,
       trace = IndexedSeq()
     )
-    println("WDFEMGMM:res/ + " + res.isSuccess)
-    res.foreach { case (newGMM, _) =>
-      println("GMM = " + newGMM.means.map { s => "POINT(" + s.mkString(" ") + ")" }.mkString("\n"))
-    }
-    if (res.isFailure)
-      println(res)
-    println("WDFEMGMM:/res")
-    if (res.isSuccess)
-      res
-    else
-      Success(GMM(means = means, covariances = covariances, weights = weights),Seq())
-  }
+
+    val unscaledRes =
+      res.map: (gmm, t) =>
+        val (unscaledMeans, unscaledVariances) = scale(gmm.means, gmm.covariances, 1 / factor)
+        (gmm.copy(means = unscaledMeans, covariances = unscaledVariances), t)
+
+//    println("WDFEMGMM:res/ + " + unscaledRes.isSuccess)
+//    res.foreach { case (newGMM, _) =>
+//      println("GMM = " + newGMM.means.map { s => "POINT(" + s.mkString(" ") + ")" }.mkString("\n"))
+//    }
+
+    if (unscaledRes.isFailure) println("failure : " + res)
+
+    unscaledRes
+
+//    println("WDFEMGMM:/res")
+//    if (res.isSuccess)
+//      res
+//    else
+//      Success(GMM(means = means, covariances = covariances, weights = weights),Seq())
 
 
   def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
@@ -94,7 +113,7 @@ object WDFEMGMM  {
     iterations: Int,
     tolerance: Double,
     logLikelihood: Double = 0.0,
-    trace: Seq[Double] = Seq()): Try[(GMM, Seq[Double])] = {
+    trace: Seq[Double] = Seq()): Try[(GMM, Seq[Double])] =
 
     iterations match {
       case 0 => Success((gmm, trace))
@@ -114,7 +133,6 @@ object WDFEMGMM  {
           case Failure(e) => Failure(e)
         }
     }
-  }
 
 
   /**

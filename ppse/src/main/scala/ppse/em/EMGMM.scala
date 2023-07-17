@@ -70,7 +70,7 @@ object EMGMM  {
     iterations: Int,
     tolerance: Double,
     logLikelihood: Double = 0.0,
-    trace: Seq[Double] = Seq()): (GMM, Seq[Double]) = {
+    trace: Seq[Double] = Seq()): (GMM, Seq[Double]) =
     def gmm =
       GMM(
         means = means,
@@ -78,7 +78,7 @@ object EMGMM  {
         weights = weights
       )
 
-    iterations match {
+    iterations match
       case 0 => (gmm, trace)
       case i =>
         val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
@@ -94,8 +94,6 @@ object EMGMM  {
           iterations = i - 1,
           tolerance = tolerance,
           trace = trace :+ updatedLogLikelihood)
-    }
-  }
 
 
   /**
@@ -174,7 +172,7 @@ object EMGMM  {
   }
 
   def dilate(gmm: GMM, f: Double): GMM =
-    gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
+    gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * math.pow(f, 2)))))
 
 
 }

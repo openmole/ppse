@@ -258,7 +258,7 @@ object PPSE2Operations {
         dataWeights = Some(rareIndividuals.map(_._2)),
         minClusterSize = minClusterSize,
         random = random
-      ) map { case (newGMM, _) =>
+      ) map { (newGMM, _) =>
         println("GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( "\n" ))
         val dilatedGMM = EMGMM.dilate(newGMM, dilation)
         val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
