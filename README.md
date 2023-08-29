@@ -34,5 +34,17 @@ GCES  is  a  stochastic  method  for  multimodal  optimization  of  nonlinear  n
 
 ## TODO
 
+29/08/2023
+  Utilisation de JSAT gmm sans pondérer les données
+  Resultats encourageants:
+   * 60 patterns sur 500 avec une erreur en 10-7 alors qu'il reste 400 pattern et une erreur un 10-6 pour le sampling uniforme
+ 
+  A regarder:
+   * Probleme dans emgmm dans JSAT, instabilité => des tps en tps mStep ne fini pas => refaire des teste avec l'implem maison
+   * L'algo group 3 ensemble de pattern dans 1 seuls gaussienne, pourquoi ?
+   * Passer le résultat du clustering à l'init de emgmm
+   * Rendre polymorphe le switch d'implem
+
+
 * Consider auto-adjusting explorationProbability depending on how much pattern have been discovered by sampling in the GMM in the previours steps.
 * Consider integrating the cluster with a single point. Randomly use covariance of other clusters.
