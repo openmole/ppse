@@ -43,7 +43,6 @@ import scala.collection.mutable.ListBuffer
 
 
 @main def visuPPSE(args: String*) =
-
     val square = ExternalSquare(0.1)
 
     val ppse = EMPPSE(

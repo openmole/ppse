@@ -14,7 +14,6 @@ import scala.jdk.CollectionConverters._
 import mgo.tools.apacheRandom
 import smile.clustering
 import smile.clustering._
-
 import scala.jdk.CollectionConverters._
 /**
  * Simplistic implementation of K-Means.
@@ -88,10 +87,12 @@ object Clustering {
           cov(clusterMatrix, centroidVector)
         }
 
-        println("centroids:")
-        centroids.map{p=>println("POINT("+p.mkString(" ")+")")}
-        covariances.map{p=>println("COV\n"+p)}
-        weights.map{p=>println("weight\n"+p)}
+        scribe.debug:
+          s"""
+             |centroids:
+             |${centroids.map { p => "POINT(" + p.mkString(" ") + ")" }.mkString("\n")}
+             |${covariances.map { p => "COV\n" + p }.mkString("\n")}
+             |""".stripMargin
 
         //assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 

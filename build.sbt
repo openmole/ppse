@@ -8,7 +8,6 @@ val scalajsDomVersion = "2.0.0"
 val endpoints4SVersion = "1.9.0"
 val endpointCirceVersion = "2.3.0"
 
-
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
 
@@ -25,6 +24,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
+  libraryDependencies += "com.outr" %% "scribe" % "3.12.0",
   libraryDependencies ++= Seq(
     "org.scalanlp" %% "breeze" % breezeVersion,
     "org.scalanlp" %% "breeze-natives" % breezeVersion
@@ -43,7 +43,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
 )
 
 lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).settings (
-  scalaVersion := "3.2.2",
+  scalaVersion := Scala3Version,
   libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.2.0",
   //scalaJSUseMainModuleInitializer := true,
   libraryDependencies ++= Seq(
@@ -57,7 +57,7 @@ lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).setti
 
 lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   version := "1.0-SNAPSHOT",
-  scalaVersion := "3.2.2",
+  scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   libraryDependencies ++= Seq(

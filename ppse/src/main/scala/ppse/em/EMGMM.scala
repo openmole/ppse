@@ -218,10 +218,16 @@ object EMGMMTest extends App {
       columns = 2,
       random = rng)
 
-  println("finished")
-  println(s"Means=\n${toString2dArray(gmm.means)}")
-  println(s"Covariances=\n${toString3dArray(gmm.covariances)}")
-  println(s"logLikelihood=\n$logLikelihoodTrace")
+  scribe.debug:
+    s"""
+       |finished
+       |Means=
+       |${toString2dArray(gmm.means)}
+       |Covariances=
+       |${toString3dArray(gmm.covariances)}
+       |logLikelihood=
+       |$logLikelihoodTrace
+       |""".stripMargin
 
   // exports for gnuplot
   File("/tmp/points.csv").write(X.map(x => x.mkString(", ")).mkString("\n"))
