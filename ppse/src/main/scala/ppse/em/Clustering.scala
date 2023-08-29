@@ -25,25 +25,26 @@ object Clustering {
     (q /:/ (x.rows - 1).toDouble).toDenseMatrix
   }
 
-  def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
-    def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
+  def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]]) =
+    def average(x: Array[Double], w: Option[Array[Double]]) =
+      w match
+        case Some(w) => (x zip w).map { case (x, w) => x * w }.sum / w.sum
+        case None => x.sum / x.size
 
     points.transpose.map { coord => average(coord, weights) }
-  }
 
-  def build(x: Array[Array[Double]], dataWeights: Array[Double], minPoints: Int): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
+  def build(x: Array[Array[Double]], minPoints: Int, dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
     //val pointSize = x.head.length
     
-    def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
+    def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
       val centroids = computeCentroid(x, dataWeights)
       val weight = Array(1.0)
-      val covariance = {
+      val covariance =
         val clusterMatrix = Breeze.arrayToDenseMatrix(x)
         val centroidVector = new DenseVector[Double](centroids)
         Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
-      }
+
       (Array(centroids), Array(covariance), weight)
-    }
     
     import jsat.clustering._
     import jsat.clustering.kmeans._
@@ -57,26 +58,30 @@ object Clustering {
     hdbScan.setMinPoints(minPoints)
     hdbScan.setMinClusterSize(minPoints)
     
-    if (x.length <= hdbScan.getMinPoints) buildSingleCluster()
-    else {
-      val dataSet = {
-        val dataPoints = (x zip dataWeights).map {
-          case (p, w) =>
-//            println("Point("+p.mkString(" ")+")")
-            new DataPoint(new jsat.linear.DenseVector(p), w)
-        }
+    if x.length <= hdbScan.getMinPoints
+    then buildSingleCluster()
+    else
+      val dataSet =
+        val dataPoints =
+          dataWeights match
+            case Some(dataWeights) =>
+              (x zip dataWeights).map: (p, w) =>
+                new DataPoint(new jsat.linear.DenseVector(p), w)
+            case None =>
+              x.map: x =>
+                new DataPoint(new jsat.linear.DenseVector(x))
+
         new SimpleDataSet(dataPoints.toList.asJava)
-      }
 
       val clusters = hdbScan.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
 
-      if (!clusters.isEmpty) {
+      if !clusters.isEmpty
+      then
         val centroids =
-          clusters.map { cluster =>
+          clusters.map: cluster =>
             val points = cluster.map(_.getNumericalValues.arrayCopy())
             val weights = cluster.map(_.getWeight)
-            computeCentroid(points, weights)
-          }
+            computeCentroid(points, Some(weights))
 
         val totalWeight = clusters.flatten.map(_.getWeight).sum
         val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
@@ -97,9 +102,8 @@ object Clustering {
         //assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 
         (centroids, covariances.map(Breeze.matrixToArray), weights)
-      } else buildSingleCluster()
+      else buildSingleCluster()
 
-    }
   }
 
 }

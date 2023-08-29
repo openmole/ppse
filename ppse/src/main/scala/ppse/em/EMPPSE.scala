@@ -3,7 +3,7 @@ package ppse.em
 import breeze.linalg.DenseVector
 import jsat.SimpleDataSet
 import jsat.classifiers.DataPoint
-import jsat.clustering.{EMGaussianMixture, SeedSelectionMethods}
+import jsat.clustering.{ClustererBase, EMGaussianMixture, SeedSelectionMethods}
 import ppse.tool
 import ppse.tool.{Breeze, RejectionSampler}
 import mgo.tools.Lazy
@@ -236,7 +236,7 @@ object PPSE2Operations {
 
       val maxHits = newHitMap.values.max
 
-      def rareIndividuals =
+      val rareIndividuals =
         val pop = (genomes zip patterns)
         if pop.size > fitOnRarest
         then
@@ -247,6 +247,7 @@ object PPSE2Operations {
           ppse.tool.multinomialDraw(weighted.toVector, fitOnRarest, random).toArray
         else pop.map(p => (p, 1.0))
 
+
 //      def genomeWeights =
 //        rareIndividuals.map { (_, p) =>
 //          val hits = newHitMap.getOrElse(p.toVector, 0)
@@ -255,42 +256,54 @@ object PPSE2Operations {
 //        }
       import scala.jdk.CollectionConverters._
 
-      Try {
-        val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
-        val dataSet = {
+      val res =
+        Try {
           val x = rareIndividuals.map(_._1._1)
-          val dataWeights = rareIndividuals.map(_._2)
-          val dataPoints = (x zip dataWeights).map {
-            case (p, w) =>
-              new DataPoint(new jsat.linear.DenseVector(p), w)
-          }
-          new SimpleDataSet(dataPoints.toList.asJava)
+          val (initialClusters, _, _) = Clustering.build(x, minClusterSize)
+
+          val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
+          val dataSet =
+            //val x = rareIndividuals.map(_._1._1)
+            //val dataWeights = rareIndividuals.map(_._2)
+            val dataPoints =
+              x map: p =>
+                new DataPoint(new jsat.linear.DenseVector(p))
+//              (x zip dataWeights).map:
+//                case (p, w) => new DataPoint(new jsat.linear.DenseVector(p), w)
+
+            new SimpleDataSet(dataPoints.toList.asJava)
+
+          import ppse.em.Clustering.{computeCentroid, cov}
+
+          val assignments = emgmm.cluster(dataSet, initialClusters.size, null)
+          val clusters = ClustererBase.createClusterListFromAssignmentArray(assignments, dataSet).asScala.map(_.asScala.toArray).toArray
+
+          val means =
+            clusters.map: cluster =>
+              val points = cluster.map(_.getNumericalValues.arrayCopy())
+              val weights = cluster.map(_.getWeight)
+              computeCentroid(points, Some(weights))
+
+          val totalWeight = clusters.flatten.map(_.getWeight).sum
+          val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
+
+          val covariances =
+            (clusters zip means).map { case (cluster, centroid) =>
+              val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
+              val centroidVector = new DenseVector[Double](centroid)
+              cov(clusterMatrix, centroidVector)
+            }.map(Breeze.matrixToArray)
+
+          val newGMM = GMM(means = means, covariances = covariances, weights = weights)
+          val dilatedGMM = EMGMM.dilate(newGMM, dilation)
+          val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
+
+          (dilatedGMM, samplerState)
         }
-        import ppse.em.Clustering.{computeCentroid, cov}
 
-        val clusters = emgmm.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
+      scribe.debug(res.toString)
 
-        val means =
-          clusters.map { cluster =>
-            val points = cluster.map(_.getNumericalValues.arrayCopy())
-            val weights = cluster.map(_.getWeight)
-            computeCentroid(points, weights)
-          }
-        val totalWeight = clusters.flatten.map(_.getWeight).sum
-        val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
-
-        val covariances = (clusters zip means).map { case (cluster, centroid) =>
-          val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
-          val centroidVector = new DenseVector[Double](centroid)
-          cov(clusterMatrix, centroidVector)
-        }.map(Breeze.matrixToArray)
-
-        val newGMM = GMM(means = means, covariances = covariances, weights = weights)
-        val dilatedGMM = EMGMM.dilate(newGMM, dilation)
-        val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
-
-        (dilatedGMM, samplerState)
-      }
+      res
 /*
       WDFEMGMM.initializeAndFit(
         iterations = iterations,

@@ -48,7 +48,7 @@ object WDFEMGMM  {
     def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0 / x.length))
 
     // initialize parameters using KMeans
-    val (means, covariances, weights) = Clustering.build(x, dataWeigthsValue, minClusterSize)
+    val (means, covariances, weights) = Clustering.build(x, minClusterSize, Some(dataWeigthsValue))
 //      Try{Clustering.build(x, dataWeigthsValue, minClusterSize)} match
 //        case Success(v) => v
 //        case Failure(e) =>
