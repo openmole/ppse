@@ -49,6 +49,8 @@ import scala.collection.mutable.ListBuffer
 @main def benchmarkPPSE(args: String*) =
   //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
 
+  scribe.Logger.root.withMinimumLevel(scribe.Level.Debug).replace()
+
   val square = PatternSquare(
     PatternSquare.Square(Vector(0.5, 0.5), 0.01, 10),
     PatternSquare.Square(Vector(0.25, 0.25), 0.01, 10),
@@ -116,8 +118,11 @@ import scala.collection.mutable.ListBuffer
       def evolution =
         ppse.
           until(afterGeneration(5000)).
-          trace { (s, is) =>
-            if(s.generation > 0 && s.generation % 100 == 0) {
+          trace: (s, is) =>
+            scribe.info(s"Generation ${s.generation}")
+
+            if s.generation > 0 && s.generation % 100 == 0
+            then
               def result = EMPPSE.result(ppse, is, s)
 
               def referenceDensity(p: Vector[Int]) =
@@ -130,8 +135,6 @@ import scala.collection.mutable.ListBuffer
                 val all = allPatterns.toSet
                 val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
                 map.filter((k, _) => all.contains(k))
-
-              println(indexPattern(Vector(-1, -1, -1)))
 
               val converge =
                 val avgError =
@@ -150,13 +153,11 @@ import scala.collection.mutable.ListBuffer
               val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None
               runInfo += RunInfo(s.evaluated, converge, draw)
 
-
               //
 //              println(s.s.hitmap)
-              println(s"error ${converge.error} ${converge.missed}")
-            }
-            println(s"Generation ${s.generation}")
-          }
+              scribe.info(s"error ${converge.error} ${converge.missed}")
+
+
 
 
       val rng = newRNG(42)
@@ -166,7 +167,7 @@ import scala.collection.mutable.ListBuffer
 //
 //      //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
       val result = EMPPSE.result(ppse, finalPopulation, finalState)
-      println(finalState.s.gmm.map(g => GMM.toString(g._1)))
+      //println(finalState.s.gmm.map(g => GMM.toString(g._1)))
 //
 //      val indexPattern = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
 //      val map =
