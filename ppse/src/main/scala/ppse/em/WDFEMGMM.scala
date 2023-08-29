@@ -42,7 +42,9 @@ object WDFEMGMM  {
     minClusterSize: Int,
     random: Random): Try[(GMM, Seq[Double])] =
 
-    println("WDFEMGMM:initializeAndFit")
+    scribe.debug:
+      "WDFEMGMM:initializeAndFit"
+
     def dataWeigthsValue = dataWeights.getOrElse(x.map(_ => 1.0 / x.length))
 
     // initialize parameters using KMeans
@@ -73,21 +75,10 @@ object WDFEMGMM  {
         val (unscaledMeans, unscaledVariances) = scale(gmm.means, gmm.covariances, 1 / factor)
         (gmm.copy(means = unscaledMeans, covariances = unscaledVariances), t)
 
-//    println("WDFEMGMM:res/ + " + unscaledRes.isSuccess)
-//    res.foreach { case (newGMM, _) =>
-//      println("GMM = " + newGMM.means.map { s => "POINT(" + s.mkString(" ") + ")" }.mkString("\n"))
-//    }
-
-    if (unscaledRes.isFailure) println("failure : " + res)
+    if unscaledRes.isFailure
+    then scribe.debug("failure : " + res)
 
     unscaledRes
-
-//    println("WDFEMGMM:/res")
-//    if (res.isSuccess)
-//      res
-//    else
-//      Success(GMM(means = means, covariances = covariances, weights = weights),Seq())
-
 
   def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
     import org.apache.commons.math3.distribution._

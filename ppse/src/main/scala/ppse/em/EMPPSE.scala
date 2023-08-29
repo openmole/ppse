@@ -259,7 +259,9 @@ object PPSE2Operations {
         minClusterSize = minClusterSize,
         random = random
       ) map { (newGMM, _) =>
-        println("GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( "\n" ))
+        scribe.debug:
+          "GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( "\n" )
+
         val dilatedGMM = EMGMM.dilate(newGMM, dilation)
         val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
