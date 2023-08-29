@@ -26,14 +26,15 @@ object Clustering {
     (q /:/ (x.rows - 1).toDouble).toDenseMatrix
   }
 
+  def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
+    def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
+
+    points.transpose.map { coord => average(coord, weights) }
+  }
+
   def build(x: Array[Array[Double]], dataWeights: Array[Double], minPoints: Int): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
     //val pointSize = x.head.length
-
-    def computeCentroid(points: Array[Array[Double]], weights: Array[Double]) = {
-      def average(x: Array[Double], w: Array[Double]) = (x zip w).map { case (x, w) => x * w }.sum / w.sum
-      points.transpose.map { coord => average(coord, weights) }
-    }
-
+    
     def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
       val centroids = computeCentroid(x, dataWeights)
       val weight = Array(1.0)
@@ -90,6 +91,7 @@ object Clustering {
         println("centroids:")
         centroids.map{p=>println("POINT("+p.mkString(" ")+")")}
         covariances.map{p=>println("COV\n"+p)}
+        weights.map{p=>println("weight\n"+p)}
 
         //assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
 

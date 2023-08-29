@@ -1,12 +1,15 @@
 package ppse.em
 
 import breeze.linalg.DenseVector
+import jsat.SimpleDataSet
+import jsat.classifiers.DataPoint
+import jsat.clustering.{EMGaussianMixture, SeedSelectionMethods}
 import ppse.tool
-import ppse.tool.RejectionSampler
+import ppse.tool.{Breeze, RejectionSampler}
 import mgo.tools.Lazy
 
 import scala.reflect.ClassTag
-import scala.util.Random
+import scala.util.{Random, Try}
 
 
 
@@ -250,7 +253,45 @@ object PPSE2Operations {
 //          (totalHits - hits) / totalHits.toDouble
 //          //1.0
 //        }
+      import scala.jdk.CollectionConverters._
 
+      Try {
+        val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
+        val dataSet = {
+          val x = rareIndividuals.map(_._1._1)
+          val dataWeights = rareIndividuals.map(_._2)
+          val dataPoints = (x zip dataWeights).map {
+            case (p, w) =>
+              new DataPoint(new jsat.linear.DenseVector(p), w)
+          }
+          new SimpleDataSet(dataPoints.toList.asJava)
+        }
+        import ppse.em.Clustering.{computeCentroid, cov}
+
+        val clusters = emgmm.cluster(dataSet).asScala.map(_.asScala.toArray).toArray
+
+        val means =
+          clusters.map { cluster =>
+            val points = cluster.map(_.getNumericalValues.arrayCopy())
+            val weights = cluster.map(_.getWeight)
+            computeCentroid(points, weights)
+          }
+        val totalWeight = clusters.flatten.map(_.getWeight).sum
+        val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
+
+        val covariances = (clusters zip means).map { case (cluster, centroid) =>
+          val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
+          val centroidVector = new DenseVector[Double](centroid)
+          cov(clusterMatrix, centroidVector)
+        }.map(Breeze.matrixToArray)
+
+        val newGMM = GMM(means = means, covariances = covariances, weights = weights)
+        val dilatedGMM = EMGMM.dilate(newGMM, dilation)
+        val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
+
+        (dilatedGMM, samplerState)
+      }
+/*
       WDFEMGMM.initializeAndFit(
         iterations = iterations,
         tolerance = tolerance,
@@ -264,7 +305,7 @@ object PPSE2Operations {
         val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
         (dilatedGMM, samplerState)
-      }
+      }*/
     }
 
 
