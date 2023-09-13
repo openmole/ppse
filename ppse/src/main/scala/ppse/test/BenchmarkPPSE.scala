@@ -49,7 +49,7 @@ import scala.collection.mutable.ListBuffer
 @main def benchmarkPPSE(args: String*) =
   //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
 
-  scribe.Logger.root.withMinimumLevel(scribe.Level.Debug).replace()
+  scribe.Logger.root.withMinimumLevel(scribe.Level.Info).replace()
 
   val square = PatternSquare(
     PatternSquare.Square(Vector(0.5, 0.5), 0.01, 10),

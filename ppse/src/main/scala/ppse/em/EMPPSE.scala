@@ -262,8 +262,18 @@ object PPSE2Operations {
       val res =
         Try {
           val x = rareIndividuals.map(_._1._1)
-          val (initialClusters, _, _) = Clustering.build(x, minClusterSize)
+          val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
 
+          val (newGMM, _) = EMGMM.fit(
+            components = clusterMeans.length,
+            iterations = 10,
+            tolerance = 0.0001,
+            x = x,
+            means = clusterMeans,
+            covariances = clusterCovariances,
+            weights = clusterWeights)
+
+          /*
           val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
           val dataSet =
             //val x = rareIndividuals.map(_._1._1)
@@ -298,6 +308,7 @@ object PPSE2Operations {
             }.map(Breeze.matrixToArray)
 
           val newGMM = GMM(means = means, covariances = covariances, weights = weights)
+          */
           val dilatedGMM = EMGMM.dilate(newGMM, dilation)
           val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
