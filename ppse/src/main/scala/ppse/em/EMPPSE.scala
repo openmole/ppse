@@ -111,7 +111,8 @@ object EMPPSE {
     tolerance: Double,
     dilation: Double,
     warmupSampler: Int,
-    fitOnRarest: Int) =
+    fitOnRarest: Int,
+    genomeSize: Int) =
     PPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual[P], P](
       values = _.genome,
       phenotype = (_: Individual[P]).phenotype,
@@ -123,7 +124,8 @@ object EMPPSE {
       tolerance = tolerance,
       dilation = dilation,
       warmupSampler = warmupSampler,
-      fitOnRarest = fitOnRarest
+      fitOnRarest = fitOnRarest,
+      genomeSize = genomeSize
     )
 
   def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) => {
@@ -144,7 +146,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
           EMPPSE.breeding(t.continuous, t.lambda, t.explorationProbability),
           EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
-          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.fitOnRarest),
+          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.fitOnRarest, t.continuous.size),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -221,7 +223,8 @@ object PPSE2Operations {
     dilation: Double,
     warmupSampler: Int,
     minClusterSize: Int = 3,
-    fitOnRarest: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+    fitOnRarest: Int,
+    genomeSize: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
 
     def updateGMM(
       genomes: Array[Array[Double]],
