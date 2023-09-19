@@ -324,12 +324,16 @@ object EMPPSE2Operations:
 
             (dilatedGMM, samplerState)
 
-
-
       res match
         case Some(f: util.Failure[_]) =>
-          scribe.info(res.toString)
-          scribe.info(rareIndividuals.map(_.map(_.toSeq).toSeq).toString)
+          import java.io.*
+          val sw = new StringWriter()
+          val pw = new PrintWriter(sw)
+          f.exception.printStackTrace(pw)
+          scribe.error(
+            s"""${sw.toString}
+               |${rareIndividuals.map(_.toSeq).toSeq}""".stripMargin
+          )
         case _ =>
 
       res.map(_.toOption).flatten

@@ -135,9 +135,18 @@ object EMGMM  {
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] = {
-    weights.zipWithIndex.map { case (prior, k) => x.map(x => new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior) }.transpose
-  }
+  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] =
+    val res =
+      weights.zipWithIndex.map: (prior, k) =>
+        x.map: x =>
+          // TODO julien help
+//          try
+            new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior
+//          catch
+//            case e: org.apache.commons.math3.linear.SingularMatrixException => 0.0
+//            case e: org.apache.commons.math3.exception.MaxCountExceededException => 0.0
+
+    res.transpose
 
   /**
    * M-step, update parameters.

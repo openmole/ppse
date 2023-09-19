@@ -158,7 +158,7 @@ object EMPPSE {
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
 
   def toSampler(gmm: GMM, rng: Random) = {
-    val distribution = WDFEMGMM.toDistribution(gmm, rng)
+    val distribution = EMGMM.toDistribution(gmm, rng)
 
     def sample() = {
       val x = distribution.sample()
