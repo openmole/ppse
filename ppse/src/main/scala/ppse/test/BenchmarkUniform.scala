@@ -115,6 +115,7 @@ object BenchmarkUniform {
         for
           points <- 10000 to 500000 by 10000
         do
+          scribe.info(s"Computing for $points")
           val p = BenchmarkUniform.uniform2D(pattern, points)
 
           val indexPattern =

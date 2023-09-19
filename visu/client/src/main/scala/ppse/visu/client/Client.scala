@@ -14,12 +14,22 @@ import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
 import com.raquo.laminar.api.L.*
 import com.raquo.laminar.codecs
 import com.raquo.laminar.api.features.unitArrows
+import org.scalablytyped.runtime.StObject
 import ppse.visu.shared.Data
 
-import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
-import typings.fabric.mod.fabric
-import typings.fabric.fabricImplMod
+import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel, JSImport}
 import typings.svgdotjsSvgJs.mod.*
+import typings.svgdotjsSvgPanzoomJs.mod.*
+
+import scala.scalajs.js
+import scala.scalajs.js.Object.isFrozen
+
+//@JSExportTopLevel (name="libpanzoom")
+//object PanzoomLib {
+//  private lazy val dummy = typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod
+//  def load() = dummy
+//}
+
 
 @JSExportTopLevel (name="visualisation")
 @JSExportAll
@@ -35,6 +45,9 @@ object App:
   val forAttr = htmlAttr("for", codecs.StringAsIsCodec)
 
   def graph() =
+
+
+
     val containerNode = document.querySelector("#content")
 //    EventStream.fromFuture(APIClient.runData(()).future).foreach { data =>
 //      println(data)
@@ -48,10 +61,27 @@ object App:
       APIClient.runData(d).future.foreach: s =>
         selectedSlice.set(s.states.size - 1)
         runData.set(Some(s))
+
+
+
         runSVG(draw, s, selectedSlice.now())
 
-    lazy val draw =
+
+    lazy val draw = {
+      // Make sure panzoom is loaded
+      isFrozen(MouseButton)
       Svg().addTo("#svg-draw").size(2 * xSize, 2 * ySize)
+    }.asInstanceOf[typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg].panZoom().asInstanceOf[Svg]
+
+//typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.toString
+    //js.Dynamic.newInstance(typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg)()
+    //draw.unsafeCast1[typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg].panZoom(
+
+
+
+
+
+    //draw.asInstanceOf[svgdotjsSvgJsAugmentingMod.Svg].panZoom()
 
     val content =
       div(

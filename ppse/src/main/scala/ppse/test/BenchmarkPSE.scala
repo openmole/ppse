@@ -22,8 +22,9 @@ import breeze.stats.DescriptiveStats
 import mgo.evolution.*
 import mgo.evolution.niche.*
 import org.apache.commons.math3.random.Well44497b
-import ppse.em.EMPPSE.Individual
-import ppse.em.*
+import mgo.evolution.*
+import mgo.evolution.algorithm.PSE
+
 import ppse.tool.Serialization
 import scopt.*
 
@@ -46,7 +47,7 @@ import scala.collection.mutable.ListBuffer
 
 
 
-@main def benchmarkPPSE(args: String*) =
+@main def benchmarkPSE(args: String*) =
   //val square = PatternSquare(PatternSquare.Square(Vector(0.5, 0.5), 0.1, 100))
 
   scribe.Logger.root.withMinimumLevel(scribe.Level.Info).replace()
@@ -59,6 +60,8 @@ import scala.collection.mutable.ListBuffer
     PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
   )
 
+  scribe.info("PSE")
+
 //  println(PatternSquare.pattern(square, Vector(0.549, 0.549)))
 
   case class Config(
@@ -69,13 +72,12 @@ import scala.collection.mutable.ListBuffer
   val builder = OParser.builder[Config]
 
   val parser = {
-    import builder._
+    import builder.*
     OParser.sequence(
       programName("ppsetest"),
       head("scopt", "4.x"),
       opt[String]('m', "map").action((x, c) => c.copy(map = Some(File(x)))),
-      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x)))),
-      opt[String]('d', "draw").action((x, c) => c.copy(draw = Some(File(x))))
+      opt[String]('t', "trace").action((x, c) => c.copy(trace = Some(File(x))))
     )
   }
 
@@ -89,14 +91,15 @@ import scala.collection.mutable.ListBuffer
 //          else c
 //        )
 
-      val ppse = EMPPSE(
+      val pse = PSE(
         lambda = 100,
-        phenotype = identity,
-        pattern = PatternSquare.pattern(square, _),
-        continuous = Vector.fill(2)(C(0.0, 1.0)),
-        dilation = 1.0,
-        fitOnRarest = 100,
-        explorationProbability = 0.0)
+        phenotype = (d, _) => d,
+        pattern =
+          x =>
+            println(x -> PatternSquare.pattern(square, x))
+            PatternSquare.pattern(square, x)
+        ,
+        continuous = Vector.fill(2)(C(0.0, 1.0)))
 
 //      def patternToSpace(pattern: Vector[Int]) =
 //        def toSpace(x: Int) = x * 1.0 / 50.0
@@ -105,26 +108,24 @@ import scala.collection.mutable.ListBuffer
       val allPatterns = PatternSquare.allPatterns2D(square)
 
       object RunInfo:
-        case class Converge(error: Double, missed: Int)
-        case class Draw(points: Vector[Vector[Double]], gmm: Option[GMM])
+        case class Converge(missed: Int)
 
 
-
-      case class RunInfo(evaluation: Long, converge: RunInfo.Converge, draw: Option[RunInfo.Draw])
+      case class RunInfo(evaluation: Long, converge: RunInfo.Converge)
 
       val runInfo = ListBuffer[RunInfo]()
 
 //      val uniformSampling = Benchmark.uniformDensity(Benchmark.squareInSquare _ andThen ppse.pattern)
 
       def evolution =
-        ppse.
+        pse.
           until(afterGeneration(5000)).
           trace: (s, is) =>
             scribe.info(s"Generation ${s.generation}")
 
             if s.generation > 0 && s.generation % 100 == 0
             then
-              def result = EMPPSE.result(ppse, is, s)
+              def result = PSE.result(pse, is)
 
               def referenceDensity(p: Vector[Int]) =
                 if p.head == 1 then 0 else PatternSquare.patternDensity(square, p)
@@ -134,12 +135,10 @@ import scala.collection.mutable.ListBuffer
 
               val indexPattern =
                 val all = allPatterns.toSet
-                val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
-                map.filter((k, _) => all.contains(k))
+                val map = result.map(_.pattern)
+                map.filter(all.contains)
 
               val converge =
-                val avgError =
-                  DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
 
                   //              val error =
                   //                allPatterns.map { p =>
@@ -149,14 +148,13 @@ import scala.collection.mutable.ListBuffer
                   //                }.sum
 
                 val missed = allPatterns.size - indexPattern.size
-                RunInfo.Converge(avgError, missed)
+                RunInfo.Converge(missed)
 
-              val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None
-              runInfo += RunInfo(s.evaluated, converge, draw)
+              runInfo += RunInfo(s.evaluated, converge)
 
               //
 //              println(s.s.hitmap)
-              scribe.info(s"error ${converge.error} ${converge.missed}")
+              scribe.info(s"error ${converge.missed}")
 
 
 
@@ -167,7 +165,7 @@ import scala.collection.mutable.ListBuffer
 //      println(converge.map(c => s"${c.generation},${c.delta}").mkString("\n"))
 //
 //      //println(EMPPSE.result(ppse, finalPopulation).mkString("\n"))
-      val result = EMPPSE.result(ppse, finalPopulation, finalState)
+      val result = PSE.result(pse, finalPopulation)
       //println(finalState.s.gmm.map(g => GMM.toString(g._1)))
 //
 //      val indexPattern = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
@@ -182,15 +180,11 @@ import scala.collection.mutable.ListBuffer
 
 //      //println(s"Delta to uniform ${Benchmark.compareToUniformBenchmark(ppse.pattern, result.map(r => r.pattern -> r.density))}")
 
-      config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0) || r.phenotype.exists(_ < 0.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
+      //config.map.foreach { m => m.write(result.filterNot{ r => r.phenotype.exists(_ > 1.0) || r.phenotype.exists(_ < 0.0)}.map { r => r.phenotype.mkString(", ") + s", ${r.density}" }.mkString("\n")) }
+
       config.trace.foreach { m =>
         m.delete(swallowIOExceptions = true)
-        for c <- runInfo do m.appendLine(s"${c.evaluation}, ${c.converge.error}, ${c.converge.missed}")
-      }
-
-      config.draw.foreach { f =>
-        def draw = Serialization.PPSEEvolution(runInfo.map(i => Serialization.PPSEDrawState(i.evaluation, i.draw.get.points, i.draw.get.gmm)).toSeq)
-        Serialization.save(draw, f.toJava)
+        for c <- runInfo do m.appendLine(s"${c.evaluation}, ${c.converge.missed}")
       }
 //
 //      config.traceGMM.foreach { m =>
