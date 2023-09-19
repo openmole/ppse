@@ -100,7 +100,8 @@ lazy val client = project.in(file("visu/client")) enablePlugins(ScalaJSPlugin, S
     "fabric" -> "5.3.0",
     "@types/fabric" -> "5.3.0",
     "@svgdotjs/svg.js" -> "3.2.0",
-    "@svgdotjs/svg.panzoom.js" -> "2.1.2"
+    //"@svgdotjs/svg.panzoom.js" -> "2.1.2"
+    "@panzoom/panzoom" -> "4.5.1"
 //"bootstrap.native" -> "5.0.7"
   ),
 ) dependsOn (shared)

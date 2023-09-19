@@ -19,7 +19,7 @@ import ppse.visu.shared.Data
 
 import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel, JSImport}
 import typings.svgdotjsSvgJs.mod.*
-import typings.svgdotjsSvgPanzoomJs.mod.*
+//import typings.svgdotjsSvgPanzoomJs.mod.*
 
 import scala.scalajs.js
 import scala.scalajs.js.Object.isFrozen
@@ -62,16 +62,23 @@ object App:
         selectedSlice.set(s.states.size - 1)
         runData.set(Some(s))
 
-
-
         runSVG(draw, s, selectedSlice.now())
+        val elt = document.getElementById("svg-draw").asInstanceOf[HTMLElement]
+        val pan = typings.panzoomPanzoom.mod.default(elt)
+        val opt = typings.panzoomPanzoom.mod.default.defaultOptions
+        opt.maxScale = 100.0
+        pan.setOptions(opt)
+        elt.parentElement.addEventListener("wheel", pan.zoomWithWheel)
+
+
 
 
     lazy val draw = {
       // Make sure panzoom is loaded
-      isFrozen(MouseButton)
+      //isFrozen(MouseButton)
       Svg().addTo("#svg-draw").size(2 * xSize, 2 * ySize)
-    }.asInstanceOf[typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg].panZoom().asInstanceOf[Svg]
+    }//.asInstanceOf[typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg].panZoom().asInstanceOf[Svg]
+
 
 //typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.toString
     //js.Dynamic.newInstance(typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg)()
