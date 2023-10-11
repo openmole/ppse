@@ -143,6 +143,15 @@ object EMGMM  {
     res.transpose
 
   /**
+   * Regularize the matrix by adding a certain value to the diagonal.
+   * @param matrix input matrix
+   * @param v value to add to the diagonal
+   * @return a regularized matrix
+   */
+  def regularize(matrix: Array[Array[Double]], v: Double): Array[Array[Double]] =
+    matrix.zipWithIndex.map{(array, indexI) => array.zipWithIndex.map{ (value, indexJ)=> if (indexI == indexJ) value+v else value}}
+
+  /**
    * M-step, update parameters.
    * @param X data points
    */
@@ -160,7 +169,7 @@ object EMGMM  {
       val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
       val resp_k = resp_t(k)
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
-      w_sum.map(_.map(_ / resp_weights(k)))
+      regularize(w_sum.map(_.map(_ / resp_weights(k))),1e-6)
     }
     (weights, means, covariances)
 

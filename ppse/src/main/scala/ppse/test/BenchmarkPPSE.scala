@@ -96,7 +96,7 @@ import scala.collection.mutable.ListBuffer
         continuous = Vector.fill(2)(C(0.0, 1.0)),
         dilation = 1.0,
         fitOnRarest = 100,
-        explorationProbability = 0.0)
+        explorationProbability = 0.1)
 
 //      def patternToSpace(pattern: Vector[Int]) =
 //        def toSpace(x: Int) = x * 1.0 / 50.0
