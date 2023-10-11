@@ -1,29 +1,16 @@
 package ppse.em
 
-import breeze.linalg.{DenseMatrix, DenseVector, norm, sum}
 import jsat.SimpleDataSet
 import jsat.classifiers.DataPoint
-import ppse.tool.Breeze
-//import org.apache.commons.math3.ml.clustering.{Clusterable, KMeansPlusPlusClusterer, MultiKMeansPlusPlusClusterer}
-//import org.apache.commons.math3.ml.distance.EuclideanDistance
-//import org.apache.commons.math3.random.JDKRandomGenerator
-
-import scala.annotation.tailrec
-import scala.util.Random
-import scala.jdk.CollectionConverters._
-import mgo.tools.apacheRandom
-import smile.clustering
-import smile.clustering._
+import org.apache.commons.math3.stat.correlation.Covariance
 import scala.jdk.CollectionConverters._
 /**
  * Simplistic implementation of K-Means.
  */
-object Clustering {
+object Clustering:
 
-  def cov(x: DenseMatrix[Double], mean: DenseVector[Double]): DenseMatrix[Double] = {
-    val q = DenseMatrix.tabulate(x.cols,x.cols)((j,k)=>Array.tabulate(x.rows)(i=>(x(i,j)-mean(j))*(x(i,k)-mean(k))).sum)
-    (q /:/ (x.rows - 1).toDouble).toDenseMatrix
-  }
+  def cov(x: Array[Array[Double]]) =
+    new Covariance(x).getCovarianceMatrix.getData
 
   def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]]) =
     def average(x: Array[Double], w: Option[Array[Double]]) =
@@ -33,16 +20,16 @@ object Clustering {
 
     points.transpose.map { coord => average(coord, weights) }
 
-  def build(x: Array[Array[Double]], minPoints: Int, dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = {
+  def build(x: Array[Array[Double]], minPoints: Int, dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = 
     //val pointSize = x.head.length
     
     def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
       val centroids = computeCentroid(x, dataWeights)
       val weight = Array(1.0)
-      val covariance =
-        val clusterMatrix = Breeze.arrayToDenseMatrix(x)
-        val centroidVector = new DenseVector[Double](centroids)
-        Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
+      val covariance = cov(x)
+//        val clusterMatrix = Breeze.arrayToDenseMatrix(x)
+//        val centroidVector = new DenseVector[Double](centroids)
+//        Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
 
       (Array(centroids), Array(covariance), weight)
     
@@ -86,11 +73,7 @@ object Clustering {
         val totalWeight = clusters.flatten.map(_.getWeight).sum
         val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
 
-        val covariances = (clusters zip centroids).map { case (cluster, centroid) =>
-          val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
-          val centroidVector = new DenseVector[Double](centroid)
-          cov(clusterMatrix, centroidVector)
-        }
+        val covariances = clusters.map(c => cov(c.map(_.getNumericalValues.arrayCopy())))
 
         scribe.debug:
           s"""
@@ -99,11 +82,8 @@ object Clustering {
              |${covariances.map { p => "COV\n" + p }.mkString("\n")}
              |""".stripMargin
 
-        //assert(covariances.forall(_.forall(!_.isNaN)),s"covariances with nan: ${covariances.mkString("\n")}")
-
-        (centroids, covariances.map(Breeze.matrixToArray), weights)
+        (centroids, covariances, weights)
       else buildSingleCluster()
 
-  }
 
-}
+
