@@ -274,6 +274,8 @@ object EMPPSE2Operations:
             val x = rareIndividuals
             val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
 
+            scribe.info(s"cluster size ${clusterMeans.size} ${x.size}")
+
             val (newGMM, _) = EMGMM.fit(
               components = clusterMeans.length,
               iterations = 10,

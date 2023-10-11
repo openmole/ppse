@@ -13,7 +13,6 @@ import scala.reflect.ClassTag
 import scala.util.{Random, Try}
 
 
-
 /*
  * Copyright (C) 09/11/2020 Romain Reuillon
  *

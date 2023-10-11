@@ -106,9 +106,18 @@ object EMGMM:
             covariances: Array[Array[Array[Double]]], weights: Array[Double]): (Double, Array[Array[Double]]) =
     // resp matrix
     val resp = compute_log_likelihood(x, means, covariances, weights)
+    assert(resp.flatten.forall(!_.isNaN))
+
     val sum = resp.map(_.sum)
     val log_likelihood = sum.map(math.log).sum
-    val updatedResp = resp.zip(sum).map { case (v, div) => v.map(_ / div) }
+    assert(!log_likelihood.isNaN)
+
+    val updatedResp =
+      resp.zip(sum).map: (v, div) =>
+        v.map(_ / div)
+
+    assert(updatedResp.flatten.forall(!_.isNaN), s"${Display.arrayToString(resp)} ${Display.arrayToString(means)}")
+
     (log_likelihood, updatedResp)
 
   /**
@@ -122,12 +131,7 @@ object EMGMM:
     val res =
       weights.zipWithIndex.map: (prior, k) =>
         x.map: x =>
-          // TODO julien help
-          try
-            new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior
-          catch
-            case e: org.apache.commons.math3.linear.SingularMatrixException => 0.0
-            case e: org.apache.commons.math3.exception.MaxCountExceededException => 0.0
+          new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior
 
     res.transpose
 
@@ -154,7 +158,9 @@ object EMGMM:
     // means
     val weighted_sum = dot(resp.transpose, X)
     val means = weighted_sum.zip(resp_weights).map { case (array, w) => array.map(_ / w) }
-    // covariance
+
+
+// covariance
     val resp_t = resp.transpose
     val covariances = Array.tabulate(components) { k =>
       val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
@@ -162,6 +168,13 @@ object EMGMM:
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
       regularize(w_sum.map(_.map(_ / resp_weights(k))), 1e-6)
     }
+
+    assert(resp.flatten.forall(!_.isNaN))
+    assert(means.flatten.forall(!_.isNaN))
+    assert(resp_weights.forall(!_.isNaN))
+    assert(covariances.flatten.flatten.forall(!_.isNaN))
+
+
     (weights, means, covariances)
 
   /**
