@@ -21,6 +21,7 @@ object Display {
   def arrayToString[A](a: A): String =
     a match {
       case x: Array[_] => s"""[${x.map(arrayToString).mkString(",")}]"""
+      case x: Seq[_] => s"""[${x.map(arrayToString).mkString(",")}]"""
       case x => x.toString
     }
 }

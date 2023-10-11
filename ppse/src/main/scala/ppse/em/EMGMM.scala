@@ -185,11 +185,11 @@ object GMM:
         case ((m, c), w) => Component(m, c, w)
 
     val res = GMM(components)
-    assert(res.size > 0)
+    assert(res.size > 0, GMM.toString(res))
     res
 
   def toString(gmm: GMM): String =
-    s"${arrayToString(gmm.weights)},${arrayToString(gmm.means)},${arrayToString(gmm.covariances)}"
+    s"${arrayToString(gmm.components.toArray.map(_.weight))},${arrayToString(gmm.components.toArray.map(_.mean))},${arrayToString(gmm.components.map(_.covariance))}"
 
 
   def dilate(gmm: GMM, f: Double): GMM =
