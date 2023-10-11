@@ -10,7 +10,7 @@ import scala.util.Random
  * EM-GMM implementation.
  * Inspired by the work of Maël Fabien: https://github.com/maelfabien/EM_GMM_HMM
  */
-object EMGMM  {
+object EMGMM:
 
   /**
    * Full covariance Gaussian Mixture Model, trained using Expectation Maximization.
@@ -149,7 +149,9 @@ object EMGMM  {
    * @return a regularized matrix
    */
   def regularize(matrix: Array[Array[Double]], v: Double): Array[Array[Double]] =
-    matrix.zipWithIndex.map{(array, indexI) => array.zipWithIndex.map{ (value, indexJ)=> if (indexI == indexJ) value+v else value}}
+    matrix.zipWithIndex.map: (array, i) =>
+      array.zipWithIndex.map: (value, j) =>
+        if i == j then value + v else value
 
   /**
    * M-step, update parameters.
@@ -169,7 +171,7 @@ object EMGMM  {
       val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
       val resp_k = resp_t(k)
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
-      regularize(w_sum.map(_.map(_ / resp_weights(k))),1e-6)
+      regularize(w_sum.map(_.map(_ / resp_weights(k))), 1e-6)
     }
     (weights, means, covariances)
 
@@ -180,9 +182,6 @@ object EMGMM  {
    */
   def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] =
     Array.tabulate(A.length)(i=>B.indices.map(j=>B(j).map(_*A(i)(j))).transpose.map(_.sum).toArray)
-
-
-}
 
 object GMM:
 

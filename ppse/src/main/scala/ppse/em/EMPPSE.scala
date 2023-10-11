@@ -129,12 +129,11 @@ object EMPPSE {
       genomeSize = genomeSize
     )
 
-  def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) => {
+  def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) =>
     val sc = scaleContinuousValues(g._1.toVector, continuous)
     Individual(g, phenotype(sc))
-  }
 
-  implicit def isAlgorithm: Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
+  given Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
     def initialState(t: EMPPSE, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
 
     override def initialPopulation(t: EMPPSE, rng: scala.util.Random) =
