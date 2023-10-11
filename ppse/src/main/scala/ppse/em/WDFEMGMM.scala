@@ -58,27 +58,19 @@ object WDFEMGMM  {
 
     assert(covariances.forall(_.forall(_.forall(!_.isNaN))),s"covariances with nan: ${covariances.mkString("\n")}")
 
-    val factor = 10e6
-
-    val (scaledMeans, scaledVariances) = scale(means, covariances, factor)
     val res = fit(
       x = x,
       dataWeights = dataWeigthsValue,
-      gmm = GMM(means = scaledMeans, covariances = scaledVariances, weights = weights),
+      gmm = GMM(means = means, covariances = covariances, weights = weights),
       iterations = iterations,
       tolerance = tolerance,
       trace = IndexedSeq()
     )
 
-    val unscaledRes =
-      res.map: (gmm, t) =>
-        val (unscaledMeans, unscaledVariances) = scale(gmm.means, gmm.covariances, 1 / factor)
-        (gmm.copy(means = unscaledMeans, covariances = unscaledVariances), t)
-
-    if unscaledRes.isFailure
+    if res.isFailure
     then scribe.debug("failure : " + res)
 
-    unscaledRes
+    res
 
   def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
     import org.apache.commons.math3.distribution._
@@ -106,12 +98,12 @@ object WDFEMGMM  {
     logLikelihood: Double = 0.0,
     trace: Seq[Double] = Seq()): Try[(GMM, Seq[Double])] =
 
-    iterations match {
+    iterations match 
       case 0 => Success((gmm, trace))
       case i =>
         eStep(x, dataWeights, gmm.means, gmm.covariances, gmm.weights) match {
           case Success((updatedLogLikelihood, resp)) =>
-            val updatedGMM = mStep(x, dataWeights, resp, gmm.components)
+            val updatedGMM = mStep(x, dataWeights, resp, gmm.size)
             if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) Success((gmm, trace :+ updatedLogLikelihood))
             else fit(
               x = x,
@@ -123,7 +115,6 @@ object WDFEMGMM  {
               trace = trace :+ updatedLogLikelihood)
           case Failure(e) => Failure(e)
         }
-    }
 
 
   /**
@@ -272,13 +263,8 @@ object WDFEMGMM  {
    * @param A matrix A
    * @param B matrix B
    */
-  def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] = {
+  def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] =
     Array.tabulate(A.length)(i=>B.indices.map(j=>B(j).map(_*A(i)(j))).transpose.map(_.sum).toArray)
-  }
-
-  def dilate(gmm: GMM, f: Double): GMM =
-    gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * f))))
-
 
 }
 

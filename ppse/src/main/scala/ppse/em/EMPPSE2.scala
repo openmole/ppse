@@ -319,7 +319,7 @@ object EMPPSE2Operations:
 
             val newGMM = GMM(means = means, covariances = covariances, weights = weights)
             */
-            val dilatedGMM = EMGMM.dilate(newGMM, dilation)
+            val dilatedGMM = GMM.dilate(newGMM, dilation)
             val samplerState = EMPPSE2.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
             (dilatedGMM, samplerState)

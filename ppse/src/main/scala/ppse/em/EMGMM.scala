@@ -71,12 +71,7 @@ object EMGMM  {
     tolerance: Double,
     logLikelihood: Double = 0.0,
     trace: Seq[Double] = Seq()): (GMM, Seq[Double]) =
-    def gmm =
-      GMM(
-        means = means,
-        covariances = covariances,
-        weights = weights
-      )
+    def gmm = GMM(means, covariances, weights)
 
     iterations match
       case 0 => (gmm, trace)
@@ -119,14 +114,13 @@ object EMGMM  {
    * @param weights weights of the components (clusters)
    */
   def eStep(x: Array[Array[Double]], means: Array[Array[Double]],
-            covariances: Array[Array[Array[Double]]], weights: Array[Double]): (Double, Array[Array[Double]]) = {
+            covariances: Array[Array[Array[Double]]], weights: Array[Double]): (Double, Array[Array[Double]]) =
     // resp matrix
     val resp = compute_log_likelihood(x, means, covariances, weights)
     val sum = resp.map(_.sum)
     val log_likelihood = sum.map(math.log).sum
     val updatedResp = resp.zip(sum).map { case (v, div) => v.map(_ / div) }
     (log_likelihood, updatedResp)
-  }
 
   /**
    * Compute the log likelihood (used for e step).
@@ -140,11 +134,11 @@ object EMGMM  {
       weights.zipWithIndex.map: (prior, k) =>
         x.map: x =>
           // TODO julien help
-//          try
+          try
             new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior
-//          catch
-//            case e: org.apache.commons.math3.linear.SingularMatrixException => 0.0
-//            case e: org.apache.commons.math3.exception.MaxCountExceededException => 0.0
+          catch
+            case e: org.apache.commons.math3.linear.SingularMatrixException => 0.0
+            case e: org.apache.commons.math3.exception.MaxCountExceededException => 0.0
 
     res.transpose
 
@@ -152,7 +146,7 @@ object EMGMM  {
    * M-step, update parameters.
    * @param X data points
    */
-  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int): (Array[Double], Array[Array[Double]], Array[Array[Array[Double]]]) = {
+  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int): (Array[Double], Array[Array[Double]], Array[Array[Array[Double]]]) =
     // sum the columns to get total responsibility assigned to each cluster, N^{soft}
     val resp_weights = Array.tabulate(components)(i => resp.map(_ (i)).sum)
     // normalized weights
@@ -169,40 +163,65 @@ object EMGMM  {
       w_sum.map(_.map(_ / resp_weights(k)))
     }
     (weights, means, covariances)
-  }
 
   /**
    * 2d matrix dot product.
    * @param A matrix A
    * @param B matrix B
    */
-  def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] = {
+  def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] =
     Array.tabulate(A.length)(i=>B.indices.map(j=>B(j).map(_*A(i)(j))).transpose.map(_.sum).toArray)
-  }
-
-  def dilate(gmm: GMM, f: Double): GMM =
-    gmm.copy(covariances = gmm.covariances.map(_.map(_.map(_ * math.pow(f, 2)))))
 
 
 }
 
-object GMM {
+object GMM:
 
   import ppse.tool.Display._
 
-  def toString(gmm: GMM): String = {
+  def apply(
+   means: Array[Array[Double]],
+   covariances: Array[Array[Array[Double]]],
+   weights: Array[Double]): GMM =
+    val components =
+      (means zip covariances zip weights).map:
+        case ((m, c), w) => Component(m, c, w)
+
+    val res = GMM(components)
+    assert(res.size > 0)
+    res
+
+  def toString(gmm: GMM): String =
     s"${arrayToString(gmm.weights)},${arrayToString(gmm.means)},${arrayToString(gmm.covariances)}"
-  }
 
-}
 
-case class GMM(
-  means: Array[Array[Double]],
-  covariances: Array[Array[Array[Double]]],
-  weights: Array[Double]) {
-  def components = means.size
-}
+  def dilate(gmm: GMM, f: Double): GMM =
+    def dilatedComponents = gmm.components.map(c => c.copy(covariance = c.covariance.map(_.map(_ * math.pow(f, 2)))))
 
+    gmm.copy(dilatedComponents)
+
+  object Component:
+    def apply(
+      mean: Array[Double],
+      covariance: Array[Array[Double]],
+      weight: Double): Component =
+      def valid: Boolean =
+        try
+          new MultivariateNormalDistribution(mean, covariance)
+          true
+        catch
+          case e: org.apache.commons.math3.linear.SingularMatrixException => false
+          case e: org.apache.commons.math3.exception.MaxCountExceededException => false
+
+      Component(mean, covariance, weight, valid = valid)
+
+  case class Component(mean: Array[Double], covariance: Array[Array[Double]], weight: Double, valid: Boolean)
+
+case class GMM(components: Seq[GMM.Component]):
+  def means: Array[Array[Double]] = components.filter(_.valid).map(_.mean).toArray
+  def covariances: Array[Array[Array[Double]]] = components.filter(_.valid).map(_.covariance).toArray
+  def weights: Array[Double] = components.filter(_.valid).map(_.weight).toArray
+  def size = components.filter(_.valid).size
 
 object EMGMMTest extends App {
 
