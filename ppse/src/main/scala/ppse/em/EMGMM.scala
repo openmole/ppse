@@ -5,6 +5,7 @@ import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribut
 
 import scala.annotation.tailrec
 import scala.util.Random
+import ppse.tool.*
 
 /**
  * EM-GMM implementation.
@@ -31,7 +32,7 @@ object EMGMM:
     // set equal weights to all components
     val weights = Array.fill(components)(1.0 / components)
     // compute covariances
-    val covariances = Array.fill(components)(cov(x, columns))
+    val covariances = Array.fill(components)(Stat.covariance(x))
     val (gmm, logLikelihoodTrace) =
       fit(
         x = x,
@@ -90,18 +91,6 @@ object EMGMM:
           tolerance = tolerance,
           trace = trace :+ updatedLogLikelihood)
 
-
-  /**
-   * Estimate a covariance matrix, given data.
-   * @param x data points
-   * @param columns number of columns of the points
-   */
-  def cov(x: Array[Array[Double]], columns: Int): Array[Array[Double]] = {
-    val mean = Array.tabulate(columns){ i => x.map(_ (i)).sum / x.length }
-    val m = x.map(_.zipWithIndex.map(v => v._1 - mean(v._2)))
-    val p = m.map(v => v.map(x => v.map(_ * x)))
-    Array.tabulate(columns, columns)((i, j) => p.map(_ (i)(j)).sum / (x.length - 1))
-  }
 
   /**
    * E-step: compute responsibilities,

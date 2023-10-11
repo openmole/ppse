@@ -4,13 +4,11 @@ import jsat.SimpleDataSet
 import jsat.classifiers.DataPoint
 import org.apache.commons.math3.stat.correlation.Covariance
 import scala.jdk.CollectionConverters._
+import ppse.tool.*
 /**
  * Simplistic implementation of K-Means.
  */
 object Clustering:
-
-  def cov(x: Array[Array[Double]]) =
-    new Covariance(x).getCovarianceMatrix.getData
 
   def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]]) =
     def average(x: Array[Double], w: Option[Array[Double]]) =
@@ -20,13 +18,13 @@ object Clustering:
 
     points.transpose.map { coord => average(coord, weights) }
 
-  def build(x: Array[Array[Double]], minPoints: Int, dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) = 
+  def build(x: Array[Array[Double]], minPoints: Int, dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
     //val pointSize = x.head.length
     
     def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
       val centroids = computeCentroid(x, dataWeights)
       val weight = Array(1.0)
-      val covariance = cov(x)
+      val covariance = Stat.covariance(x)
 //        val clusterMatrix = Breeze.arrayToDenseMatrix(x)
 //        val centroidVector = new DenseVector[Double](centroids)
 //        Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
@@ -73,7 +71,7 @@ object Clustering:
         val totalWeight = clusters.flatten.map(_.getWeight).sum
         val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
 
-        val covariances = clusters.map(c => cov(c.map(_.getNumericalValues.arrayCopy())))
+        val covariances = clusters.map(c => Stat.covariance(c.map(_.getNumericalValues.arrayCopy())))
 
         scribe.debug:
           s"""
