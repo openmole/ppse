@@ -270,7 +270,7 @@ object EMPPSEOperations:
             weights = clusterWeights)
 
 
-          def gmmWithOutliers = EMGMM.integrateOutlier(x, newGMM._1)
+          def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1)
 
 
           /*

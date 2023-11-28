@@ -182,7 +182,7 @@ object EMGMM:
 
     (weights, means, covariances)
 
-  def integrateOutlier(x: Array[Array[Double]], gmm: GMM) =
+  def integrateOutliers(x: Array[Array[Double]], gmm: GMM) =
     val (_, resp) = EMGMM.eStep(x, gmm.means, gmm.covariances, gmm.weights)
     val excluded = resp.count(_.sum == 0)
     val newResp =
