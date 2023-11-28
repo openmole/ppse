@@ -18,7 +18,10 @@ object Clustering:
 
     points.transpose.map { coord => average(coord, weights) }
 
-  def build(x: Array[Array[Double]], minPoints: Int, dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
+  def build(
+    x: Array[Array[Double]],
+    minPoints: Int,
+    dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
     //val pointSize = x.head.length
     
     def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =

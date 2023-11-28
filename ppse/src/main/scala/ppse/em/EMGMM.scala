@@ -102,8 +102,11 @@ object EMGMM:
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def eStep(x: Array[Array[Double]], means: Array[Array[Double]],
-            covariances: Array[Array[Array[Double]]], weights: Array[Double]): (Double, Array[Array[Double]]) =
+  def eStep(
+    x: Array[Array[Double]],
+    means: Array[Array[Double]],
+    covariances: Array[Array[Array[Double]]],
+    weights: Array[Double]): (Double, Array[Array[Double]]) =
     // resp matrix
     val resp = compute_log_likelihood(x, means, covariances, weights)
     assert(resp.flatten.forall(!_.isNaN))
@@ -114,7 +117,8 @@ object EMGMM:
 
     val updatedResp =
       resp.zip(sum).map: (v, div) =>
-        v.map(_ / div)
+        v.map: x =>
+          if div != 0.0 then x / div else 0.0
 
     assert(updatedResp.flatten.forall(!_.isNaN), s"${Display.arrayToString(resp)} ${Display.arrayToString(means)}")
 

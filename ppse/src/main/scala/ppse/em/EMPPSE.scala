@@ -9,6 +9,7 @@ import ppse.tool.{Breeze, RejectionSampler}
 import mgo.tools.Lazy
 
 import java.io.{PrintWriter, StringWriter}
+import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 import scala.util.{Random, Try}
 
@@ -268,6 +269,28 @@ object EMPPSEOperations:
             covariances = clusterCovariances,
             weights = clusterWeights)
 
+          def newGMMWithIsolatedPoints =
+            val (_, resp) = EMGMM.eStep(x, newGMM.means, newGMM.covariances, newGMM.weights)
+            val excluded = resp.count(_.sum == 0)
+            val newResp =
+              //TODO better
+              var encountered = 0
+
+              for
+                r <- resp
+              yield
+                if r.sum != 0
+                then r ++ Vector.fill(excluded)(0.0)
+                else
+                  val excludedWeight =
+                    Vector.tabulate(excluded): i =>
+                      if i == encountered then 1.0 else 0.0
+                  encountered = encountered + 1
+                  r ++ excludedWeight
+
+            val (w, m, c) = EMGMM.mStep(x, newResp, newGMM.size + excluded)
+            GMM(m, c, w)
+
           /*
           val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
           val dataSet =
@@ -304,7 +327,7 @@ object EMPPSEOperations:
 
           val newGMM = GMM(means = means, covariances = covariances, weights = weights)
           */
-          val dilatedGMM = GMM.dilate(newGMM, dilation)
+          val dilatedGMM = GMM.dilate(newGMMWithIsolatedPoints, dilation)
           val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
           (dilatedGMM, samplerState)
