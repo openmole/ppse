@@ -130,8 +130,9 @@ object EMGMM:
   def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] =
     val res =
       weights.zipWithIndex.map: (prior, k) =>
+        val distribution = new MultivariateNormalDistribution(means(k), covariances(k))
         x.map: x =>
-          new MultivariateNormalDistribution(means(k), covariances(k)).density(x) * prior
+          distribution.density(x) * prior
 
     res.transpose
 
