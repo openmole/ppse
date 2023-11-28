@@ -182,6 +182,28 @@ object EMGMM:
 
     (weights, means, covariances)
 
+  def integrateOutlier(x: Array[Array[Double]], gmm: GMM) =
+    val (_, resp) = EMGMM.eStep(x, gmm.means, gmm.covariances, gmm.weights)
+    val excluded = resp.count(_.sum == 0)
+    val newResp =
+      //TODO better
+      var encountered = 0
+
+      for
+        r <- resp
+      yield
+        if r.sum != 0
+        then r ++ Vector.fill(excluded)(0.0)
+        else
+          val excludedWeight =
+            Vector.tabulate(excluded): i =>
+              if i == encountered then 1.0 else 0.0
+          encountered = encountered + 1
+          r ++ excludedWeight
+
+    val (w, m, c) = EMGMM.mStep(x, newResp, gmm.size + excluded)
+    GMM(m, c, w)
+
   /**
    * 2d matrix dot product.
    * @param A matrix A

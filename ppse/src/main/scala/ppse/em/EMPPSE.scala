@@ -260,7 +260,7 @@ object EMPPSEOperations:
           val x = rareIndividuals.map(_._1._1)
           val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
 
-          val (newGMM, _) = EMGMM.fit(
+          def newGMM = EMGMM.fit(
             components = clusterMeans.length,
             iterations = 10,
             tolerance = 0.0001,
@@ -269,27 +269,9 @@ object EMPPSEOperations:
             covariances = clusterCovariances,
             weights = clusterWeights)
 
-          def newGMMWithIsolatedPoints =
-            val (_, resp) = EMGMM.eStep(x, newGMM.means, newGMM.covariances, newGMM.weights)
-            val excluded = resp.count(_.sum == 0)
-            val newResp =
-              //TODO better
-              var encountered = 0
 
-              for
-                r <- resp
-              yield
-                if r.sum != 0
-                then r ++ Vector.fill(excluded)(0.0)
-                else
-                  val excludedWeight =
-                    Vector.tabulate(excluded): i =>
-                      if i == encountered then 1.0 else 0.0
-                  encountered = encountered + 1
-                  r ++ excludedWeight
+          def gmmWithOutliers = EMGMM.integrateOutlier(x, newGMM._1)
 
-            val (w, m, c) = EMGMM.mStep(x, newResp, newGMM.size + excluded)
-            GMM(m, c, w)
 
           /*
           val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
@@ -327,7 +309,7 @@ object EMPPSEOperations:
 
           val newGMM = GMM(means = means, covariances = covariances, weights = weights)
           */
-          val dilatedGMM = GMM.dilate(newGMMWithIsolatedPoints, dilation)
+          val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
           val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
           (dilatedGMM, samplerState)
