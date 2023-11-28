@@ -23,9 +23,10 @@ object EMGMM:
     components: Int,
     iterations: Int,
     tolerance: Double,
+    regularisationEpsilon: Double,
     x: Array[Array[Double]],
     columns: Int,
-    random: Random): (GMM, Seq[Double]) = {
+    random: Random): (GMM, Seq[Double]) =
     // initialize parameters
     // chose Random means in data points
     val means = random.shuffle(x.indices.toArray[Int]).take(components).map(c => x(c)).toArray
@@ -33,8 +34,9 @@ object EMGMM:
     val weights = Array.fill(components)(1.0 / components)
     // compute covariances
     val covariances = Array.fill(components)(Stat.covariance(x))
+
     val (gmm, logLikelihoodTrace) =
-      fit(
+      EMGMM.fit(
         x = x,
         means = means,
         covariances = covariances,
@@ -42,12 +44,11 @@ object EMGMM:
         components = components,
         iterations = iterations,
         tolerance = tolerance,
+        regularisationEpsilon = regularisationEpsilon,
         trace = IndexedSeq()
       )
 
     (gmm, logLikelihoodTrace)
-  }
-
 
   def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
     import org.apache.commons.math3.distribution._
@@ -70,6 +71,7 @@ object EMGMM:
     components: Int,
     iterations: Int,
     tolerance: Double,
+    regularisationEpsilon: Double,
     logLikelihood: Double = 0.0,
     trace: Seq[Double] = Seq()): (GMM, Seq[Double]) =
     def gmm = GMM(means, covariances, weights)
@@ -78,7 +80,7 @@ object EMGMM:
       case 0 => (gmm, trace)
       case i =>
         val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
-        val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components)
+        val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components, regularisationEpsilon)
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
           x = x,
@@ -86,6 +88,7 @@ object EMGMM:
           covariances = updatedCovariances,
           weights = updatedWeights,
           logLikelihood = updatedLogLikelihood,
+          regularisationEpsilon = regularisationEpsilon,
           components = components,
           iterations = i - 1,
           tolerance = tolerance,
@@ -155,7 +158,7 @@ object EMGMM:
    * M-step, update parameters.
    * @param X data points
    */
-  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int): (Array[Double], Array[Array[Double]], Array[Array[Array[Double]]]) =
+  def mStep(X: Array[Array[Double]], resp: Array[Array[Double]], components: Int, epsilon: Double): (Array[Double], Array[Array[Double]], Array[Array[Array[Double]]]) =
     // sum the columns to get total responsibility assigned to each cluster, N^{soft}
     val resp_weights = Array.tabulate(components)(i => resp.map(_ (i)).sum)
     // normalized weights
@@ -171,7 +174,7 @@ object EMGMM:
       val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
       val resp_k = resp_t(k)
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
-      regularize(w_sum.map(_.map(_ / resp_weights(k))), 1e-6)
+      regularize(w_sum.map(_.map(_ / resp_weights(k))), epsilon)
     }
 
     assert(resp.flatten.forall(!_.isNaN))
@@ -182,7 +185,7 @@ object EMGMM:
 
     (weights, means, covariances)
 
-  def integrateOutliers(x: Array[Array[Double]], gmm: GMM) =
+  def integrateOutliers(x: Array[Array[Double]], gmm: GMM, regularisationEpsilon: Double) =
     val (_, resp) = EMGMM.eStep(x, gmm.means, gmm.covariances, gmm.weights)
     val excluded = resp.count(_.sum == 0)
     val newResp =
@@ -201,7 +204,7 @@ object EMGMM:
           encountered = encountered + 1
           r ++ excludedWeight
 
-    val (w, m, c) = EMGMM.mStep(x, newResp, gmm.size + excluded)
+    val (w, m, c) = EMGMM.mStep(x, newResp, gmm.size + excluded, regularisationEpsilon)
     GMM(m, c, w)
 
   /**
@@ -281,6 +284,7 @@ object EMGMMTest extends App {
       tolerance = 0.0001,
       x = X,
       columns = 2,
+      regularisationEpsilon = 1e-6,
       random = rng)
 
   scribe.debug:

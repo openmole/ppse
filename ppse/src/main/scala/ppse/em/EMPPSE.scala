@@ -111,6 +111,8 @@ object EMPPSE {
     iterations: Int,
     tolerance: Double,
     dilation: Double,
+    minClusterSize: Int,
+    regularisationEpsilon: Double,
     warmupSampler: Int,
     fitOnRarest: Int,
     genomeSize: Int) =
@@ -124,6 +126,8 @@ object EMPPSE {
       iterations = iterations,
       tolerance = tolerance,
       dilation = dilation,
+      minClusterSize = minClusterSize,
+      regularisationEpsilon = regularisationEpsilon,
       warmupSampler = warmupSampler,
       fitOnRarest = fitOnRarest,
       genomeSize = genomeSize
@@ -146,7 +150,7 @@ object EMPPSE {
         deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
           EMPPSE.breeding(t.continuous, t.lambda, t.explorationProbability),
           EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
-          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.fitOnRarest, t.continuous.size),
+          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.minClusterSize, t.regularisationEpsilon, t.warmupSampler, t.fitOnRarest, t.continuous.size),
           Focus[EvolutionState[EMPPSEState]](_.generation),
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
@@ -177,7 +181,9 @@ case class EMPPSE(
   tolerance: Double = 0.0001,
   warmupSampler: Int = 10000,
   dilation: Double = 1.0,
-  fitOnRarest: Int = 100)
+  fitOnRarest: Int = 100,
+  minClusterSize: Int = 3,
+  regularisationEpsilon: Double = 1e-6)
 
 object EMPPSEOperations:
 
@@ -218,9 +224,10 @@ object EMPPSEOperations:
     tolerance: Double,
     dilation: Double,
     warmupSampler: Int,
-    minClusterSize: Int = 3,
+    minClusterSize: Int,
     fitOnRarest: Int,
-    genomeSize: Int): Elitism[S, I] = { (state, population, candidates, rng) =>
+    genomeSize: Int,
+    regularisationEpsilon: Double): Elitism[S, I] = { (state, population, candidates, rng) =>
 
     def updateGMM(
       genomes: Array[Array[Double]],
@@ -267,10 +274,11 @@ object EMPPSEOperations:
             x = x,
             means = clusterMeans,
             covariances = clusterCovariances,
-            weights = clusterWeights)
+            weights = clusterWeights,
+            regularisationEpsilon = regularisationEpsilon)
 
 
-          def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1)
+          def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1, regularisationEpsilon)
 
 
           /*
