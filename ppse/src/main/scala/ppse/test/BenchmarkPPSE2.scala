@@ -59,8 +59,6 @@ import scala.collection.mutable.ListBuffer
     PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
   )
 
-//  println(PatternSquare.pattern(square, Vector(0.549, 0.549)))
-
   case class Config(
     map: Option[File] = None,
     trace: Option[File] = None,
@@ -110,9 +108,7 @@ import scala.collection.mutable.ListBuffer
             if s.generation > 0 && s.generation % 100 == 0
             then
               def result = EMPPSE2.result(ppse, is, s)
-
-              def referenceDensity(p: Vector[Int]) =
-                if p.head == 1 then 0 else PatternSquare.patternDensity(square, p)
+              def referenceDensity(p: Vector[Int]) = PatternSquare.patternDensity(square, p)
 
               val indexPattern =
                 val all = allPatterns.toSet
@@ -120,18 +116,22 @@ import scala.collection.mutable.ListBuffer
                 map.filter((k, _) => all.contains(k))
 
               val converge =
-                val avgError =
-                  DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
+//                val avgError =
+//                  DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
 
-                  //              val error =
-                  //                allPatterns.map { p =>
-                  //                  val density = indexPattern.getOrElse(p, 1.0)
-                  //                  ///println(s"density $density ${referenceDensity(p)}")
-                  //                  math.abs(density - referenceDensity(p))
-                  //                }.sum
+                val error =
+                  val sum =
+                    allPatterns.filter(_ == Vector(-1, -1, -1)).map: p =>
+                      val density = indexPattern.getOrElse(p, 0.0)
+                      val reference = referenceDensity(p)
+                      val error = math.abs((density - reference) / reference)
+                      //assert(error <= 1.0, s"$density $reference $error $p")
+                      error
+                    .sum
+                  sum / allPatterns.size
 
                 val missed = allPatterns.size - indexPattern.size
-                RunInfo.Converge(avgError, missed)
+                RunInfo.Converge(error, missed)
 
               val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None
               runInfo += RunInfo(s.evaluated, converge, draw)

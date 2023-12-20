@@ -1,18 +1,5 @@
 package ppse.em
 
-import breeze.linalg.DenseVector
-import jsat.SimpleDataSet
-import jsat.classifiers.DataPoint
-import jsat.clustering.{ClustererBase, EMGaussianMixture, SeedSelectionMethods}
-import ppse.tool
-import ppse.tool.{Breeze, RejectionSampler}
-import mgo.tools.Lazy
-
-import scala.reflect.ClassTag
-import scala.util.{Random, Try}
-
-
-
 /*
  * Copyright (C) 09/11/2020 Romain Reuillon
  *
@@ -30,6 +17,13 @@ import scala.util.{Random, Try}
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import jsat.clustering.{ClustererBase, EMGaussianMixture, SeedSelectionMethods}
+import ppse.tool
+import ppse.tool.{Breeze, RejectionSampler}
+import mgo.tools.Lazy
+
+import scala.reflect.ClassTag
+import scala.util.{Random, Try}
 import cats.implicits._
 import mgo.evolution.algorithm._
 import mgo.evolution._
@@ -90,8 +84,6 @@ object EMPPSE2:
       then acc.toVector
       else
         val g = randomUnscaledContinuousValues(continuous.length, rng)
-//        if (rejectValue(g)) generate(acc, n)
-//        else generate(g :: acc, n + 1)
         generate((g, 1.0) :: acc, n + 1)
 
     generate(List(), 0)
@@ -132,8 +124,7 @@ object EMPPSE2:
     val sc = scaleContinuousValues(g._1.toVector, continuous)
     Individual(g, phenotype(sc))
 
-
-  implicit def isAlgorithm: Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
+  implicit def isAlgorithm: Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]]:
     def initialState(t: EMPPSE2, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
 
     override def initialPopulation(t: EMPPSE2, rng: scala.util.Random) =
@@ -151,7 +142,6 @@ object EMPPSE2:
           Focus[EvolutionState[EMPPSEState]](_.evaluated)
         )(s, pop, rng)
 
-  }
 
   def acceptPoint(x: Vector[Double]) =
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
@@ -206,7 +196,6 @@ object EMPPSE2Operations:
           breed
 
 
-
   def elitism[S, I, P: CanBeNaN](
     values: I => (Array[Double], Double),
     phenotype: I => P,
@@ -221,13 +210,13 @@ object EMPPSE2Operations:
     minClusterSize: Int,
     maxRareSample: Int,
     genomeSize: Int,
-    regularisationEpsilon: Double): Elitism[S, I] = { (state, population, candidates, rng) =>
+    regularisationEpsilon: Double): Elitism[S, I] = (state, population, candidates, rng) =>
 
     def updateGMM(
       genomes: Array[Array[Double]],
       patterns: Array[Array[Int]],
       newHitMap: HitMap,
-      random: Random) = {
+      random: Random) =
 
       val maxHits = newHitMap.values.max
 
@@ -242,29 +231,6 @@ object EMPPSE2Operations:
         if r.nonEmpty
         then Some(r)
         else None
-
-//        val pop = genomes zip patterns
-//        val weighted =
-//          (genomes zip patterns).flatMap: p =>
-//            val hits = newHitMap.getOrElse(p._2.toVector, 0)
-//            if hits <= maxRareSample
-//            then
-//              val weight = maxHits.toDouble + 1 - newHitMap.getOrElse(p._2.toVector, 0)
-//              Some((weight, (p, weight)))
-//            else None
-//
-//        if weighted.nonEmpty
-//        then Some(ppse.tool.multinomialDraw(weighted.toVector, fitOnRarest, random, replacement = true).toArray)
-//        else None
-
-
-//      def genomeWeights =
-//        rareIndividuals.map { (_, p) =>
-//          val hits = newHitMap.getOrElse(p.toVector, 0)
-//          (totalHits - hits) / totalHits.toDouble
-//          //1.0
-//        }
-      import scala.jdk.CollectionConverters._
 
       val res =
         rareIndividuals.map: rareIndividuals =>
@@ -285,67 +251,12 @@ object EMPPSE2Operations:
 
             def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1, regularisationEpsilon)
 
-            /*
-            val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)
-            val dataSet =
-              //val x = rareIndividuals.map(_._1._1)
-              //val dataWeights = rareIndividuals.map(_._2)
-              val dataPoints =
-                x map: p =>
-                  new DataPoint(new jsat.linear.DenseVector(p))
-  //              (x zip dataWeights).map:
-  //                case (p, w) => new DataPoint(new jsat.linear.DenseVector(p), w)
-
-              new SimpleDataSet(dataPoints.toList.asJava)
-
-            import ppse.em.Clustering.{computeCentroid, cov}
-
-            val assignments = emgmm.cluster(dataSet, initialClusters.size, null)
-            val clusters = ClustererBase.createClusterListFromAssignmentArray(assignments, dataSet).asScala.map(_.asScala.toArray).toArray
-
-            val means =
-              clusters.map: cluster =>
-                val points = cluster.map(_.getNumericalValues.arrayCopy())
-                val weights = cluster.map(_.getWeight)
-                computeCentroid(points, Some(weights))
-
-            val totalWeight = clusters.flatten.map(_.getWeight).sum
-            val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
-
-            val covariances =
-              (clusters zip means).map { case (cluster, centroid) =>
-                val clusterMatrix = Breeze.arrayToDenseMatrix(cluster.map(c => c.getNumericalValues.arrayCopy()))
-                val centroidVector = new DenseVector[Double](centroid)
-                cov(clusterMatrix, centroidVector)
-              }.map(Breeze.matrixToArray)
-
-            val newGMM = GMM(means = means, covariances = covariances, weights = weights)
-            */
             val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
             val samplerState = EMPPSE2.toSampler(dilatedGMM, rng).warmup(warmupSampler)
 
             (dilatedGMM, samplerState)
 
       res.flatMap(_.toOption)
-/*
-      WDFEMGMM.initializeAndFit(
-        iterations = iterations,
-        tolerance = tolerance,
-        x = rareIndividuals.map(_._1._1),
-        dataWeights = Some(rareIndividuals.map(_._2)),
-        minClusterSize = minClusterSize,
-        random = random
-      ) map { (newGMM, _) =>
-        scribe.debug:
-          "GMM = " + newGMM.means.map{s=>"POINT("+s.mkString(" ")+")"}.mkString( "\n" )
-
-        val dilatedGMM = EMGMM.dilate(newGMM, dilation)
-        val samplerState = EMPPSE.toSampler(dilatedGMM, rng).warmup(warmupSampler)
-
-        (dilatedGMM, samplerState)
-      }*/
-    }
-
 
     def updateState(
       genomes: Array[Array[Double]],
@@ -368,9 +279,9 @@ object EMPPSE2Operations:
           val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
           groupedGenomes.view.mapValues(v => v.map(p => 1 / p._2)).toSeq
 
-        offSpringDensities.foldLeft(densityMap) { case (map, (pattern, densities)) =>
-          map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
-        }
+        offSpringDensities.foldLeft(densityMap):
+          case (map, (pattern, densities)) =>
+            map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
 
       if genomes.size < minClusterSize
       then (newHitMap, None, newDensityMap)
@@ -409,7 +320,6 @@ object EMPPSE2Operations:
         hitmap.replace(elitedHitMap))(state)
 
     (state2, newPopulation)
-  }
 
 
 
