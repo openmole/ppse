@@ -5,6 +5,7 @@ import better.files.*
 import breeze.stats.DescriptiveStats
 import mgo.evolution.niche.boundedGrid
 import ppse.test.BenchmarkUniform.uniform2D
+import ppse.tool.Stat
 import scopt.OParser
 
 object BenchmarkUniform {
@@ -118,21 +119,36 @@ object BenchmarkUniform {
           scribe.info(s"Computing for $points")
           val p = BenchmarkUniform.uniform2D(pattern, points)
 
+/*
           val indexPattern =
             val all = allPatterns.toSet
             val map = p.groupMap(_._1)(_._2).view.mapValues(_.head).toMap
             map.filter((k, _) => all.contains(k))
+*/
+          val (indexPattern, missed) =
+            val all = allPatterns.toSet
+            val map = p.groupMap(_._1)(_._2).view.mapValues(_.head).toMap
+            (all.map(k => (k, if map.contains(k) then map(k) else 0.0)).toMap, allPatterns.size - map.count((k, _) => all.contains(k)))
 
-          val avgError =
-            DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
-
-          //          val error =
+//          val avgError =
+//            //allPatterns.map: p =>
+//            allPatterns.filter(_ == Vector(-1, -1, -1)).map: p =>
+//              val volume = if p.head == -1 then 1.0 - square.squares.map(PatternSquare.volume(_)).sum else PatternSquare.volume(square.squares(p.head))
+//              val density = indexPattern.getOrElse(p, 0.0)
+//              val reference = referenceDensity(p)
+//            //DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
+//              if density == 0 || reference==0 then 0 else /*volume **/ (reference*math.log(reference/density) + density*math.log(density/reference))
+//            .sum / allPatterns.size
+          val error =
+                  val (p, q) = indexPattern.toSeq.map { (p, d) => (referenceDensity(p), d) }.unzip
+                  Stat.jeffreysDivergence(p, q)
+        //          val error =
 //            allPatterns.map { p =>
 //              val density = indexPattern.getOrElse(p, 1.0)
 //              math.abs(referenceDensity(p) - density)
 //            }.sum
 
-          f.appendLine(s"$points, ${avgError}, ${allPatterns.size - indexPattern.size}")
+          f.appendLine(s"$points, ${error}, ${missed}")
       }
     case None =>
   }
