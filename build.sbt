@@ -42,6 +42,11 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   excludeConflicting
 )
 
+lazy val flocking = Project("flocking-model", file("flocking-model")).settings(
+  scalaVersion := Scala3Version,
+  excludeConflicting
+) dependsOn(ppse)
+
 lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.2.0",
