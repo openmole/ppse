@@ -24,7 +24,7 @@ import mgo.evolution.niche.*
 import org.apache.commons.math3.random.Well44497b
 import ppse.em.*
 import ppse.em.EMPPSE.Individual
-import ppse.tool.Serialization
+import ppse.tool.{Serialization, Stat}
 import scopt.*
 
 import scala.collection.mutable.ListBuffer
@@ -110,27 +110,37 @@ import scala.collection.mutable.ListBuffer
               def result = EMPPSE2.result(ppse, is, s)
               def referenceDensity(p: Vector[Int]) = PatternSquare.patternDensity(square, p)
 
-              val indexPattern =
+              /*val indexPattern =
                 val all = allPatterns.toSet
                 val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
-                map.filter((k, _) => all.contains(k))
+                map.filter((k, _) => all.contains(k))*/
+
+              val (indexPattern, missed) =
+                val all = allPatterns.toSet
+                val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
+                (all.map(k => (k, if map.contains(k) then map(k) else 0.0)).toMap, allPatterns.size - map.count((k, _) => all.contains(k)))
 
               val converge =
 //                val avgError =
 //                  DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
 
+//                val error =
+//                  val sum =
+//                    allPatterns.filter(_ == Vector(-1, -1, -1)).map: p =>
+//                    //allPatterns.map: p =>
+//                      val volume = if p.head == -1 then 1.0 - square.squares.map(PatternSquare.volume(_)).sum else PatternSquare.volume(square.squares(p.head))
+//                      val density = indexPattern.getOrElse(p, 0.0)
+//                      val reference = referenceDensity(p)
+//                      //val error = math.abs((density - reference) / reference)
+//                      //assert(error <= 1.0, s"$density $reference $error $p")
+//                      val error = if density == 0 || reference==0 then 0 else /*volume **/ (reference*math.log(reference/density) + density*math.log(density/reference))
+//                      error
+//                    .sum
+//                  sum / allPatterns.size
                 val error =
-                  val sum =
-                    allPatterns.filter(_ == Vector(-1, -1, -1)).map: p =>
-                      val density = indexPattern.getOrElse(p, 0.0)
-                      val reference = referenceDensity(p)
-                      val error = math.abs((density - reference) / reference)
-                      //assert(error <= 1.0, s"$density $reference $error $p")
-                      error
-                    .sum
-                  sum / allPatterns.size
-
-                val missed = allPatterns.size - indexPattern.size
+                  val (p,q) = indexPattern.toSeq.map { (p, d) => (referenceDensity(p), d) }.unzip
+                  Stat.jeffreysDivergence(p,q)
+                //val missed = allPatterns.size - indexPattern.size
                 RunInfo.Converge(error, missed)
 
               val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None

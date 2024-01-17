@@ -24,7 +24,7 @@ import mgo.evolution.niche.*
 import org.apache.commons.math3.random.Well44497b
 import ppse.em.EMPPSE.Individual
 import ppse.em.*
-import ppse.tool.Serialization
+import ppse.tool.{Serialization, Stat}
 import scopt.*
 
 import scala.collection.mutable.ListBuffer
@@ -118,7 +118,7 @@ import scala.collection.mutable.ListBuffer
 
       def evolution =
         ppse.
-          until(afterGeneration(5000)).
+          until(afterGeneration(2000)).
           trace: (s, is) =>
             scribe.info(s"Generation ${s.generation}")
 
@@ -127,20 +127,29 @@ import scala.collection.mutable.ListBuffer
               def result = EMPPSE.result(ppse, is, s)
 
               def referenceDensity(p: Vector[Int]) =
-                if p.head == 1 then 0 else PatternSquare.patternDensity(square, p)
+                //if p.head == 1 then 0 else PatternSquare.patternDensity(square, p)
+                val d = PatternSquare.patternDensity(square, p)
+                scribe.info(p.mkString("-")+" => " + d)
+                d
 //                val Vector((minX, maxX), (minY, maxY)) = patternToSpace(p)
 ////                DoublePoisson.inverse(minX, maxX, minY, maxY)
 //                0.0
 
-              val indexPattern =
+              val (indexPattern,missed) =
                 val all = allPatterns.toSet
                 val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
-                map.filter((k, _) => all.contains(k))
+                //(map.filter((k, _) => all.contains(k)), allPatterns.size - map.count((k, _) => all.contains(k)))
+                (all.map(k => (k,if map.contains(k) then map(k) else 0.0)).toMap, allPatterns.size - map.count((k, _) => all.contains(k)))
 
               val converge =
                 val avgError =
-                  DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
-
+                  //DescriptiveStats.percentile(indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }, 0.5)
+                  //indexPattern.map { (p, d) => math.abs(referenceDensity(p) - d) }.sum
+                  //indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => math.abs(referenceDensity(p) - d) }.sum
+                  //indexPattern.removed(Vector(-1, -1, -1)).map { (p, d) => if d == 0 then 0 else referenceDensity(p)*math.log(referenceDensity(p)/d) }.sum
+                  //indexPattern.map { (p, d) => if d == 0 then 0 else referenceDensity(p)*math.log(referenceDensity(p)/d) }.sum
+                  val (p,q) = indexPattern.toSeq.map { (p, d) => (referenceDensity(p), d) }.unzip
+                  Stat.jeffreysDivergence(p,q)
                   //              val error =
                   //                allPatterns.map { p =>
                   //                  val density = indexPattern.getOrElse(p, 1.0)
@@ -148,7 +157,7 @@ import scala.collection.mutable.ListBuffer
                   //                  math.abs(density - referenceDensity(p))
                   //                }.sum
 
-                val missed = allPatterns.size - indexPattern.size
+                //val missed = allPatterns.size - indexPattern.size
                 RunInfo.Converge(avgError, missed)
 
               val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None
