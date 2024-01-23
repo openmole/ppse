@@ -26,18 +26,15 @@ import scala.concurrent.duration.Duration
  */
 
 def behaviour(p: Vector[Double], seed: Int) =
-  try
-    import scala.sys.process.*
-    scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
-    val lines = Process(s"docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
-    //val lines = res.split("\n")
-    if lines.size != 2 then (-1.0, -1.0)
-    else
-      val speed = lines(0).toDouble
-      val patience = lines(1).toDouble
-      (speed, patience)
-  catch
-    case t: Throwable => (-1.0, -1.0)
+  import scala.sys.process.*
+  scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
+  val lines = Process(s"docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+  //val lines = res.split("\n")
+  if lines.size != 2 then (-1.0, -1.0)
+  else
+    val speed = lines(0).toDouble
+    val patience = lines(1).toDouble
+    (speed, patience)
 
 def replicated(p: Vector[Double]) =
   import concurrent.*
