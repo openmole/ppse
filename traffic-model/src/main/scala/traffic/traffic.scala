@@ -36,8 +36,10 @@ def behaviour(p: Vector[Double], seed: Int) =
 def replicated(p: Vector[Double]) =
   import concurrent.*
   import ExecutionContext.Implicits.global
-  val futs = (100 until 120).map(s => Future(behaviour(p, s)))
-  val (speeds, patiences) = Await.result(Future.sequence(futs), Duration.Inf).unzip
+//  val futs = (100 until 120).map(s => Future(behaviour(p, s)))
+//  val (speeds, patiences) = Await.result(Future.sequence(futs), Duration.Inf).unzip
+
+  val (speeds, patiences) = (100 until 120).map(s => behaviour(p, s)).unzip
   Vector(speeds.sum / speeds.size, patiences.sum / patiences.size)
 
 @main def trafficPPSE(args: String*) =
