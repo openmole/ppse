@@ -27,11 +27,14 @@ import scala.concurrent.duration.Duration
 
 def behaviour(p: Vector[Double], seed: Int) =
   import scala.sys.process.*
-  val lines = Process(s"docker run traffic traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+  scribe.info(s"Running docker run traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
+  val lines = Process(s"docker run traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
   //val lines = res.split("\n")
-  val speed = lines(0).toDouble
-  val patience = lines(1).toDouble
-  (speed, patience)
+  if lines.size != 2 then (-1.0, -1.0)
+  else
+    val speed = lines(0).toDouble
+    val patience = lines(1).toDouble
+    (speed, patience)
 
 def replicated(p: Vector[Double]) =
   import concurrent.*
@@ -40,7 +43,10 @@ def replicated(p: Vector[Double]) =
 //  val (speeds, patiences) = Await.result(Future.sequence(futs), Duration.Inf).unzip
 
   val (speeds, patiences) = (100 until 120).map(s => behaviour(p, s)).unzip
-  Vector(speeds.sum / speeds.size, patiences.sum / patiences.size)
+
+  if speeds.contains(-1.0)
+  then Vector(-1.0, -1.0)
+  else Vector(speeds.sum / speeds.size, patiences.sum / patiences.size)
 
 @main def trafficPPSE(args: String*) =
   scribe.Logger.root.withMinimumLevel(scribe.Level.Info).replace()
