@@ -27,8 +27,8 @@ import scala.concurrent.duration.Duration
 
 def behaviour(p: Vector[Double], seed: Int) =
   import scala.sys.process.*
-  scribe.info(s"Running docker run traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
-  val lines = Process(s"docker run traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+  scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
+  val lines = Process(s"docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
   //val lines = res.split("\n")
   if lines.size != 2 then (-1.0, -1.0)
   else
