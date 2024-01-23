@@ -10,6 +10,7 @@ val endpointCirceVersion = "2.3.0"
 
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 def excludeConflicting = Seq(
   excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13"),
