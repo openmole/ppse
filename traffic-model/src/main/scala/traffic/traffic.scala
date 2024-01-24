@@ -77,20 +77,25 @@ def behaviour(p: Vector[Double], seed: Int) =
         dilation = 1.0,
         maxRareSample = 10)
 
+      def resultString(result: Vector[EMPPSE2.Result[Vector[Double]]]) =
+        result.map: r =>
+          (r.phenotype ++ Vector(r.density)).mkString(",")
+        .mkString("\n")
+
       def evolution =
         ppse.
           until(afterGeneration(200)).
           trace: (s, is) =>
             scribe.info(s"Generation ${s.generation}")
             val result = EMPPSE2.result(ppse, is, s)
-            println("patterns " + result.length)
-
+            println(resultString(result))
 
       val rng = newRNG(42)
       val (finalState, finalPopulation) = evolution.eval(rng, parallel = true)
 
       val result = EMPPSE2.result(ppse, finalPopulation, finalState)
-      println(result)
+      println(resultString(result))
+
     //      config.trace.foreach: m =>
     //        m.delete(swallowIOExceptions = true)
     //        for c <- runInfo do m.appendLine(s"${c.evaluation}, ${c.converge.error}, ${c.converge.missed}")
