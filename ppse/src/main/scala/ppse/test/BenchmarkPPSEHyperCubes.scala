@@ -57,7 +57,7 @@ import scala.collection.mutable.ListBuffer
     case Some(config) =>
       val ppse = EMPPSE2(
         lambda = 100,
-        phenotype = identity,
+        phenotype = (_, x) => x,
         pattern = Hypercubes.pattern(hypercubes, _),
         continuous = Vector.fill(dim)(C(0.0, 1.0)))
         //explorationProbability = 0.1)

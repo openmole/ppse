@@ -30,23 +30,23 @@ def behaviour(p: Vector[Double], seed: Int) =
   scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
   val lines = Process(s"docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
   //val lines = res.split("\n")
-  if lines.size != 2 then (-1.0, -1.0)
+  if lines.size != 2 then Vector(-1.0, -1.0)
   else
     val speed = lines(0).toDouble
     val patience = lines(1).toDouble
-    (speed, patience)
+    Vector(speed, patience)
 
-def replicated(p: Vector[Double]) =
-  import concurrent.*
-  import ExecutionContext.Implicits.global
-//  val futs = (100 until 120).map(s => Future(behaviour(p, s)))
-//  val (speeds, patiences) = Await.result(Future.sequence(futs), Duration.Inf).unzip
-
-  val (speeds, patiences) = (100 until 120).map(s => behaviour(p, s)).unzip
-
-  if speeds.contains(-1.0)
-  then Vector(-1.0, -1.0)
-  else Vector(speeds.sum / speeds.size, patiences.sum / patiences.size)
+//def replicated(p: Vector[Double]) =
+//  import concurrent.*
+//  import ExecutionContext.Implicits.global
+////  val futs = (100 until 120).map(s => Future(behaviour(p, s)))
+////  val (speeds, patiences) = Await.result(Future.sequence(futs), Duration.Inf).unzip
+//
+//  val (speeds, patiences) = (100 until 120).map(s => behaviour(p, s)).unzip
+//
+//  if speeds.contains(-1.0)
+//  then Vector(-1.0, -1.0)
+//  else Vector(speeds.sum / speeds.size, patiences.sum / patiences.size)
 
 @main def trafficPPSE(args: String*) =
   scribe.Logger.root.withMinimumLevel(scribe.Level.Info).replace()
@@ -67,7 +67,7 @@ def replicated(p: Vector[Double]) =
     case Some(config) =>
       val ppse = EMPPSE2(
         lambda = 100,
-        phenotype = replicated,
+        phenotype = (rng, x) => behaviour(x, rng.nextInt()),
         pattern = boundedGrid(
           lowBound = Vector(0.0, 0.0),
           highBound = Vector(2.0, 100.0),
