@@ -120,27 +120,28 @@ object EMPPSE2:
       regularisationEpsilon = regularisationEpsilon
     )
 
-  def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) =>
+  def expression[P](phenotype: (Random, Vector[Double]) => P, continuous: Vector[C]) = (rng: Random, g: Genome) =>
     val sc = scaleContinuousValues(g._1.toVector, continuous)
-    Individual(g, phenotype(sc))
+    Individual(g, phenotype(rng, sc))
 
   implicit def isAlgorithm: Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]]:
     def initialState(t: EMPPSE2, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
 
-    override def initialPopulation(t: EMPPSE2, rng: scala.util.Random) =
-      deterministic.initialPopulation[Genome, Individual[Vector[Double]]](
+    override def initialPopulation(t: EMPPSE2, rng: scala.util.Random, parallel: Algorithm.ParallelContext) =
+      noisy.initialPopulation[Genome, Individual[Vector[Double]]](
         EMPPSE2.initialGenomes(t.lambda, t.continuous, rng),
-        EMPPSE2.expression(t.phenotype, t.continuous))
+        EMPPSE2.expression(t.phenotype, t.continuous),
+        rng,
+        parallel)
 
     def step(t: EMPPSE2) =
-      (s, pop, rng) =>
-        deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
-          EMPPSE2.breeding(t.continuous, t.lambda),
-          EMPPSE2.expression[Vector[Double]](t.phenotype, t.continuous),
-          EMPPSE2.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.maxRareSample, t.continuous.size, t.minClusterSize, t.regularisationEpsilon),
-          Focus[EvolutionState[EMPPSEState]](_.generation),
-          Focus[EvolutionState[EMPPSEState]](_.evaluated)
-        )(s, pop, rng)
+      noisy.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
+        EMPPSE2.breeding(t.continuous, t.lambda),
+        EMPPSE2.expression[Vector[Double]](t.phenotype, t.continuous),
+        EMPPSE2.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.warmupSampler, t.maxRareSample, t.continuous.size, t.minClusterSize, t.regularisationEpsilon),
+        Focus[EvolutionState[EMPPSEState]](_.generation),
+        Focus[EvolutionState[EMPPSEState]](_.evaluated)
+      )
 
 
   def acceptPoint(x: Vector[Double]) =
@@ -158,7 +159,7 @@ object EMPPSE2:
 
 case class EMPPSE2(
   lambda: Int,
-  phenotype: Vector[Double] => Vector[Double],
+  phenotype: (scala.util.Random, Vector[Double]) => Vector[Double],
   pattern: Vector[Double] => Vector[Int],
   continuous: Vector[C],
   maxRareSample: Int = 10,
@@ -179,8 +180,7 @@ object EMPPSE2Operations:
     lambda: Int,
     //reject: Option[G => Boolean],
     gmm: S => Option[(GMM, RejectionSampler.State)]
-  ): Breeding[S, I, G] =
-    (s, population, rng) =>
+  ): Breeding[S, I, G] = (s, population, rng) =>
 
       def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Array.fill(genomeLength)(() => rng.nextDouble()).map(_())
       def randomIndividuals = (0 to lambda).map(_ => buildGenome(randomUnscaledContinuousValues(continuous.size, rng), 1.0)).toVector
@@ -297,9 +297,8 @@ object EMPPSE2Operations:
         (newHitMap, newGMM, newDensityMap)
 
     def offSpringWithNoNan = filterNaN(candidates, phenotype)
-    def keepFirst(i: Vector[I]) = Vector(i.head)
 
-    val newPopulation = keepNiches(phenotype andThen pattern, keepFirst)(population ++ offSpringWithNoNan)
+    val newPopulation = keepRandomElementInNiches(phenotype andThen pattern, rng)(population ++ offSpringWithNoNan)
 
     def genomes(p: Vector[I]) = p.map(values).map(_._1).toArray
     def patterns(p: Vector[I]) = p.map(phenotype andThen pattern).map(_.toArray).toArray

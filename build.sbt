@@ -10,6 +10,7 @@ val endpointCirceVersion = "2.3.0"
 
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 def excludeConflicting = Seq(
   excludeDependencies += ExclusionRule(organization = "org.typelevel", name = "cats-kernel_2.13"),
@@ -20,7 +21,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" cross CrossVersion.for3Use2_13,
-  libraryDependencies += "org.openmole" %% "mgo" % "3.55",
+  libraryDependencies += "org.openmole" %% "mgo" % "3.56-SNAPSHOT",
   libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
@@ -43,6 +44,11 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
 )
 
 lazy val flocking = Project("flocking-model", file("flocking-model")).settings(
+  scalaVersion := Scala3Version,
+  excludeConflicting
+) dependsOn(ppse)
+
+lazy val traffic = Project("traffic-model", file("traffic-model")).settings(
   scalaVersion := Scala3Version,
   excludeConflicting
 ) dependsOn(ppse)

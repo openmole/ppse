@@ -81,7 +81,7 @@ import scala.collection.mutable.ListBuffer
     case Some(config) =>
       val ppse = EMPPSE2(
         lambda = 100,
-        phenotype = identity,
+        phenotype = (_, x) => x,
         pattern = PatternSquare.pattern(square, _),
         continuous = Vector.fill(2)(C(0.0, 1.0)),
         dilation = 1.0,

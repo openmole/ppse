@@ -140,20 +140,20 @@ object EMPPSE {
   given Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
     def initialState(t: EMPPSE, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
 
-    override def initialPopulation(t: EMPPSE, rng: scala.util.Random) =
+    override def initialPopulation(t: EMPPSE, rng: scala.util.Random, parallel: Algorithm.ParallelContext) =
       deterministic.initialPopulation[Genome, Individual[Vector[Double]]](
         EMPPSE.initialGenomes(t.lambda, t.continuous, rng),
-        EMPPSE.expression(t.phenotype, t.continuous))
+        EMPPSE.expression(t.phenotype, t.continuous),
+        parallel)
 
     def step(t: EMPPSE) =
-      (s, pop, rng) =>
-        deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
-          EMPPSE.breeding(t.continuous, t.lambda, t.explorationProbability),
-          EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
-          EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.minClusterSize, t.regularisationEpsilon, t.warmupSampler, t.fitOnRarest, t.continuous.size),
-          Focus[EvolutionState[EMPPSEState]](_.generation),
-          Focus[EvolutionState[EMPPSEState]](_.evaluated)
-        )(s, pop, rng)
+      deterministic.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
+        EMPPSE.breeding(t.continuous, t.lambda, t.explorationProbability),
+        EMPPSE.expression[Vector[Double]](t.phenotype, t.continuous),
+        EMPPSE.elitism(t.pattern, t.iterations, t.tolerance, t.dilation, t.minClusterSize, t.regularisationEpsilon, t.warmupSampler, t.fitOnRarest, t.continuous.size),
+        Focus[EvolutionState[EMPPSEState]](_.generation),
+        Focus[EvolutionState[EMPPSEState]](_.evaluated)
+      )
 
   }
 
