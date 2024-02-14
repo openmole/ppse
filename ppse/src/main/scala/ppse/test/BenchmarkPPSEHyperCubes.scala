@@ -34,7 +34,7 @@ import scala.collection.mutable.ListBuffer
     Hypercubes.Hypercube(Vector.fill(dim)(0.5), 0.02),
     Hypercubes.Hypercube(Vector.fill(dim)(0.05), 0.1),
     Hypercubes.Hypercube(Vector.fill(dim)(0.95), 0.1),
-    Hypercubes.Hypercube(Vector.fill(dim)(0.25), 0.02)
+    Hypercubes.Hypercube(Vector.fill(dim)(0.25), 0.015)
   )
   case class Config(
     map: Option[File] = None,
@@ -84,7 +84,7 @@ import scala.collection.mutable.ListBuffer
                 map.filter((k, _) => all.contains(k))
               val converge =
                 val (p,q) = indexPattern.toSeq.map { (p, d) => (referenceDensity(p), d) }.unzip
-                val avgError = Stat.averageDifference(p,q)
+                val avgError = Stat.jensenShannonDivergence(p,q)
                 val missed = allPatterns.size - indexPattern.size
                 RunInfo.Converge(avgError, missed)
               val draw = if config.draw.isDefined then Some(RunInfo.Draw(is.map(_.phenotype), s.s.gmm.map(_._1))) else None
