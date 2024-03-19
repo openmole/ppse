@@ -262,60 +262,31 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eget porta er
 % Use "Eq" instead of "Equation" for equation citations.
 \section*{Introduction}
 
-% \begin{abstract}
+In 2015 and we introduced PSE. 
+It has been widely used to discover new insights on simulation models in various application fields such as CITATIONS. 
+This method is efficient to list possible pattern but does not provide any information about the plausibility of the discovered pattern. To overcome this limitation we designed a new exploration method called Pattern Probability Space Estimation (PPSE). 
+PPSE discovers the diversty of patterns produced by a simulation model and estimate the likelihood that the model produce a given pattern when the input parameters are drawn from a uniform distribution.
 
-%Models of social systems generally contain free parameters that cannot be evaluated directly from data. A calibration phase is therefore necessary to assess the capacity of the model to produce the expected dynamics. However, despite the high computational cost of this calibration it doesn't produce a global picture of the relationship between the parameter space and the behaviour space of the model. The Calibration Profile (CP) algorithm is an innovative method extending the concept of automated calibration processes. It computes a profile that depicts the effect of each single parameter on the model behaviour, independently from the others. A 2-dimensional graph is thus produced exposing the impact of the parameter under study on the capacity of the model to produce expected dynamics. The first part of this paper is devoted to the formal description of the CP algorithm. In the second part,we apply it to an agent based geographical model (SimpopLocal). The analysis of the results brings to light novel insights on the model.
-
-% \noindent
-% \textbf{Keywords:} calibration profile, model evaluation, agent based modelling
-
-% \end{abstract}
-
-%\author[geoc,isc]{Romain Reuillon}
-%\author[geoc,isc]{Clara Schmitt}
-%\author[isc]{Ricardo De Aldama}
-%\author[isir]{Jean-Baptiste Mouret}
-%\address[geoc]{Géographie-cités - UMR 8504\\13 rue du Four\\75006 Paris}
-%\address[isc]{Institut des Systémes Complexes\\11 place Nationale\\75013 Paris}
-%\address[isir]{'Institut des Systèmes Intelligents et de Robotique (ISIR) - UMR7222\\4 place Jussieu 75252\\Paris cedex 05}
-
-% \title{A new method to evaluate simulation models: The Pattern Probability Space Estimation (PPSE) algorithm}
-
-% \maketitle
+%In this paper, we choose to expose the PPSE algorithm using purely functional Scala 3 code, that is ready to compile and execute.
+%The codding has been made as high level and understandable as possible while keeping correct Scala syntax.
+%Some functions of the Scala standard library are used, especially for collections types.
+%The documentation for these function is available on the Scala site\footnote{\url{https://scala-lang.org/api/3.x/}}.
 %
-%Agent-based modelling is widely used in models of social systems because it is well suited to describe individual-centred dynamics with non-linear interactions. This modelling technique, however, introduces many free parameters which critically influence the behaviour of the model. Hand-picking parameters is a time-consuming process and makes it hard to evaluate the ability of a model to reproduce empirical data or formalised knowledge. Automatic calibration of models have the potential to free the modeller from the time-consuming process of finding parameters and to make the modelling process more rigorous by reducing the number of arbitrary choices.
+%All function inputs are passed as parameter, it can call other function, it doesn't have side effects and what the function produces is provided to the calling function through the return value. The code excerpts figured in the paper, are part of a complete implementation of the algorithm available has free software here: {\color{red} url du dépot} 
 %
-%The current prevalent method for automatic calibration is to see it as an optimization problem in which the differences between known data and model predictions have to be minimized. This optimization can be performed with different optimization algorithms like "Adaptive Bayesian  Calibration" \citep{Lenormand2012} or evolutionary algorithms \citep{Stonedahl2011, schmitt2014}. Nevertheless, these methods find a single set of parameters, or, in the case of the multi-objective evolutionary algorithms, a set of parameters that represent optimal trade-off with regard to several model quality criteria. In both cases, the result of the calibration is solely that the model \emph{can} reproduce the data with a given precision. These calibration processes does not say anything about how often parameter sets lead to realistic behaviours, and about how a each parameter will change the behaviour of the model. For instance, in it is often interesting to know when some parameter values would prevent the system to reach a realistic behaviour, rather than only knowing a singles set of "optimal" parameter values.
 %
-%To compute a more global view of the parameter space, we have therefore designed a novel method that exposes the sensitivity of a single parameter on the calibration of a model independently of the other parameters. A high level representation of this method is shown on Figure \ref{globalpicture}. It computes the lowest calibration error that can possibly be obtained when the value of a given parameter is fixed and the other are free. It computes this minimal error for many values of the parameter under study. The value of the parameter are sampled all along its domain of definition to produce a so called \emph{calibration profile}. For each sample value, the value of the remaining parameters are optimised in order to find the lowest possible calibration error. The profile can then be drawn on a $2$-dimensional chart that depicts the influence of the parameter under study on the model calibration.
+%% \section{Objective}\label{sec. objective}
 %
-%\begin{figure}
-% \centering
-%  \includegraphics[width=1\linewidth]{globalpicture.pdf}
-% \captionof{figure}{ \label{globalpicture} High level representation of the Calibration Profile (CP) method }
-%\end{figure}
+%The PPSE method is inspired from the evolutionary algorithm. It extends the PSE method (citation). The PSE method discovers all the pattern that could be produced by a model given some uncertainty on its parameters. In PSE the pattern space is defined as discrete space containing descriptors of the dynamics of the simulation. Each combination values of these descriptors is considered a distinct pattern.
 %
-%To produce such a profile, a naive approach would consist in executing an entire calibration algorithm for each value of the parameter under study. Current automated calibration algorithms are too computationally intensive to make this approach tractable in practice. To tackle this problem we have designed an algorithm which computes the numerous points composing a calibration profile altogether (this methods has been inspired by the recently published MOLE method \citep{Mouret2012, Clune2013}, which computes two dimensional maps of phenotype landscapes using evolutionary algorithms). The method, called CP (Calibration Profile) is designed to draw one dimension profiles for model calibration.
-%
-%The first section of this paper exposes a formal description of the CP algorithm as well as a reusable implementation of method. In the second section we show how the application of the CP algorithm to a real world geographical simulation model produces novel insights toward the validation of the model.
+%PSE discovers all the possible patterns, however it does not provide any additional information on these pattern apart from there existence. PPSE extends on that to compute a likelihood for each pattern. PPSE computes the likelihood that the model produce a given pattern when the input parameters are drawn from a uniform distribution.
 
-% \section{Opening remarks}
-
-In this paper, we choose to expose the PPSE algorithm using purely functional Scala 3 code, that is ready to compile and execute.
-The codding has been made as high level and understandable as possible while keeping correct Scala syntax.
-Some functions of the Scala standard library are used, especially for collections types.
-The documentation for these function is available on the Scala site\footnote{\url{https://scala-lang.org/api/3.x/}}.
-
-All function inputs are passed as parameter, it can call other function, it doesn't have side effects and what the function produces is provided to the calling function through the return value. The code excerpts figured in the paper, are part of a complete implementation of the algorithm available has free software here: {\color{red} url du dépot} 
+Lets consider a simulation model and a function that computes patterns from the dynamics produced by the model. 
+The model has some free parameters. 
+For the sake of simplicity we consider here that the input parameters of the model are defined on $[0, 1]$.
 
 
-% \section{Objective}\label{sec. objective}
-
-The PPSE method is inspired from the evolutionary algorithm. It extends the PSE method (citation). The PSE method discovers all the pattern that could be produced by a model given some uncertainty on its parameters. In PSE the pattern space is defined as discrete space containing descriptors of the dynamics of the simulation. Each combination values of these descriptors is considered a distinct pattern.
-
-PSE discovers all the possible patterns, however it does not provide any additional information on these pattern apart from there existence. PPSE extends on that to compute a likelihood for each pattern. PPSE computes the likelihood that the model produce a given pattern when the input parameters are drawn from a uniform distribution.
-
-Lets consider a simulation model and a function that computes patterns from the dynamics produced by the model. The model has some free parameters. For the sake of simplicity we consider here that the input parameters of the model are defined on $[0, 1]$.
+PASSER EN PSEUDO-CODE
 
 \begin{lstlisting}[caption={Model and pattern signatures},label={lst:pattern}]
 type Dynamic = ...
@@ -336,7 +307,7 @@ def naivePPSE(model: Model, pattern: Dynamic => Pattern, random: Random, samples
   
   for 
     i <- 0 to samples
-  dor
+  do
     val x = Vector.fill(model.dimension)(random.nextDouble())
     val p = pattern(model.compute(x))
     patterns = patterns.getOrElse(p, 0) + 1
@@ -350,44 +321,7 @@ This algorithm computes an approximation of the probability to reach a pattern g
 The idea behind the PPSE algorithm is to evolutionally bias the sampling of the parameter space towards the part generating rare patterns, while keeping the enough knowledge on this bias to be de-bias the results and obtain unbiased estimator of the pattern likelihoods.
 
 
-
 {\color{red} Justification methodo, c'est bien de savoir pour un modèle si un pattern est rare ou est commun. Dans le cadre de l'aide à la décision avec PSE on veut savoir si les pattern possible issues de l'incertitude sur le modéle et qui ammène à des cas catastophique sont rares ou pas} 
-
-
-%The CP method takes inspiration from evolutionary algorithms to provide a thorough analysis of 
-%the role played by each parameter. Such analysis is independent from one parameter to the other.
-%A function that evaluates the performance of each particular model is supposed to be given
-%(typically such evaluation takes into account the fitting of the model to the data). 
-%
-%Let $\mathcal{M}$ be the set of possible models under consideration and let 
-%$A = A_1 \times \ldots \times A_{n} \subseteq \mathbb{R}^n$ be the domain of the parameter vectors that 
-%we consider as determining the models, where $n$ is the number of parameters. We denote by  
-%$\mu: A \rightarrow \mathcal{M}$ the map that provides a model for a given 
-%parameter vector. Such map can be viewed as a meta-model, that is a model with free parameters. 
-%
-%Let $\tilde{f} : \mathcal{M} \rightarrow \mathbb{R}_{\geq 0}$ be the function providing an evaluation for 
-%each model. We can obviously evaluate a 
-%parameter vector with the function $f = \tilde{f}\circ \mu : A \rightarrow \mathbb{R}_{\geq 0}$. In this context, when 
-%we use the word \emph{solution} we just mean a parameter vector $\bar{a}\in A$. 
-%By convention we suppose that best solutions are closer to $0$.
-%
-%
-%To estimate the impact of the $k$-th parameter on the model, we consider the function $h_k: A_k \rightarrow \mathbb{R}$ 
-%defined by
-%
-%$$
-%h_k(x) = \inf\{f (a_1\ldots, a_{k-1}, x, a_{k+1}, \ldots, a_{n}): a_j\in A_j\}.
-%$$
-%
-%This function produces, for a fixed value of the $k$-th parameter (i.e. $a_k = x$), the best possible performance of 
-%the model. In our view, this function is a good indicator of the impact of a parameter and provides valuable information 
-%for further analysis.
-%
-%Our aim is then to compute, for each $k \in \{1,\ldots, n\}$, a good approximation of $h_k$. A naive approach would consist 
-%in sampling $A_k$, say by choosing $\{a^1_k, \ldots, a^{l_k}_k\} \subset A_k$,  and running one optimization algorithm for each 
-%$a^j_k$ to approximate $h_k(a^j_k)$. Unfortunately this method is very inefficient. To overcome the computational limits 
-%of this approach, we propose a new algorithm that converges directly to the whole set  
-%$\{h_k(a^1_k), \ldots, h_k(a^{l_k}_k)\}$.
 
 \section*{Previous Work}
 
