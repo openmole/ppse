@@ -389,7 +389,7 @@ The idea behind the PPSE algorithm is to evolutionally bias the sampling of the 
 %of this approach, we propose a new algorithm that converges directly to the whole set  
 %$\{h_k(a^1_k), \ldots, h_k(a^{l_k}_k)\}$.
 
-\section*{Previous Work}
+\section*{Related Work}
 
 \subsection*{Importance Sampling}
 
@@ -409,7 +409,7 @@ http://www2.stat.duke.edu/~st118/Publication/impsamp.pdf
 {\color{red} Julien} 
 
 \subsection*{Evolutionary Algorithms}
-
+PPSE~\cite{cherel2015}.
 
 \section*{Materials and methods}
 %\section{Description of the algorithm}
@@ -664,14 +664,16 @@ On évalue la distance au téorique, avec la total variation distance. Il est po
 
 % \section{Application}\label{sec. application}
 
+\subsection*{The Squares Model}
 
-\subsection*{The Flocking Model}
+\subsection*{The Hypercubes Model}
+
+% \subsection*{The Flocking Model}
+% \cite{Reynolds1987}
 
 
-
-\cite{Reynolds1987}
-
-
+\subsection*{Traffic2Lanes}
+The model "Traffic 2 Lanes"~\cite{wilensky1998netlogo} is based on NetLogo~\cite{wilensky1999netlogo}.
 
 %In this section we consider $k\in\{1,\ldots, n\}$ to be fixed and we describe the CP algorithm for the analysis of the 
 %$k$-th parameter. As mentioned earlier, the goal is to approximate $h_k(x)$, that is to provide 
@@ -759,6 +761,8 @@ On évalue la distance au téorique, avec la total variation distance. Il est po
 
 
 
+
+\section*{Discussion}
 \subsection*{Validity}\label{sec. validityAlgo}
 %As we said in section \ref{sec. objective}, our approach consists in estimating the impact of the $k$-th parameter on 
 %the performance of the model, by finding a good approximation to the function $h_k(x)$. 
@@ -1052,7 +1056,6 @@ Other distributions for inputs
 %
 %The validity domain of $DistanceDecay$ is [0.2, 1.1]. The mechanism piloted by $DistanceDecay$ introduces a distance effect in the interaction process creating spatial heterogeneity. For low values of $DistanceDecay$ the profile shows only unsatisfying calibration errors. It means that spatial heterogeneity is mandatory to produce acceptable dynamics. 
 
-\section*{Discussion}
 \section*{Conclusion}
 
 %This paper proposes a new method to explore models. This method called CP computes 2-dimensional graphs that depict the effect of each parameter on the ability of a model to produce expected dynamics. This method has been shown very useful to better understand the dynamical behaviours of a geographical multi-agent simulation model. Using the CP method on this model important novel understandings are deduced:
