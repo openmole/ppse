@@ -1,20 +1,173 @@
-\documentclass[10pt,a4paper]{article}
-\usepackage[utf8]{inputenc}
-\usepackage{amsmath}
-\usepackage{amsfonts}
-\usepackage{amssymb}
-\usepackage{mathrsfs}
+% Once your paper is accepted for publication,                                                                                                                                         
+% PLEASE REMOVE ALL TRACKED CHANGES in this file                                                                                                                                       
+% and leave only the final text of your manuscript.                                                                                                                                    
+% PLOS recommends the use of latexdiff to track changes during review, as this will help to maintain a clean tex file.                                                                 
+% Visit https://www.ctan.org/pkg/latexdiff?lang=en for info or contact us at latex@plos.org.                                                                                           
+
+% Please do not include colors or graphics in the text.
+%
+% The manuscript LaTeX source should be contained within a single file (do not use \input, \externaldocument, or similar commands).
+%
+% % % % % % % % % % % % % % % % % % % % % % %
+%
+% -- FIGURES AND TABLES
+%
+% Please include tables/figure captions directly after the paragraph where they are first cited in the text.
+%
+% DO NOT INCLUDE GRAPHICS IN YOUR MANUSCRIPT
+% - Figures should be uploaded separately from your manuscript file. 
+% - Figures generated using LaTeX should be extracted and removed from the PDF before submission. 
+% - Figures containing multiple panels/subfigures must be combined into one image file before submission.
+% For figure citations, please use "Fig" instead of "Figure".
+% See http://journals.plos.org/plosone/s/figures for PLOS figure guidelines.
+%
+% Tables should be cell-based and may not contain:
+% - spacing/line breaks within cells to alter layout or alignment
+% - do not nest tabular environments (no tabular environments within tabular environments)
+% - no graphics or colored text (cell background color/shading OK)
+% See http://journals.plos.org/plosone/s/tables for table guidelines.
+%
+% For tables that exceed the width of the text column, use the adjustwidth environment as illustrated in the example table in text below.
+%
+% % % % % % % % % % % % % % % % % % % % % % % %
+%
+% -- EQUATIONS, MATH SYMBOLS, SUBSCRIPTS, AND SUPERSCRIPTS
+%
+% IMPORTANT
+% Below are a few tips to help format your equations and other special characters according to our specifications. For more tips to help reduce the possibility of formatting errors during conversion, please see our LaTeX guidelines at http://journals.plos.org/plosone/s/latex
+%
+% For inline equations, please be sure to include all portions of an equation in the math environment.  For example, x$^2$ is incorrect; this should be formatted as $x^2$ (or $\mathrm{x}^2$ if the romanized font is desired).
+%
+% Do not include text that is not math in the math environment. For example, CO2 should be written as CO\textsubscript{2} instead of CO$_2$.
+%
+% Please add line breaks to long display equations when possible in order to fit size of the column. 
+%
+% For inline equations, please do not include punctuation (commas, etc) within the math environment unless this is part of the equation.
+%
+% When adding superscript or subscripts outside of brackets/braces, please group using {}.  For example, change "[U(D,E,\gamma)]^2" to "{[U(D,E,\gamma)]}^2". 
+%
+% Do not use \cal for caligraphic font.  Instead, use \mathcal{}
+%
+% % % % % % % % % % % % % % % % % % % % % % % % 
+%
+% Please contact latex@plos.org with any questions.
+%
+% % % % % % % % % % % % % % % % % % % % % % % %
+
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[top=0.85in,left=2.75in,footskip=0.75in]{geometry}
+
+% amsmath and amssymb packages, useful for mathematical formulas and symbols
+\usepackage{amsmath,amssymb}
+
+% Use adjustwidth environment to exceed column width (see example table in text)
+\usepackage{changepage}
+
+% textcomp package and marvosym package for additional characters
+\usepackage{textcomp,marvosym}
+
+% cite package, to clean up citations in the main text. Do not remove.
+\usepackage{cite}
+
+% Use nameref to cite supporting information files (see Supporting Information section for more info)
+\usepackage{nameref,hyperref}
+
+% line numbers
+\usepackage[right]{lineno}
+
+% ligatures disabled
+\usepackage[nopatch=eqnum]{microtype}
+\DisableLigatures[f]{encoding = *, family = * }
+
+% color can be used to apply background shading to table cells only
+\usepackage[table]{xcolor}
+
+% array package and thick rules for tables
+\usepackage{array}
+
+% create "+" rule type for thick vertical lines
+\newcolumntype{+}{!{\vrule width 2pt}}
+
+% create \thickcline for thick horizontal lines of variable length
+\newlength\savedwidth
+\newcommand\thickcline[1]{%
+  \noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 2pt}%
+  \cline{#1}%
+  \noalign{\vskip\arrayrulewidth}%
+  \noalign{\global\arrayrulewidth\savedwidth}%
+}
+
+% \thickhline command for thick horizontal lines that span the table
+\newcommand\thickhline{\noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 2pt}%
+\hline
+\noalign{\global\arrayrulewidth\savedwidth}}
+
+
+% Remove comment for double spacing
+%\usepackage{setspace} 
+%\doublespacing
+
+% Text layout
+\raggedright
+\setlength{\parindent}{0.5cm}
+\textwidth 5.25in 
+\textheight 8.75in
+
+% Bold the 'Figure #' in the caption and separate it from the title/caption with a period
+% Captions will be left justified
+\usepackage[aboveskip=1pt,labelfont=bf,labelsep=period,justification=raggedright,singlelinecheck=off]{caption}
+\renewcommand{\figurename}{Fig}
+
+% Use the PLoS provided BiBTeX style
+\bibliographystyle{plos2015}
+
+% Remove brackets from numbering in List of References
+\makeatletter
+\renewcommand{\@biblabel}[1]{\quad#1.}
+\makeatother
+
+
+
+% Header and Footer with logo
+\usepackage{lastpage,fancyhdr,graphicx}
+\usepackage{epstopdf}
+%\pagestyle{myheadings}
+\pagestyle{fancy}
+\fancyhf{}
+%\setlength{\headheight}{27.023pt}
+%\lhead{\includegraphics[width=2.0in]{PLOS-submission.eps}}
+\rfoot{\thepage/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrule}{\hrule height 2pt \vspace{2mm}}
+\fancyheadoffset[L]{2.25in}
+\fancyfootoffset[L]{2.25in}
+\lfoot{\today}
+
+%% Include all macros below
+
+\newcommand{\lorem}{{\bf LOREM}}
+\newcommand{\ipsum}{{\bf IPSUM}}
+
+%% END MACROS SECTION
+
+%% BEGIN PPSE SECTION
+% \usepackage[utf8]{inputenc}
+% \usepackage{amsmath}
+% \usepackage{amsfonts}
+% \usepackage{amssymb}
+% \usepackage{mathrsfs}
 \usepackage{amsthm}
-\usepackage{graphicx}
-\usepackage{caption}
+% \usepackage{graphicx}
+% \usepackage{caption}
 \usepackage{listings}
-\usepackage{natbib}
-\usepackage{xcolor}
-\usepackage{hyperref}
+% \usepackage{natbib}
+% \usepackage{xcolor}
+% \usepackage{hyperref}
 
 
-%\bibliographystyle{jtbnew}
-\setcitestyle{authoryear,round,aysep={}}
+% %\bibliographystyle{jtbnew}
+% \setcitestyle{authoryear,round,aysep={}}
 
 \theoremstyle{definition}
 \newtheorem*{df*}{Definition} 
@@ -35,18 +188,88 @@ morestring=[b]"}
 
 % Default settings for code listings
 \lstset{frame=tb,language=scala,aboveskip=3mm,belowskip=3mm,showstringspaces=false,breaklines=true,basicstyle=\ttfamily\footnotesize,numberstyle=\footnotesize,numbers=left, stepnumber=1,xleftmargin=10pt }
+%% END PPSE SECTION
 
 
 \begin{document}
+\vspace*{0.2in}
 
-\begin{abstract}
+% Title must be 250 characters or less.
+\begin{flushleft}
+{\Large
+  \textbf\newline{A new method to evaluate simulation models: The Pattern Probability Space Estimation (PPSE) algorithm} % Please use "sentence case" for title and headings (capitalize only the first word in a title (or heading), the first word in a subtitle (or subheading), and any proper nouns).
+}
+\newline
+% Insert author names, affiliations and corresponding author email (do not include titles, positions, or degrees).
+\\
+Romain Reuillon\textsuperscript{1\Yinyang*},
+Julien Perret\textsuperscript{2\Yinyang}
+% Name3 Surname\textsuperscript{2,3\textcurrency},
+% Name4 Surname\textsuperscript{2},
+% Name5 Surname\textsuperscript{2\ddag},
+% Name6 Surname\textsuperscript{2\ddag},
+% Name7 Surname\textsuperscript{1,2,3*},
+% with the Lorem Ipsum Consortium\textsuperscript{\textpilcrow}
+\\
+\bigskip
+\textbf{1} Géographie-Cités, CNRS, Paris, France, ISC-PIF, Paris, France
+\\
+\textbf{2} LASTIG, Univ Gustave Eiffel, IGN, ENSG, Saint-Mande, France
+\\
+% \textbf{3} Affiliation Dept/Program/Center, Institution Name, City, State, Country
+% \\
+\bigskip
+
+% Insert additional author notes using the symbols described below. Insert symbol callouts after author names as necessary.
+% 
+% Remove or comment out the author notes below if they aren't used.
+%
+% Primary Equal Contribution Note
+\Yinyang These authors contributed equally to this work.
+
+% Additional Equal Contribution Note
+% Also use this double-dagger symbol for special authorship notes, such as senior authorship.
+% \ddag These authors also contributed equally to this work.
+
+% Current address notes
+% \textcurrency Current Address: Dept/Program/Center, Institution Name, City, State, Country % change symbol to "\textcurrency a" if more than one current address note
+% \textcurrency b Insert second current address 
+% \textcurrency c Insert third current address
+
+% Deceased author note
+% \dag Deceased
+
+% Group/Consortium Author Note
+% \textpilcrow Membership list can be found in the Acknowledgments section.
+
+% Use the asterisk to denote corresponding authorship and provide email address in note below.
+* romain.reuillon@iscpif.fr
+
+\end{flushleft}
+% Please keep the abstract below 300 words
+\section*{Abstract}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eget porta erat. Morbi consectetur est vel gravida pretium. Suspendisse ut dui eu ante cursus gravida non sed sem. Nullam sapien tellus, commodo id velit id, eleifend volutpat quam. Phasellus mauris velit, dapibus finibus elementum vel, pulvinar non tellus. Nunc pellentesque pretium diam, quis maximus dolor faucibus id. Nunc convallis sodales ante, ut ullamcorper est egestas vitae. Nam sit amet enim ultrices, ultrices elit pulvinar, volutpat risus.
+
+
+% Please keep the Author Summary between 150 and 200 words
+% Use first person. PLOS ONE authors please skip this step. 
+% Author Summary not valid for PLOS ONE submissions.   
+% \section*{Author summary}
+% Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eget porta erat. Morbi consectetur est vel gravida pretium. Suspendisse ut dui eu ante cursus gravida non sed sem. Nullam sapien tellus, commodo id velit id, eleifend volutpat quam. Phasellus mauris velit, dapibus finibus elementum vel, pulvinar non tellus. Nunc pellentesque pretium diam, quis maximus dolor faucibus id. Nunc convallis sodales ante, ut ullamcorper est egestas vitae. Nam sit amet enim ultrices, ultrices elit pulvinar, volutpat risus.
+
+\linenumbers
+
+% Use "Eq" instead of "Equation" for equation citations.
+\section*{Introduction}
+
+% \begin{abstract}
 
 %Models of social systems generally contain free parameters that cannot be evaluated directly from data. A calibration phase is therefore necessary to assess the capacity of the model to produce the expected dynamics. However, despite the high computational cost of this calibration it doesn't produce a global picture of the relationship between the parameter space and the behaviour space of the model. The Calibration Profile (CP) algorithm is an innovative method extending the concept of automated calibration processes. It computes a profile that depicts the effect of each single parameter on the model behaviour, independently from the others. A 2-dimensional graph is thus produced exposing the impact of the parameter under study on the capacity of the model to produce expected dynamics. The first part of this paper is devoted to the formal description of the CP algorithm. In the second part,we apply it to an agent based geographical model (SimpopLocal). The analysis of the results brings to light novel insights on the model.
 
-\noindent
-\textbf{Keywords:} calibration profile, model evaluation, agent based modelling
+% \noindent
+% \textbf{Keywords:} calibration profile, model evaluation, agent based modelling
 
-\end{abstract}
+% \end{abstract}
 
 %\author[geoc,isc]{Romain Reuillon}
 %\author[geoc,isc]{Clara Schmitt}
@@ -56,9 +279,9 @@ morestring=[b]"}
 %\address[isc]{Institut des Systémes Complexes\\11 place Nationale\\75013 Paris}
 %\address[isir]{'Institut des Systèmes Intelligents et de Robotique (ISIR) - UMR7222\\4 place Jussieu 75252\\Paris cedex 05}
 
-\title{A new method to evaluate simulation models: The Pattern Probability Space Estimation (PPSE) algorithm}
+% \title{A new method to evaluate simulation models: The Pattern Probability Space Estimation (PPSE) algorithm}
 
-\maketitle
+% \maketitle
 %
 %Agent-based modelling is widely used in models of social systems because it is well suited to describe individual-centred dynamics with non-linear interactions. This modelling technique, however, introduces many free parameters which critically influence the behaviour of the model. Hand-picking parameters is a time-consuming process and makes it hard to evaluate the ability of a model to reproduce empirical data or formalised knowledge. Automatic calibration of models have the potential to free the modeller from the time-consuming process of finding parameters and to make the modelling process more rigorous by reducing the number of arbitrary choices.
 %
@@ -76,14 +299,17 @@ morestring=[b]"}
 %
 %The first section of this paper exposes a formal description of the CP algorithm as well as a reusable implementation of method. In the second section we show how the application of the CP algorithm to a real world geographical simulation model produces novel insights toward the validation of the model.
 
-\section{Opening remarks}
+% \section{Opening remarks}
 
-In this paper, we choose to expose the PPSE algorithm using purely functional Scala 3 code, that is ready to compile and execute. The codding has been made as high level and understandable as possible while keeping correct Scala syntax. Some functions of the Scala standard library are used, especially for collections types. The documentation for these function is available on the Scala site\footnote{\url{https://scala-lang.org/api/3.x/}}.
+In this paper, we choose to expose the PPSE algorithm using purely functional Scala 3 code, that is ready to compile and execute.
+The codding has been made as high level and understandable as possible while keeping correct Scala syntax.
+Some functions of the Scala standard library are used, especially for collections types.
+The documentation for these function is available on the Scala site\footnote{\url{https://scala-lang.org/api/3.x/}}.
 
- All function inputs are passed as parameter, it can call other function, it doesn't have side effects and what the function produces is provided to the calling function through the return value. The code excerpts figured in the paper, are part of a complete implementation of the algorithm available has free software here: {\color{red} url du dépot} 
+All function inputs are passed as parameter, it can call other function, it doesn't have side effects and what the function produces is provided to the calling function through the return value. The code excerpts figured in the paper, are part of a complete implementation of the algorithm available has free software here: {\color{red} url du dépot} 
 
 
-\section{Objective}\label{sec. objective}
+% \section{Objective}\label{sec. objective}
 
 The PPSE method is inspired from the evolutionary algorithm. It extends the PSE method (citation). The PSE method discovers all the pattern that could be produced by a model given some uncertainty on its parameters. In PSE the pattern space is defined as discrete space containing descriptors of the dynamics of the simulation. Each combination values of these descriptors is considered a distinct pattern.
 
@@ -103,7 +329,7 @@ def pattern(dynamic: Dynamic): Pattern = ...
 
 The naive algorithm to compute the likelihood of the pattern is to uniformly sample the parameter space and to measure the number of time a given pattern has been reached. 
 
-\begin{lstlisting}[caption={Naive PPSE},label={lst:pattern}]
+\begin{lstlisting}[caption={Naive PPSE},label={lst:naivePPSE}]
 
 def naivePPSE(model: Model, pattern: Dynamic => Pattern, random: Random, samples: Int): Map[Pattern, Double] = 
   var patterns = Map[Pattern, Double]()
@@ -163,9 +389,9 @@ The idea behind the PPSE algorithm is to evolutionally bias the sampling of the 
 %of this approach, we propose a new algorithm that converges directly to the whole set  
 %$\{h_k(a^1_k), \ldots, h_k(a^{l_k}_k)\}$.
 
-\section{Previous Work}
+\section*{Previous Work}
 
-\subsection{Importance Sampling}
+\subsection*{Importance Sampling}
 
 {\color{red} Julien} 
 http://www2.stat.duke.edu/~st118/Publication/impsamp.pdf
@@ -174,20 +400,20 @@ http://www2.stat.duke.edu/~st118/Publication/impsamp.pdf
 
 1 / X = likelihood ratio
 
-\subsection{Gaussian Mixture Fitting}
+\subsection*{Gaussian Mixture Fitting}
 
 {\color{red} Julien} 
 
-\subsection{Rejection Sampling}
+\subsection*{Rejection Sampling}
 
 {\color{red} Julien} 
 
-\subsection{Evolutionary Algorithms}
+\subsection*{Evolutionary Algorithms}
 
 
-
-\section{Description of the algorithm}\label{sec. algoDescription}
-
+\section*{Materials and methods}
+%\section{Description of the algorithm}
+\label{sec. algoDescription}
 
 
 \begin{figure}
@@ -199,19 +425,19 @@ http://www2.stat.duke.edu/~st118/Publication/impsamp.pdf
 
 lambda
 
-\subsection{Patterns}
+\subsection*{Patterns}
 
 The PPSE algorithm has been developed in the frame of evolutionary algorithm. It computes the density of patterns that can be produced by the model. In the implementation of PPSE exposed in this paper we define a pattern as a vector of integral values. Generally the pattern are metrics that can be derived from the outputs of a model. For instance one can think of the discretisation by range of numerical values, some descriptors of temporal series such as the number of derivative sign change or the size of a population of agents. 
 
 A given pattern can generally be produced by several (or an infinity) of input value for the model. The signature of a the pattern function provided to the algorithm is exposed in listing \ref{lst:pattern}. This function can for instance compute the output of a model for the input values x and then compute the pattern from the model outputs.
 
-\begin{lstlisting}[caption={Pattern function},label={lst:pattern}]
+\begin{lstlisting}[caption={Pattern function},label={lst:patternFunction}]
 def pattern(x: Vector[Double]): Vector[Int] = 
   // computation of the pattern for the point x
 \end{lstlisting}
 
 
-\subsection{Algorithm State}\label{sec. algoState}
+\subsection*{Algorithm State}\label{sec:algoState}
 
 At each generation the population of solution is evolved. Additionally to this state, it maintains two pieces of state : a hit map and a density map. The data structures are exposed in listing \ref{lst:state}
 
@@ -223,13 +449,13 @@ type HitMap = Map[Vector[Int], Int]
 \end{lstlisting}
 
 
-\subsection{Evolution Loop}
+\subsection*{Evolution Loop}
 
 The evolution is the engine of the PPSE algorithm. It is a recursive function computing the successive states of the algorithm until a given number of generation has been exhausted. The code of the evolution loop is expose in listing \ref{lst:loop}.
 
 The $evolution$ function takes the entire state of the algorithm as parameters. The 2 first parameters are the $genomes$ and the $patterns$ that have been computed for each of these genomes. These 2 parameters store the current population of solution of the evolutionary algorithm.
 
-The next 2 parameters are the density map ($densityMap$) and the hit map ($hitMap$), described in section \ref{sec. algoState}.
+The next 2 parameters are the density map ($densityMap$) and the hit map ($hitMap$), described in section \ref{sec:algoState}.
 
 The $gmm$ parameter passes the value of the GMM and the state of the rejection sampler. This is used in the breeding function to sample the new genomes and compute their densities.
 
@@ -281,9 +507,9 @@ def evolution(
 \end{lstlisting}
 
 
-\subsection{Breeding}
+\subsection*{Breeding}
 
-The breeding function, exposed in listing \ref{lst:breeding}, produce new genomes sampled in the input space. It optional takes a GMM in parameter. In the first steps of the algorithm, while no GMM has been evaluated, it samples either uniformly. When the algorithm is advanced enough to construct a GMM (see section \ref{updateState}) the breeding function sample in this GMM. It return the freshly sampled genomes and their respective densities. 
+The breeding function, exposed in listing \ref{lst:breeding}, produce new genomes sampled in the input space. It optional takes a GMM in parameter. In the first steps of the algorithm, while no GMM has been evaluated, it samples either uniformly. When the algorithm is advanced enough to construct a GMM (see section \ref{sec:updateState}) the breeding function sample in this GMM. It return the freshly sampled genomes and their respective densities. 
 
 \begin{lstlisting}[caption={Breeding},label={lst:breeding}]
 def breeding(
@@ -302,7 +528,7 @@ def breeding(
 \end{lstlisting}
 
 
-\subsection{Elitism}
+\subsection*{Elitism}
 
 In genetic algorithms the elitism function generally shrinks the population by discarding the individual with the lowest fitness. In PPSE, only one individual by pattern is kept. The elitism function exposed in listing \ref{lst:elitism} keep only the first individual that has ever produced a given pattern.
 
@@ -320,9 +546,9 @@ def elitism(
 \end{lstlisting}
 
 
-\subsection{Updating the State}\label{sec. updateState}
+\subsection*{Updating the State}\label{sec:updateState}
 
-After the breeding, the evaluation and the elitism stages, the state of the algorithm is updated. Updating the state consists in computing the updated values for the hit map, the GMM and the density map. It is computed by the function $updateState$, exposed in listing \ref{updateState}. 
+After the breeding, the evaluation and the elitism stages, the state of the algorithm is updated. Updating the state consists in computing the updated values for the hit map, the GMM and the density map. It is computed by the function $updateState$, exposed in listing \ref{lst:updateState}. 
 
 This function first computes the new hit map. It simply increments the current number of hit by 1, for each pattern produced by the offspring.
 
@@ -380,11 +606,11 @@ def updateState(
 \end{lstlisting}
 
 
-\subsection{Computing the GMM}\label{sec. computeGMM}
+\subsection*{Computing the GMM}\label{sec:computeGMM}
 
 At each step, the PPSE computes a GMM in order to sample the next generation. This GMM is fitted using the expectation maximisation (EM) algorithm {\color{red} ADD REF}. 
 
-The computation of the GMM is exposed in listing \label{lst:computeGMM}. The $computeGMM$ function selects the $fitOnRarest$ genomes,  with the lowest number of hits, in the current population. Then it clusterise these genomes using the $HDBSCAN$  algorithm {\color{red} ADD REF}. The result of the clustering is used to bootstrap the EM fitting algorithm (i.e. the $fitGMM$ function). 
+The computation of the GMM is exposed in listing \ref{lst:computeGMM}. The $computeGMM$ function selects the $fitOnRarest$ genomes,  with the lowest number of hits, in the current population. Then it clusterise these genomes using the $HDBSCAN$  algorithm {\color{red} ADD REF}. The result of the clustering is used to bootstrap the EM fitting algorithm (i.e. the $fitGMM$ function). 
 
 In some edge cases, the $fitGMM$ function can fail to compute. In this case the $computeGMM$ function returns an empty option.
 
@@ -424,8 +650,9 @@ def computeGMM(
 \end{lstlisting}
 
 
-
-\section{Evaluation}\label{sec. evaluation}
+\section*{Results}
+% \section{Evaluation}
+\label{sec. evaluation}
 
 On évalue avec un modèle 2D => 2D car c'est facile à construire
 
@@ -435,10 +662,10 @@ On utilise (x, y) => (cauchy(x), cauchy(y))
 On évalue la distance au téorique, avec la total variation distance. Il est possible que ça donne rien a cause des pattern communs. Si c'est le cas on pourra essayer de les exclure et de réapliquer la même meusure de distance.
 
 
-\section{Application}\label{sec. application}
+% \section{Application}\label{sec. application}
 
 
-\subsection{The Flocking Model}
+\subsection*{The Flocking Model}
 
 
 
@@ -532,7 +759,7 @@ On évalue la distance au téorique, avec la total variation distance. Il est po
 
 
 
-\subsection{Validity}\label{sec. validityAlgo}
+\subsection*{Validity}\label{sec. validityAlgo}
 %As we said in section \ref{sec. objective}, our approach consists in estimating the impact of the $k$-th parameter on 
 %the performance of the model, by finding a good approximation to the function $h_k(x)$. 
 %To clarify why our method provides indeed such a good approximation, we make the following remarks: 
@@ -558,7 +785,7 @@ On évalue la distance au téorique, avec la total variation distance. Il est po
 %We should note that, as it is usually the case with evolutionary algorithms, we do not provide a precise speed 
 %of convergence for our algorithm; however, experimental results are very satisfactory (see section \ref{application}).
 
-\subsection{Extensions of the algorithm}\label{sec. extensions}
+\subsection*{Extensions of the algorithm}\label{sec. extensions}
 
 Application to stochastic problems
 
@@ -617,7 +844,7 @@ Other distributions for inputs
 %$F(H) = \sum_{\bar{a}\in H} f(\bar{a})$. However, in practice, we consider a maximal computation time as the stopping 
 %criterion and the stability becomes an element of subsequent analysis.
 
-%\subsection{Generic implementation}
+%\subsection*{Generic implementation}
 
 %In order to make the CP algorithm usable we provide along with this paper a generic implementation in the free and open source library called MGO (Multi Goal Optimisation)\footnote{https://github.com/ISCPIF/mgo} programmed in Scala\footnote{http://scala-lang.org/}. MGO is a flexible library of evolutionary algorithms. It leverages the Scala "trait" system to provide a high level of modularity.
 %
@@ -634,11 +861,11 @@ Other distributions for inputs
 %\section{Application the SimpopLocal geographical model}
 %\label{application}
 %
-%\subsection{A model to simulate the emergence of structured urban settlement system}
+%\subsection*{A model to simulate the emergence of structured urban settlement system}
 
 %SimpopLocal is a stylized model of an agrarian society in the Neolithic period, during the primary ``urban transition'' manifested by the appearance of the first cities \citep{schmitt2014}. It is designed to study the emergence of a structured and hierarchical urban settlement system by simulating the growth dynamics of a system of settlements whose development remains hampered by strong environmental constraints that are progressively overcome by successive innovations. This exploratory model seeks to reproduce a particular structure of the Rank-Size distribution of settlements well defined in the literature as a generalized stylized-fact: For any given settlement system throughout the time and continents, the distribution of sizes is strongly differentiated, exhibiting a very large number of small settlements and a much smaller number of large settlements \citep{archaeomedes1998, berry1964, fletcher1986, liu1996}. This kind of distributions can be modeled by a power-law when small settlements are not considered or a log-normal when small settlements are considered \citep{robson1973, favaro2011}. Such distributions are easily simulated by rather simple and non spatial statistical stochastic models \citep{gibrat1931, simon1955}. But for theoretical considerations and to specify the model in a variety of geographical frames, we think it necessary to make explicit the spatial interaction processes that generate the evolution of city systems. According to the evolutionary theory of system of cities \citep{pumain2009c, Pumain1997b}, the growth dynamics of each settlement is controlled by its ability to generate interurban interactions. The multi-agent system modeling framework enables us to include mechanisms, derived from this theory, that govern the interactions between settlements \citep{bretagnolle2006, pumain2013}. The application of this concept resulted in several Simpop models \citep{bretagnolle2010, bura1996, sanders1997} in which the expected macro-structure of the log-normal distribution of sizes emerges from the differentiated settlement growth dynamics induced by the heterogeneous ability of interurban interactions. Therefore the aim of SimpopLocal is to simulate the hierarchy process via the explicit modelling of a growth distribution that is not entirely stochastic as in the Gibrat model \citep{gibrat1931} but that emerges from the spatial interactions between micro-level entities.
 
-%\subsection{Agents, attributes, and mechanisms of the model}
+%\subsection*{Agents, attributes, and mechanisms of the model}
 
 %The SimpopLocal model is a multi-agent model developed with the Scala software programming language. The landscape of the simulation space is composed of a hundred of settlements. Each settlement is considered as a fixed agent and is described by three attributes: The location of its permanent habitat, the size of its population, and the available resources in its local environment. The amount of available resources is quantified in units of inhabitants and can be understood as the carrying capacity of the local environment for sustaining a population. This carrying capacity depends on the resources exploitation skills that the local population has acquired from inventing or acquiring innovation. Each new innovation acquired by a settlement develops its exploitation skills. This resource exploitation is done locally and sharing or trade is not explicitly represented in the model.
 %The growth dynamics of a settlement is modelled according to the assumption that its population size is dependent on the amount of available resources in the local environment and is inspired from the Verhulst model \citep{verhulst1845} or logistic growth. For this experiment, we assume a continuous general growth trend for population - this may be different in another application of the model. The annual growth factor $r_{growth}$ is expressed on an annual basis, thus one iteration or step of the model simulates one year of demographic growth. $r_{growth}$ has been empirically estimated to $0.02$. The limiting factor of growth  $R_{M}^{i}$ is the amount of available resource that depends on the number $M$ of innovations the settlement $i$ has acquired by the end of the simulation step $t$. $P_{t}^{i}$ is the population of the settlement $i$ at the simulation step $t$:
@@ -703,7 +930,7 @@ Other distributions for inputs
 %
 %In order to ensure the replicability of the model, a portable implementation has been designed and the source code of SimpopLocal used in this experiment has been filed in a public repository \footnote{https://github.com/ISCPIF/profiles-simpoplocal}.
 
-%\subsection{Objective function}
+%\subsection*{Objective function}
 
 %As defined in section \ref{sec. objective} the CP method requires the definition of the $f$ objective function that evaluates a set of parameter values by computing a scalar value (the lowest this value is the better the set of parameter values). For SimpopLocal, $f$ aggregates three objective functions to assess the ability of SimpopLocal to reproduce the stylized facts that we seek to simulate for a given set of the parameter values. 
 %
@@ -720,7 +947,7 @@ Other distributions for inputs
 %
 %To analyse the produced results, we have established that only input parameters leading to values of $f$ of less than $0.1$ of error are considered valid. Indeed, the empirical data and theoretical knowledge that led to the definition of the objective function are not precise enough to justify a more thorough analysis of the model. This threshold is largely exceeded for some parameter values, however rendering this threshold  of acceptability explicit enables the definition of credible bounds for each of the free parameter of the model. These bounds define a validity domain of each of the parameters. Note that the profile algorithm iteratively refines the computed profiles from high values toward lower ones through through an iterative process, therefore the proposed bounds are more restrictive than the exact ones.
 
-%\subsection{Results}
+%\subsection*{Results}
 
 %This section exposes results of the CP algorithm on each of the six free parameters of SimpopLocal. Each profile presented in this paper has required the achievement of 100,000 CPU hours time (meaning that it would have required 100,000 hours of computation on a single core of a modern processor). To achieve such a huge computational load we have distributed it across the numerous CPU of the European computation grid EGI (European Grid Infrastructure) using the distributed implementation of CP that we have integrated into OpenMOLE. The effective user time was around 15 days to compute all the profiles achieving a gain of 2200. The OpenMOLE script files used to compute those profiles have been made available\footnote{https://github.com/ISCPIF/profiles-simpoplocal}. 
 %
@@ -825,6 +1052,7 @@ Other distributions for inputs
 %
 %The validity domain of $DistanceDecay$ is [0.2, 1.1]. The mechanism piloted by $DistanceDecay$ introduces a distance effect in the interaction process creating spatial heterogeneity. For low values of $DistanceDecay$ the profile shows only unsatisfying calibration errors. It means that spatial heterogeneity is mandatory to produce acceptable dynamics. 
 
+\section*{Discussion}
 \section*{Conclusion}
 
 %This paper proposes a new method to explore models. This method called CP computes 2-dimensional graphs that depict the effect of each parameter on the ability of a model to produce expected dynamics. This method has been shown very useful to better understand the dynamical behaviours of a geographical multi-agent simulation model. Using the CP method on this model important novel understandings are deduced:
@@ -856,7 +1084,10 @@ Other distributions for inputs
 %\end{center}
 %\end{table}
 
+\section*{Acknowledgments}
 
-\bibliography{profil}
+\nolinenumbers
+
+\bibliography{ppse}
 
 \end{document}
