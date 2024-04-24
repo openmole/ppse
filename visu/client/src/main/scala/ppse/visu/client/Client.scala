@@ -45,9 +45,6 @@ object App:
   val forAttr = htmlAttr("for", codecs.StringAsIsCodec)
 
   def graph() =
-
-
-
     val containerNode = document.querySelector("#content")
 //    EventStream.fromFuture(APIClient.runData(()).future).foreach { data =>
 //      println(data)
@@ -80,15 +77,6 @@ object App:
     }//.asInstanceOf[typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg].panZoom().asInstanceOf[Svg]
 
 
-//typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.toString
-    //js.Dynamic.newInstance(typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg)()
-    //draw.unsafeCast1[typings.svgdotjsSvgPanzoomJs.mod.svgdotjsSvgJsAugmentingMod.Svg].panZoom(
-
-
-
-
-
-    //draw.asInstanceOf[svgdotjsSvgJsAugmentingMod.Svg].panZoom()
 
     val content =
       div(
@@ -178,139 +166,5 @@ object App:
       state.gmm.last.parameters.foreach { ep =>
         draw.ellipse(toX(ep.radiusX), toY(ep.radiusY)).center(toX(ep.centerX), toY(ep.centerY)).rotate(ep.angle).stroke(gmm_stroke).fill("none")
       }
-
-    //    val ep = s.states.view.flatMap(_.gmm).head.parameters.head
-//
-//    def xSize = 800 // document.body.clientWidth
-//
-//    def ySize = 800 //document.body.clientHeight
-//
-//    def toX(v: Double) = v * xSize
-//
-//    def toY(v: Double) = v * ySize
-//
-//    val c = new fabric.Canvas("canvas")
-//    c.setWidth(xSize)
-//    c.setHeight(ySize)
-//
-//    val o = fabricImplMod.IEllipseOptions()
-//
-//    o.left = toX(ep.centerX)
-//    o.top = toY(ep.centerY)
-//    o.rx = toX(ep.radiusX)
-//    o.ry = toY(ep.radiusY)
-//    o.fill = "green"
-//
-//    o.borderColor = "blue"
-//
-//    val e = new fabric.Ellipse(o)
-//
-//    e.rotate(ep.angle)
-//    c.add(e)
-
-
-
-/*
-  def run() = APIClient.runData(()).future.foreach { s =>
-    val points = s.states.last.point
-
-    def xSize = 800 // document.body.clientWidth
-    def ySize = 800 //document.body.clientHeight
-
-    def toX(v: Double) = v * xSize
-    def toY(v: Double) = v * ySize
-
-    val c = new fabric.Canvas("canvas")
-    c.setWidth(xSize*2)
-    c.setHeight(ySize*2)
-
-    points.foreach { point=>
-      val o = fabricImplMod.IEllipseOptions()
-      o.left = toX(point(0))
-      o.top = toY(point(1))
-      o.rx = 1
-      o.ry = 1
-      o.fill = "black"
-      o.opacity = 0.5
-      val p = new fabric.Ellipse(o)
-      c.add(p)
-    }
-    val o = fabricImplMod.IEllipseOptions()
-
-    val eps = s.states.last.gmm.last.parameters.foreach { ep =>
-      o.left = toX(ep.centerX)
-      o.top = toY(ep.centerY)
-      o.rx = toX(ep.radiusX)
-      o.ry = toY(ep.radiusY)
-      o.fill = "transparent"
-      o.stroke = "green"
-      o.strokeWidth = 1
-      o.opacity = 0.5
-
-      val e = new fabric.Ellipse(o)
-
-      e.rotate(ep.angle)
-      c.add(e)
-    }
-  }
-*/
-/*
-    val o = fabricImplMod.IEllipseOptions()
-
-    o.left = 5
-    o.top = 5
-    o.rx = 23.66431913239847
-    o.ry = 15.49193338482967
-    o.fill = "red"
-
-    o.borderColor = "blue"
-    val e = new fabric.Ellipse(o)
-    e.rotate(45.0)
-
-    c.add(e)
-*/
-
-
-
-//    val canvas = document.querySelector(s"#canvas").asInstanceOf[Canvas]
-//    println(canvas)
-//
-//    val w = 300
-//    canvas.width = w
-//    canvas.height = w
-//
-//    type Ctx2D = CanvasRenderingContext2D
-//    val ctx = canvas.getContext("2d").asInstanceOf[Ctx2D]
-//
-//    ctx.strokeStyle = "red"
-//    ctx.lineWidth = 3
-//    ctx.beginPath()
-//    ctx.moveTo(w / 3, 0)
-//    ctx.lineTo(w / 3, w / 3)
-//    ctx.moveTo(w * 2 / 3, 0)
-//    ctx.lineTo(w * 2 / 3, w / 3)
-//    ctx.moveTo(w, w / 2)
-//    ctx.arc(w / 2, w / 2, w / 2, 0, 3.14)
-//
-//    ctx.stroke()
-//    val nodes = Seq(
-//      Graph.task("one", 400, 600),
-//      Graph.task("two", 1000, 600),
-//      Graph.task("three", 400, 100),
-//      Graph.task("four", 1000, 100),
-//      Graph.task("five", 105, 60)
-//    )
-//    val edges = Seq(
-//      Graph.edge(nodes(0), nodes(1)),
-//      Graph.edge(nodes(0), nodes(2)),
-//      Graph.edge(nodes(3), nodes(1)),
-//      Graph.edge(nodes(3), nodes(2)))
-//
-//    val graphCreator = new GraphCreator(nodes, edges)
-
-//    val containerNode = document.querySelector("#scalaWUI-content")
-//
-//    println(containerNode)
-//    render(containerNode, graphCreator.svgNode)
 
 

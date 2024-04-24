@@ -101,7 +101,7 @@ import scala.collection.mutable.ListBuffer
 
       def evolution =
         ppse.
-          until(afterGeneration(5000)).
+          until(afterGeneration(10000)).
           trace: (s, is) =>
             scribe.info(s"Generation ${s.generation}")
 

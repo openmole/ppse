@@ -50,18 +50,6 @@ object EMGMM:
 
     (gmm, logLikelihoodTrace)
 
-  def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
-    import org.apache.commons.math3.distribution._
-    import org.apache.commons.math3.util._
-
-    import scala.jdk.CollectionConverters._
-
-    def dist = (gmm.means zip gmm.covariances).map { case (m, c) =>  new MultivariateNormalDistribution(m, c) }
-    def pairs = (dist zip gmm.weights).map { case (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
-
-    new MixtureMultivariateNormalDistribution(mgo.tools.apacheRandom(random), pairs.asJava)
-  }
-
   @tailrec
   def fit(
     x: Array[Array[Double]],
@@ -170,18 +158,17 @@ object EMGMM:
 
 // covariance
     val resp_t = resp.transpose
-    val covariances = Array.tabulate(components) { k =>
-      val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
-      val resp_k = resp_t(k)
-      val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
-      regularize(w_sum.map(_.map(_ / resp_weights(k))), epsilon)
-    }
+    val covariances =
+      Array.tabulate(components): k =>
+        val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
+        val resp_k = resp_t(k)
+        val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
+        regularize(w_sum.map(_.map(_ / resp_weights(k))), epsilon)
 
-    assert(resp.flatten.forall(!_.isNaN))
-    assert(means.flatten.forall(!_.isNaN))
-    assert(resp_weights.forall(!_.isNaN))
-    assert(covariances.flatten.flatten.forall(!_.isNaN))
-
+//    assert(resp.flatten.forall(!_.isNaN))
+//    assert(means.flatten.forall(!_.isNaN))
+//    assert(resp_weights.forall(!_.isNaN))
+//    assert(covariances.flatten.flatten.forall(!_.isNaN))
 
     (weights, means, covariances)
 
@@ -239,6 +226,18 @@ object GMM:
     def dilatedComponents = gmm.components.map(c => c.copy(covariance = c.covariance.map(_.map(_ * math.pow(f, 2)))))
 
     gmm.copy(dilatedComponents)
+
+  def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution =
+    import org.apache.commons.math3.distribution._
+    import org.apache.commons.math3.util._
+
+    import scala.jdk.CollectionConverters._
+
+    def dist = (gmm.means zip gmm.covariances).map { case (m, c) => new MultivariateNormalDistribution(m, c) }
+    def pairs = (dist zip gmm.weights).map { case (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
+
+    new MixtureMultivariateNormalDistribution(mgo.tools.apacheRandom(random), pairs.asJava)
+
 
   object Component:
     def apply(

@@ -21,23 +21,26 @@ import better.files.*
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-object Serialization:
-  case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: Option[GMM])
-  case class PPSEEvolution(states: Seq[PPSEDrawState])
+import io.circe.*
+import io.circe.generic.auto.*
 
-  def save(s: PPSEEvolution, f: File) =
-    import io.circe.*
-    import io.circe.generic.auto.*
+object Serialization:
+  case class PatternDensityMap(map: Array[(Vector[Int], Double)]) derives Codec.AsObject
+  case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: Option[GMM])
+  case class PPSEEvolution(states: Seq[PPSEDrawState]) derives Codec.AsObject
+
+  def save[T: Codec](s: T, f: File) =
+    //import io.circe.generic.auto.*
     import io.circe.syntax.*
 
     f.toScala.delete(swallowIOExceptions = true)
     f.toScala.write(s.asJson.noSpaces)
 
-  def load(f: File): PPSEEvolution =
+  def load[T: Codec](f: File): T =
     import io.circe.*
-    import io.circe.generic.auto.*
+    //import io.circe.generic.auto.*
     import io.circe.syntax.*
 
-    parser.parse(f.toScala.contentAsString).toTry.get.as[PPSEEvolution].toTry.get
+    parser.parse(f.toScala.contentAsString).toTry.get.as[T].toTry.get
 //def save()
 

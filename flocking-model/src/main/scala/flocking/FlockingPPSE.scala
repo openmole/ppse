@@ -11,7 +11,7 @@ import ppse.em.*
 
 import scala.concurrent.duration.Duration
 
-def behaviour(parameters: Seq[Double]) =
+def behaviour(rng: util.Random, parameters: Seq[Double]) =
   val model =
     Model(
       worldWidth = 32,
@@ -27,16 +27,16 @@ def behaviour(parameters: Seq[Double]) =
 
   val environment = Environment.empty(model.worldWidth, model.worldHeight)
 
-  import scala.concurrent.*
-  import scala.concurrent.ExecutionContext.Implicits.global
+  Behaviour.computeBehaviour(model, environment, rng.self).toVector
 
-  def replications = 10
 
-  val behaviours =
-    for seed <- 0 until replications
-    yield Future(Behaviour.computeBehaviour(model, environment, new java.util.Random(seed)))
+//  def replications = 10
 
-  Await.result(Future.sequence(behaviours), Duration.Inf).transpose.map(_.sum / replications).toVector
+//  val behaviours =
+//    for seed <- 0 until replications
+//    yield Future(Behaviour.computeBehaviour(model, environment, new java.util.Random(seed)))
+//
+//  Await.result(Future.sequence(behaviours), Duration.Inf).transpose.map(_.sum / replications).toVector
 //
 //  val behaviours =
 //    for seed <- 0 until 20

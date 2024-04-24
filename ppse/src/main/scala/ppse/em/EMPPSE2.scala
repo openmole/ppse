@@ -51,16 +51,17 @@ object EMPPSE2:
     val densityMap = state.focus(_.s) andThen Focus[EMPPSEState](_.probabilityMap) get
     val total = densityMap.map(_._2).sum
 
-    population.map: i =>
+    population.flatMap: i =>
       val ph = phenotype(i.phenotype)
       val pa = pattern(ph)
 
-      Result(
-        scaleContinuousValues(i.genome._1.toVector, continuous),
-        pa,
-        densityMap.getOrElse(pa, 0.0) / total,
-        ph,
-        i)
+      densityMap.get(pa).map: d =>
+        Result(
+          scaleContinuousValues(i.genome._1.toVector, continuous),
+          pa,
+          d / total,
+          ph,
+          i)
 
   def result(pse: EMPPSE2, population: Vector[Individual[Vector[Double]]], state: EvolutionState[EMPPSEState]): Vector[Result[Vector[Double]]] =
     result(population, state, pse.continuous, identity, pse.pattern)
@@ -218,23 +219,18 @@ object EMPPSE2Operations:
       newHitMap: HitMap,
       random: Random) =
 
-      val maxHits = newHitMap.values.max
-
       val rareIndividuals =
-        val r =
-          (genomes zip patterns).flatMap: p =>
-            val hits = newHitMap.getOrElse(p._2.toVector, 0)
-            if hits <= maxRareSample
-            then Some(p._1)
-            else None
+        (genomes zip patterns).filter: p =>
+          val hits = newHitMap.getOrElse(p._2.toVector, 0)
+          hits <= maxRareSample
+        .map(_._1)
 
-        if r.nonEmpty
-        then Some(r)
-        else None
 
       val res =
-        rareIndividuals.map: rareIndividuals =>
-          Try:
+        if rareIndividuals.size < minClusterSize
+        then None
+        else
+          Some:
             val x = rareIndividuals
             val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
 
@@ -248,7 +244,6 @@ object EMPPSE2Operations:
               weights = clusterWeights,
               regularisationEpsilon = regularisationEpsilon)
 
-
             def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1, regularisationEpsilon)
 
             val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
@@ -256,7 +251,7 @@ object EMPPSE2Operations:
 
             (dilatedGMM, samplerState)
 
-      res.flatMap(_.toOption)
+      res
 
     def updateState(
       genomes: Array[Array[Double]],
@@ -283,18 +278,15 @@ object EMPPSE2Operations:
           case (map, (pattern, densities)) =>
             map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
 
-      if genomes.size < minClusterSize
-      then (newHitMap, None, newDensityMap)
-      else
-        def newGMM =
-          updateGMM(
-            genomes = genomes,
-            patterns = patterns,
-            newHitMap = newHitMap,
-            random = random
-          )
+      def newGMM =
+        updateGMM(
+          genomes = genomes,
+          patterns = patterns,
+          newHitMap = newHitMap,
+          random = random
+        )
 
-        (newHitMap, newGMM, newDensityMap)
+      (newHitMap, newGMM, newDensityMap)
 
     def offSpringWithNoNan = filterNaN(candidates, phenotype)
 

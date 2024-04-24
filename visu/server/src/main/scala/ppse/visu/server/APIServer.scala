@@ -44,7 +44,7 @@ class APIServer(data: java.io.File)
           gmm.weights,
           params)
 
-      val d = Serialization.load((data.toScala / dataName).toJava)
+      val d = Serialization.load[Serialization.PPSEEvolution]((data.toScala / dataName).toJava)
 
       def toStateData =
         d.states.map { s =>

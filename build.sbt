@@ -2,7 +2,7 @@ name := "ppse"
 
 val breezeVersion = "2.0.1-RC2"
 val circeVersion = "0.14.5"
-val Scala3Version = "3.3.1"
+val Scala3Version = "3.3.3"
 val laminarVersion = "15.0.1"
 val scalajsDomVersion = "2.0.0"
 val endpoints4SVersion = "1.9.0"
@@ -71,11 +71,8 @@ lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
-  libraryDependencies ++= Seq(
-    "org.scalanlp" %% "breeze" % breezeVersion cross CrossVersion.for3Use2_13,
-    "org.scalanlp" %% "breeze-natives" % breezeVersion  cross CrossVersion.for3Use2_13
-  )
-)
+  excludeConflicting
+) dependsOn(ppse)
 
 //resolvers += Resolver.sonatypeRepo("snapshots")
 

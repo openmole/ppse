@@ -5,9 +5,9 @@ import mgo.evolution.niche.boundedGrid
 import ppse.em.EMPPSE2
 import scopt.OParser
 
-import java.io.File
+import better.files.*
 import scala.concurrent.duration.Duration
-
+import ppse.tool.Serialization
 /*
  * Copyright (C) 2024 Romain Reuillon
  *
@@ -27,7 +27,7 @@ import scala.concurrent.duration.Duration
 
 def behaviour(p: Vector[Double], seed: Int) =
   import scala.sys.process.*
-  scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
+  //scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
   val lines = Process(s"docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
   //val lines = res.split("\n")
   if lines.size != 2 then Vector(-1.0, -1.0)
@@ -65,36 +65,48 @@ def behaviour(p: Vector[Double], seed: Int) =
 
   OParser.parse(parser, args, Config()) match
     case Some(config) =>
+      def maxPatience = 50.0
+
       val ppse = EMPPSE2(
-        lambda = 100,
-        phenotype = (rng, x) => behaviour(x, rng.nextInt()),
+        lambda = 200,
+        phenotype = (rng, x) => behaviour(x ++ Seq(maxPatience), rng.nextInt()),
         pattern = boundedGrid(
           lowBound = Vector(0.0, 0.0),
           highBound = Vector(2.0, 100.0),
-          definition = Vector(20, 20)
+          definition = Vector(100, 100)
         ),
-        continuous = Vector(C(0.0, 100.0), C(0.0, 1.0), C(0.0, 1.0), C(0.0, 100.0)),
+        continuous = Vector(C(0.0, 82.0), C(0.0, 0.01), C(0.0, 0.1)),
         dilation = 1.0,
         maxRareSample = 10)
 
-      def resultString(result: Vector[EMPPSE2.Result[Vector[Double]]]) =
-        result.map: r =>
-          (r.phenotype ++ Vector(r.density)).mkString(",")
-        .mkString("\n")
+      def saveResultMap(result: Vector[EMPPSE2.Result[Vector[Double]]], file: File) =
+        file.parent.toJava.mkdirs()
+        file.delete(true)
+
+        file.appendLine("speed,patience,density")
+
+        for
+          r <- result
+        do file.appendLine(s"${r.pattern(0) / 50.0},${r.pattern(1) * 1.0},${r.density}")
+
 
       def evolution =
         ppse.
-          until(afterGeneration(200)).
+          until(afterGeneration(1000)).
           trace: (s, is) =>
             scribe.info(s"Generation ${s.generation}")
             val result = EMPPSE2.result(ppse, is, s)
-            println(resultString(result))
+            saveResultMap(result, File(s"/tmp/traffic/traffic-map${s.generation}.csv"))
+            saveResultMap(result, File("/tmp/traffic-map.csv"))
 
       val rng = newRNG(42)
       val (finalState, finalPopulation) = evolution.eval(rng, parallel = true)
 
       val result = EMPPSE2.result(ppse, finalPopulation, finalState)
-      println(resultString(result))
+      saveResultMap(result, File("/tmp/traffic-map.csv"))
+
+      //println(resultMap(result))
+
 
     //      config.trace.foreach: m =>
     //        m.delete(swallowIOExceptions = true)

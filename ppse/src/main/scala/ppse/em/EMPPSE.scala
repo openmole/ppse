@@ -160,15 +160,14 @@ object EMPPSE {
   def acceptPoint(x: Vector[Double]) =
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
 
-  def toSampler(gmm: GMM, rng: Random) = {
-    val distribution = EMGMM.toDistribution(gmm, rng)
+  def toSampler(gmm: GMM, rng: Random) =
+    val distribution = GMM.toDistribution(gmm, rng)
 
-    def sample() = {
+    def sample() =
       val x = distribution.sample()
       (x.toVector, Lazy(distribution.density(x)))
-    }
+
     new tool.RejectionSampler(sample _, EMPPSE.acceptPoint)
-  }
 }
 
 case class EMPPSE(
