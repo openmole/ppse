@@ -1,7 +1,8 @@
 package ppse.em
 
 import better.files.File
-import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution}
+import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
+import org.apache.commons.math3.util.Pair
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -233,8 +234,8 @@ object GMM:
 
     import scala.jdk.CollectionConverters._
 
-    def dist = (gmm.means zip gmm.covariances).map { case (m, c) => new MultivariateNormalDistribution(m, c) }
-    def pairs = (dist zip gmm.weights).map { case (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
+    def dist = (gmm.means zip gmm.covariances).map { (m, c) => new MultivariateNormalDistribution(mgo.tools.apacheRandom(random), m, c) }
+    def pairs = (dist zip gmm.weights).map { (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
 
     new MixtureMultivariateNormalDistribution(mgo.tools.apacheRandom(random), pairs.asJava)
 

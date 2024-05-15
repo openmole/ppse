@@ -77,10 +77,9 @@ object benchmark:
 
     val genomeSize = 2
     val lambda = 100
-    val generations = 2000
+    val generations = 200
     val maxRareSample = 10
     val regularisationEpsilon = 1e-6
-
 
     val allPatterns = PatternSquare.allPatterns2D(square)
 

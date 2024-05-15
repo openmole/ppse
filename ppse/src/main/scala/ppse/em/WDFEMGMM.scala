@@ -72,7 +72,7 @@ object WDFEMGMM  {
 
     res
 
-  def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = {
+  def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution = 
     import org.apache.commons.math3.distribution._
     import org.apache.commons.math3.util._
 
@@ -86,7 +86,6 @@ object WDFEMGMM  {
       mgo.tools.apacheRandom(random),
       pairs.asJava
     )
-  }
 
   @tailrec
   def fit(

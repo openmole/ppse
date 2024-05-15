@@ -149,7 +149,7 @@ object EMPPSE2:
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
 
   def toSampler(gmm: GMM, rng: Random) =
-    val distribution = WDFEMGMM.toDistribution(gmm, rng)
+    val distribution = GMM.toDistribution(gmm, rng)
 
     def sample() =
       val x = distribution.sample()
@@ -189,9 +189,7 @@ object EMPPSE2Operations:
       gmm(s) match
         case None => randomIndividuals
         case Some((gmmValue, rejectionSamplerState)) =>
-
           val sampler = EMPPSE2.toSampler(gmmValue, rng)
-
           val (_, sampled) = sampler.sampleVector(lambda, rejectionSamplerState)
           val breed = sampled.map(s => buildGenome(s._1.toArray, s._2))
           breed
@@ -272,11 +270,12 @@ object EMPPSE2Operations:
       def newDensityMap =
         def offSpringDensities =
           val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
-          groupedGenomes.view.mapValues(v => v.map(p => 1 / p._2)).toSeq
+          offspringPatterns.map: p =>
+            p -> groupedGenomes(p).map(g => 1 / g._2).sum
 
         offSpringDensities.foldLeft(densityMap):
-          case (map, (pattern, densities)) =>
-            map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + densities.sum))
+          case (map, (pattern, density)) =>
+            map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + density))
 
       def newGMM =
         updateGMM(
