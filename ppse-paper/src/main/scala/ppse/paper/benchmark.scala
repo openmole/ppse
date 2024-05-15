@@ -92,7 +92,9 @@ object benchmark:
         val missed = allPatterns.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
 
         val error =
-          val (p, q) = indexPattern.toSeq.map((p, d) => (PatternSquare.patternDensity(square, p), d)).unzip
+          val sum = indexPattern.values.sum
+          val normalized = indexPattern.view.mapValues(_ / sum)
+          val (p, q) = normalized.toSeq.map((p, d) => (PatternSquare.patternDensity(square, p), d)).unzip
           jeffreysDivergence(p, q)
 
         println(s"${s.generation} $error $missed")
