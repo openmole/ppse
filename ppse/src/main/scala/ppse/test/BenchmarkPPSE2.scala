@@ -115,10 +115,10 @@ import scala.collection.mutable.ListBuffer
                 val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
                 map.filter((k, _) => all.contains(k))*/
 
-              val (indexPattern, missed) =
-                val all = allPatterns.toSet
-                val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
-                (all.map(k => (k, if map.contains(k) then map(k) else 0.0)).toMap, allPatterns.size - map.count((k, _) => all.contains(k)))
+              val all = allPatterns.toSet
+              val map = result.groupMap(_.pattern)(_.density).view.mapValues(_.head).toMap
+              val indexPattern = all.map(k => (k, map.getOrElse(k, 0.0))).toMap
+              val missed = allPatterns.size - map.count((k, _) => all.contains(k))
 
               val converge =
 //                val avgError =
