@@ -46,7 +46,7 @@ object Stat:
     scala.math.sqrt(js / 2.0)
 
   def kullbackLeiblerDivergence(p: Seq[Double], q:Seq[Double]): Double =
-    p.zip(q).map((x,y) => if y == 0 || x == 0 then 0 else x*math.log(x/y)).sum
+    p.zip(q).map((x,y) => if y == 0 || x == 0 then 0 else x* math.log(x/y)).sum
 
   def jeffreysDivergence(p: Seq[Double], q: Seq[Double]): Double =
     kullbackLeiblerDivergence(p,q) + kullbackLeiblerDivergence(q,p)

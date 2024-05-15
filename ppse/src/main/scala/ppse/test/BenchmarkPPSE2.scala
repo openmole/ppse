@@ -101,9 +101,9 @@ import scala.collection.mutable.ListBuffer
 
       def evolution =
         ppse.
-          until(afterGeneration(10000)).
+          until(afterGeneration(2000)).
           trace: (s, is) =>
-            scribe.info(s"Generation ${s.generation}")
+            //scribe.info(s"Generation ${s.generation}")
 
             if s.generation > 0 && s.generation % 100 == 0
             then
@@ -148,7 +148,7 @@ import scala.collection.mutable.ListBuffer
 
               //
 //              println(s.s.hitmap)
-              scribe.info(s"error ${converge.error} ${converge.missed}")
+              scribe.info(s"${s.generation} ${converge.error} ${converge.missed}")
 
 
       val rng = newRNG(42)

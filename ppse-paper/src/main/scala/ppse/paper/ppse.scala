@@ -82,7 +82,7 @@ object ppse :
           val x = rareIndividuals
           val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(x, minClusterSize)
 
-          val newGMM = _root_.ppse.em.EMGMM.fit(
+          val newGMM = emgmm.fit(
             components = clusterMeans.length,
             iterations = iterations,
             tolerance = tolerance,
@@ -157,6 +157,9 @@ object ppse :
     val totalDensity = likelihoodRatioMap.values.sum
     likelihoodRatioMap.map((p, density) => (p, density / totalDensity))
 
+
+  case class StepInfo(generation: Int, likelihoodRatioMap: LikelihoodRatioMap)
+
   def evolution(
     genomeSize: Int,
     lambda: Int,
@@ -170,9 +173,10 @@ object ppse :
     hitMap: HitMap = Map(),
     gmm: Option[(GMM, rejection.RejectionSamplerState)] = None,
     random: Random,
-    generation: Int = 0): LikelihoodRatioMap =
+    generation: Int = 0,
+    trace: StepInfo => Unit = identity): LikelihoodRatioMap =
 
-    println(s"generation $generation")
+    trace(StepInfo(generation, likelihoodRatioMap))
 
     if generation >= generations
     then computePDF(likelihoodRatioMap)
@@ -218,5 +222,6 @@ object ppse :
         updatedHitMap,
         updatedGMM orElse gmm,
         random,
-        generation + 1)
+        generation + 1,
+        trace = trace)
 

@@ -72,7 +72,7 @@ lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   excludeConflicting
-) dependsOn(ppse)
+)
 
 //resolvers += Resolver.sonatypeRepo("snapshots")
 
