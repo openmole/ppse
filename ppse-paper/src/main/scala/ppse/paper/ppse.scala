@@ -165,6 +165,7 @@ object ppse :
     lambda: Int,
     generations: Int,
     maxRareSample: Int,
+    minClusterSize: Int,
     regularisationEpsilon: Double,
     pattern: Vector[Double] => Vector[Int],
     genomes: Array[Array[Double]] = Array(),
@@ -206,7 +207,7 @@ object ppse :
           tolerance = 0.0001,
           dilation = 1.0,
           warmupSampler = 10000,
-          minClusterSize = 3,
+          minClusterSize = minClusterSize,
           random = random)
 
       evolution(
@@ -214,6 +215,7 @@ object ppse :
         lambda = lambda,
         generations = generations,
         maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         pattern = pattern,
         elitedGenomes,
