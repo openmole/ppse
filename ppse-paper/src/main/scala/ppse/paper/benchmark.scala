@@ -77,8 +77,9 @@ object benchmark:
 
     val genomeSize = 2
     val lambda = 100
-    val generations = 2000
+    val generations = 20000
     val maxRareSample = 10
+    val minClusterSize = 3
     val regularisationEpsilon = 1e-6
 
     val allPatterns = PatternSquare.allPatterns2D(square)
@@ -103,6 +104,7 @@ object benchmark:
       lambda = lambda,
       generations = generations,
       maxRareSample = maxRareSample,
+      minClusterSize = minClusterSize,
       regularisationEpsilon = regularisationEpsilon,
       pattern = PatternSquare.pattern(square, _),
       random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
