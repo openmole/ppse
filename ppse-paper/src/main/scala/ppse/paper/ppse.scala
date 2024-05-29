@@ -73,7 +73,6 @@ object ppse :
         val hits = hitMap.getOrElse(p._2.toVector, 0)
         hits <= maxRareSample
       .map(_._1)
-
     val res =
       if rareIndividuals.size < minClusterSize
       then None
@@ -103,7 +102,6 @@ object ppse :
             rejection.warmupSampler(sampler, warmupSampling)
 
           (dilatedGMM, samplerState)
-
     res//.flatMap(_.toOption)
 
   def updateState(
@@ -206,7 +204,7 @@ object ppse :
           tolerance = 0.0001,
           dilation = 1.0,
           warmupSampler = 10000,
-          minClusterSize = 10,
+          minClusterSize = 3,
           random = random)
 
       evolution(
@@ -220,7 +218,7 @@ object ppse :
         elitedPattern,
         updatedlikelihoodRatioMap,
         updatedHitMap,
-        updatedGMM orElse gmm,
+        updatedGMM,
         random,
         generation + 1,
         trace = trace)
