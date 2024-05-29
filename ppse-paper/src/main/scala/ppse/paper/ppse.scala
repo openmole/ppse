@@ -75,7 +75,7 @@ object ppse :
       .map(_._1)
 
     val res =
-      if rareIndividuals.size < minClusterSize
+      if rareIndividuals.length < minClusterSize
       then None
       else
         Some:
@@ -206,7 +206,7 @@ object ppse :
           tolerance = 0.0001,
           dilation = 1.0,
           warmupSampler = 10000,
-          minClusterSize = 10,
+          minClusterSize = 3,
           random = random)
 
       evolution(
@@ -220,7 +220,7 @@ object ppse :
         elitedPattern,
         updatedlikelihoodRatioMap,
         updatedHitMap,
-        updatedGMM orElse gmm,
+        updatedGMM,
         random,
         generation + 1,
         trace = trace)

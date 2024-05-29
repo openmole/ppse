@@ -77,7 +77,7 @@ object benchmark:
 
     val genomeSize = 2
     val lambda = 100
-    val generations = 200
+    val generations = 20000
     val maxRareSample = 10
     val regularisationEpsilon = 1e-6
 

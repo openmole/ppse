@@ -225,7 +225,7 @@ object EMPPSE2Operations:
 
 
       val res =
-        if rareIndividuals.size < minClusterSize
+        if rareIndividuals.length < minClusterSize
         then None
         else
           Some:
