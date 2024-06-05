@@ -130,8 +130,8 @@ object ppse :
         val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
         groupedGenomes.view.mapValues(v => v.map ((_, density) => 1 / density).sum).toSeq
 
-      def updatePatternDensity(map: LikelihoodRatioMap, pattern: Array[Int], densitiy: Double): LikelihoodRatioMap =
-        map.updatedWith(pattern.toVector)( v => Some(v.getOrElse(0.0) + densitiy))
+      def updatePatternDensity(map: LikelihoodRatioMap, pattern: Array[Int], density: Double): LikelihoodRatioMap =
+        map.updatedWith(pattern.toVector)( v => Some(v.getOrElse(0.0) + density))
 
       offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
 

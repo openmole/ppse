@@ -11,6 +11,9 @@ The objective of this project is to extend the idea proposed by the PSE model ex
 
 The probability of a pattern is defined as the probability of reaching this zone of the output space when one sample the input space at random using a uniform distribution.
 
+**The marginal likelihood, model evidence or pattern likelihood**
+$$p(\mathbf{X}) = \int p(\mathbf{X}\mid\theta) p(\theta) d\theta$$
+
 ### Stochastic models
 
 The pattern probability extends trivially to stochastic model. The probability of a given pattern is the sum of probabilities of reaching this pattern among all the output distribution computed using replication while sampling the input space uniformly.

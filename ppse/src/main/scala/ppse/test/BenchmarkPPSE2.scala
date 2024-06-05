@@ -18,12 +18,9 @@ package ppse.test
  */
 
 import better.files.*
-import breeze.stats.DescriptiveStats
 import mgo.evolution.*
 import mgo.evolution.niche.*
-import org.apache.commons.math3.random.Well44497b
 import ppse.em.*
-import ppse.em.EMPPSE.Individual
 import ppse.tool.{Serialization, Stat}
 import scopt.*
 
@@ -59,6 +56,13 @@ import scala.collection.mutable.ListBuffer
     PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
   )
 
+  val genomeSize = 2
+  val lambda = 100
+  val generations = 200
+  val maxRareSample = 10
+  val regularisationEpsilon = 1e-6
+
+
   case class Config(
     map: Option[File] = None,
     trace: Option[File] = None,
@@ -80,12 +84,13 @@ import scala.collection.mutable.ListBuffer
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
       val ppse = EMPPSE2(
-        lambda = 100,
+        lambda = lambda,
         phenotype = (_, x) => x,
         pattern = PatternSquare.pattern(square, _),
         continuous = Vector.fill(2)(C(0.0, 1.0)),
         dilation = 1.0,
-        maxRareSample = 10)
+        maxRareSample = maxRareSample,
+        regularisationEpsilon = regularisationEpsilon)
 
       val allPatterns = PatternSquare.allPatterns2D(square)
 
@@ -101,7 +106,7 @@ import scala.collection.mutable.ListBuffer
 
       def evolution =
         ppse.
-          until(afterGeneration(20000)).
+          until(afterGeneration(generations)).
           trace: (s, is) =>
             //scribe.info(s"Generation ${s.generation}")
 
