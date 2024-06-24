@@ -6,7 +6,7 @@
    version="1.1"
    inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
    sodipodi:docname="schemaalgo.svg"
-   inkscape:export-filename="/tmp/schemaalgo.png"
+   inkscape:export-filename="../../../../../../tmp/schemaalgo.pdf"
    inkscape:export-xdpi="258"
    inkscape:export-ydpi="258"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
@@ -3577,9 +3577,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.32600309"
-     inkscape:cx="2185.5621"
-     inkscape:cy="1513.7893"
+     inkscape:zoom="0.26120842"
+     inkscape:cx="1699.7921"
+     inkscape:cy="932.20579"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -52361,15 +52361,15 @@
          id="tspan49397"></tspan></text>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.6667px;line-height:0%;font-family:sans-serif;-inkscape-font-specification:Sans;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;white-space:pre;inline-size:67.0517;fill:#000000;fill-opacity:1;stroke:none"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.6667px;line-height:0%;font-family:sans-serif;-inkscape-font-specification:Sans;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;white-space:pre;inline-size:67.0517;display:inline;fill:#000000;fill-opacity:1;stroke:none"
        x="2970.585"
        y="944.12958"
        id="text3801-5-4-8-1-3-0-2-5-5"
        transform="translate(7.5332884,13.856387)"><tspan
          x="2970.585"
          y="944.12958"
-         id="tspan116051"><tspan
+         id="tspan150875"><tspan
            style="line-height:125%;text-align:center;text-anchor:middle"
-           id="tspan116049">Yes</tspan></tspan></text>
+           id="tspan150873">Yes</tspan></tspan></text>
   </g>
 </svg>
