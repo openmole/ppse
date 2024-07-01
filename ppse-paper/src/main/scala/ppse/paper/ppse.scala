@@ -23,8 +23,9 @@ object ppse :
 
   import util.{Failure, Success, Try}
   import java.util.Random
+  import rejection.*
 
-  type LikelihoodRatioMap = Map[Vector[Int], Double]
+  type SamplingWeightMap = Map[Vector[Int], Double]
   type HitMap = Map[Vector[Int], Int]
 
   /* --------- Evolutionnary algorithm -------- */
@@ -32,15 +33,15 @@ object ppse :
   def breeding(
    genomeSize: Int,
    lambda: Int,
-   gmm: Option[(GMM, rejection.RejectionSamplerState)],
+   gmm: Option[(GMM, RejectionSamplerState)],
    random: Random): Array[(Array[Double], Double)] =
    gmm match
     case None =>
       def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
       Array.fill(lambda)((randomGenome(genomeSize, random), 1.0))
     case Some((gmm, rejectionState)) =>
-      val rejectionSampler = rejection.buildRejectionSampler(gmm, random)
-      val (_, samples) = rejection.sampleArray(rejectionSampler, lambda, rejectionState)
+      val rejectionSampler = RejectionSampler(gmm, random)
+      val (_, samples) = RejectionSampler.sampleArray(rejectionSampler, lambda, rejectionState)
       samples
 
   def elitism(
@@ -99,8 +100,8 @@ object ppse :
           val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
 
           val samplerState =
-            val sampler = rejection.buildRejectionSampler(dilatedGMM, random)
-            rejection.warmupSampler(sampler, warmupSampling)
+            val sampler = RejectionSampler(dilatedGMM, random)
+            RejectionSampler.warmup(sampler, warmupSampling)
 
           (dilatedGMM, samplerState)
 
@@ -111,7 +112,7 @@ object ppse :
     patterns: Array[Array[Int]],
     offspringGenomes: Array[(Array[Double], Double)],
     offspringPatterns: Array[Array[Int]],
-    likelihoodRatioMap: LikelihoodRatioMap,
+    likelihoodRatioMap: SamplingWeightMap,
     hitMap: HitMap,
     maxRareSample: Int,
     regularisationEpsilon: Double,
@@ -120,7 +121,7 @@ object ppse :
     dilation: Double,
     warmupSampler: Int,
     minClusterSize: Int,
-    random: Random): (HitMap, LikelihoodRatioMap, Option[(GMM, rejection.RejectionSamplerState)]) =
+    random: Random): (HitMap, SamplingWeightMap, Option[(GMM, rejection.RejectionSamplerState)]) =
     val newHitMap =
       def updateHits(m: HitMap, p: Vector[Int]) = m.updatedWith(p)(v => Some(v.getOrElse(0) + 1))
       offspringPatterns.foldLeft(hitMap)((m, p) => updateHits(m, p.toVector))
@@ -130,7 +131,7 @@ object ppse :
         val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
         groupedGenomes.view.mapValues(v => v.map ((_, density) => 1 / density).sum).toSeq
 
-      def updatePatternDensity(map: LikelihoodRatioMap, pattern: Array[Int], density: Double): LikelihoodRatioMap =
+      def updatePatternDensity(map: SamplingWeightMap, pattern: Array[Int], density: Double): SamplingWeightMap =
         map.updatedWith(pattern.toVector)( v => Some(v.getOrElse(0.0) + density))
 
       offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
@@ -153,12 +154,12 @@ object ppse :
     (newHitMap, newLikelihoodRatioMap, newGMM)
 
 
-  def computePDF(likelihoodRatioMap: LikelihoodRatioMap) =
+  def computePDF(likelihoodRatioMap: SamplingWeightMap) =
     val totalDensity = likelihoodRatioMap.values.sum
     likelihoodRatioMap.map((p, density) => (p, density / totalDensity))
 
 
-  case class StepInfo(generation: Int, likelihoodRatioMap: LikelihoodRatioMap)
+  case class StepInfo(generation: Int, likelihoodRatioMap: SamplingWeightMap)
 
   def evolution(
     genomeSize: Int,
@@ -170,22 +171,22 @@ object ppse :
     pattern: Vector[Double] => Vector[Int],
     genomes: Array[Array[Double]] = Array(),
     patterns: Array[Array[Int]] = Array(),
-    likelihoodRatioMap: LikelihoodRatioMap = Map(),
+    likelihoods: SamplingWeightMap = Map(),
     hitMap: HitMap = Map(),
     gmm: Option[(GMM, rejection.RejectionSamplerState)] = None,
     random: Random,
     generation: Int = 0,
-    trace: StepInfo => Unit = identity): LikelihoodRatioMap =
+    trace: StepInfo => Unit = identity): SamplingWeightMap =
 
-    trace(StepInfo(generation, likelihoodRatioMap))
+    trace(StepInfo(generation, likelihoods))
 
     if generation >= generations
-    then computePDF(likelihoodRatioMap)
+    then computePDF(likelihoods)
     else
       val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
       val offspringPatterns = offSpringGenomes.map((g, _) => pattern(g.toVector).toArray)
 
-      val (elitedGenomes, elitedPattern) =
+      val (elitedGenomes, elitedPatterns) =
         elitism(
           genomes = genomes,
           patterns = patterns,
@@ -196,10 +197,10 @@ object ppse :
       val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
         updateState(
           genomes = elitedGenomes,
-          patterns = elitedPattern,
+          patterns = elitedPatterns,
           offspringGenomes = offSpringGenomes,
           offspringPatterns = offspringPatterns,
-          likelihoodRatioMap = likelihoodRatioMap,
+          likelihoodRatioMap = likelihoods,
           hitMap = hitMap,
           maxRareSample = maxRareSample,
           regularisationEpsilon = regularisationEpsilon,
@@ -219,7 +220,7 @@ object ppse :
         regularisationEpsilon = regularisationEpsilon,
         pattern = pattern,
         elitedGenomes,
-        elitedPattern,
+        elitedPatterns,
         updatedlikelihoodRatioMap,
         updatedHitMap,
         updatedGMM,
