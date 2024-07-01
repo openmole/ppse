@@ -28,7 +28,7 @@ import ppse.tool.Serialization
 def behaviour(p: Vector[Double], seed: Int) =
   import scala.sys.process.*
   //scribe.info(s"Running docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed")
-  val lines = Process(s"docker exec traffic /usr/bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+  val lines = Process(s"docker exec traffic /bin/traffic ${p.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
   //val lines = res.split("\n")
   if lines.size != 2 then Vector(-1.0, -1.0)
   else
