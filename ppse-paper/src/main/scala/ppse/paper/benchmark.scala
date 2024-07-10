@@ -130,6 +130,7 @@ object benchmark:
     val inputs = Vector(p(0) * 82, p(1) * 0.01, p(2) * 0.1)
     val seed = random.nextInt()
 
+    println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $maxPatience $seed")
     val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $maxPatience $seed").lazyLines(ProcessLogger.apply(_ => ()))
 
     if lines.size != 2

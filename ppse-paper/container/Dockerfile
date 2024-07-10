@@ -1,6 +1,6 @@
-FROM debian:testing-slim as build
+FROM debian:testing-slim AS build
 
-MAINTAINER "Romain Reuillon <romain.reuillon@openmole.org"
+LABEL org.opencontainers.image.authors="Romain Reuillon <romain.reuillon@openmole.org"
     
 RUN apt-get update \ 
 	&& apt-get install -y --no-install-recommends ca-certificates curl \
@@ -42,7 +42,9 @@ ARG NETLOGO_HOME=/netlogo
 COPY --from=build $NETLOGO_HOME $NETLOGO_HOME
 COPY --from=build /traffic /traffic
 COPY ./Traffic_2_Lanes.nlogo /traffic
-COPY ./traffic /bin/traffic
+COPY ./traffic /usr/bin/traffic
+RUN chmod +x /usr/bin/traffic
+
 WORKDIR /traffic
 
 

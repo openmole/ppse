@@ -5,12 +5,16 @@ import org.apache.commons.math3.stat.correlation.Covariance
 
 import scala.annotation.tailrec
 import scala.util.Random
+import scala.util.{Try, Success, Failure}
 
 /**
  * EM-GMM implementation.
  * Inspired by the work of Maël Fabien: https://github.com/maelfabien/EM_GMM_HMM
  */
 object emgmm:
+  def toString2dArray(a: Array[Array[Double]]) = {
+    a.map { l => "[" + l.map(_.toString).mkString(" ") + "]" }.mkString("[", "\n ", "]")
+  }
 
   /**
    * Full covariance Gaussian Mixture Model, trained using Expectation Maximization.
@@ -122,7 +126,22 @@ object emgmm:
   def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] =
     val res =
       weights.zipWithIndex.map: (prior, k) =>
-        val distribution = new MultivariateNormalDistribution(means(k), covariances(k))
+        val distributionTry = Try(new MultivariateNormalDistribution(means(k), covariances(k)))
+        val distribution = distributionTry match {
+          case Success(v) => v
+          case Failure(e) =>
+            println("Info from the exception: " + e.getMessage)
+            println("k: " + k)
+            println("Means: " + means(k).mkString(", "))
+            println("covar: " + toString2dArray(covariances(k)))
+            println("x: " + toString2dArray(x))
+            weights.zipWithIndex.map: (_, kk) => 
+              if (k != kk) {
+                println("k: " + kk)
+                println("Means: " + means(kk).mkString(", "))
+              }
+            new MultivariateNormalDistribution(means(k), regularize(covariances(k),0.000001))
+        }
         x.map: x =>
           distribution.density(x) * prior
 
