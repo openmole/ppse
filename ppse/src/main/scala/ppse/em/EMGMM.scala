@@ -68,7 +68,7 @@ object EMGMM:
     iterations match
       case 0 => (gmm, trace)
       case i =>
-        val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
+        val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights, regularisationEpsilon)
         val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components, regularisationEpsilon)
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
@@ -98,9 +98,10 @@ object EMGMM:
     x: Array[Array[Double]],
     means: Array[Array[Double]],
     covariances: Array[Array[Array[Double]]],
-    weights: Array[Double]): (Double, Array[Array[Double]]) =
+    weights: Array[Double],
+    regularisationEpsilon: Double): (Double, Array[Array[Double]]) =
     // resp matrix
-    val resp = compute_log_likelihood(x, means, covariances, weights)
+    val resp = compute_log_likelihood(x, means, covariances, weights, regularisationEpsilon)
     assert(resp.flatten.forall(!_.isNaN))
 
     val sum = resp.map(_.sum)
@@ -123,14 +124,22 @@ object EMGMM:
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] =
+  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double], regularisationEpsilon: Double): Array[Array[Double]] =
+    import scala.util.*
     val res =
       weights.zipWithIndex.map: (prior, k) =>
-        val distribution = new MultivariateNormalDistribution(means(k), covariances(k))
+        val distributionTry = Try(new MultivariateNormalDistribution(means(k), covariances(k)))
+        val distribution =
+          distributionTry match
+            case Success(v) => v
+            case Failure(e) =>
+              new MultivariateNormalDistribution(means(k), regularize(covariances(k), regularisationEpsilon))
+
         x.map: x =>
           distribution.density(x) * prior
 
     res.transpose
+
 
   /**
    * Regularize the matrix by adding a certain value to the diagonal.

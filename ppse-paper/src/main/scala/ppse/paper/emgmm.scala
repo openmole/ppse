@@ -70,7 +70,7 @@ object emgmm:
     iterations match
       case 0 => (gmm, trace)
       case i =>
-        val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights)
+        val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights, regularisationEpsilon)
         val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components, regularisationEpsilon)
         if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
         else fit(
@@ -100,9 +100,10 @@ object emgmm:
     x: Array[Array[Double]],
     means: Array[Array[Double]],
     covariances: Array[Array[Array[Double]]],
-    weights: Array[Double]): (Double, Array[Array[Double]]) =
+    weights: Array[Double],
+    regularisationEpsilon: Double): (Double, Array[Array[Double]]) =
     // resp matrix
-    val resp = compute_log_likelihood(x, means, covariances, weights)
+    val resp = compute_log_likelihood(x, means, covariances, weights, regularisationEpsilon)
     assert(resp.flatten.forall(!_.isNaN))
 
     val sum = resp.map(_.sum)
@@ -123,7 +124,7 @@ object emgmm:
    * @param covariances covariances of the components (clusters)
    * @param weights weights of the components (clusters)
    */
-  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double]): Array[Array[Double]] =
+  def compute_log_likelihood(x: Array[Array[Double]], means: Array[Array[Double]], covariances: Array[Array[Array[Double]]], weights: Array[Double], regularisationEpsilon: Double): Array[Array[Double]] =
     val res =
       weights.zipWithIndex.map: (prior, k) =>
         val distributionTry = Try(new MultivariateNormalDistribution(means(k), covariances(k)))
@@ -131,7 +132,7 @@ object emgmm:
           distributionTry match
             case Success(v) => v
             case Failure(e) =>
-              new MultivariateNormalDistribution(means(k), regularize(covariances(k),0.000001))
+              new MultivariateNormalDistribution(means(k), regularize(covariances(k), regularisationEpsilon))
 
         x.map: x =>
           distribution.density(x) * prior
@@ -181,7 +182,7 @@ object emgmm:
     (weights, means, covariances)
 
   def integrateOutliers(x: Array[Array[Double]], gmm: GMM, regularisationEpsilon: Double) =
-    val (_, resp) = emgmm.eStep(x, gmm.means, gmm.covariances, gmm.weights)
+    val (_, resp) = emgmm.eStep(x, gmm.means, gmm.covariances, gmm.weights, regularisationEpsilon)
     val excluded = resp.count(_.sum == 0)
     val newResp =
       //TODO better
