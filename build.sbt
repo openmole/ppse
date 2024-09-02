@@ -66,7 +66,7 @@ lazy val visu = Project("visu", file("visu")).enablePlugins(ScalaJSPlugin).setti
 //  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1"
 )
 
-lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
+lazy val ppsePaper = Project("ppse-paper", file("ppse-paper")).settings (
   version := "1.0-SNAPSHOT",
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
@@ -75,6 +75,13 @@ lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   excludeConflicting
 )
 
+lazy val plotPaper  = Project("plot-paper", file("plot-paper")).settings (
+  version := "1.0-SNAPSHOT",
+  scalaVersion := Scala3Version,
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.2",
+  libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.5" cross CrossVersion.for3Use2_13,
+  excludeConflicting
+)
 //resolvers += Resolver.sonatypeRepo("snapshots")
 
 
