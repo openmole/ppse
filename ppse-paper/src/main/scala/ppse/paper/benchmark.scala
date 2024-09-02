@@ -66,18 +66,19 @@ object benchmark:
         yield Vector(i, x, y)
       }
 
-  case class PatternSquare(squares: PatternSquare.Square*)
-
-  @main def patternSquareBenchmark(result: String, replications: Int) =
-    val resultFile = File(result)
-
-    val square = PatternSquare(
+    val benchmarkPattern = PatternSquare(
       PatternSquare.Square(Vector(0.5, 0.5), 0.01, 10),
       PatternSquare.Square(Vector(0.25, 0.25), 0.01, 10),
       PatternSquare.Square(Vector(0.25, 0.75), 0.01, 10),
       PatternSquare.Square(Vector(0.75, 0.25), 0.01, 10),
       PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
     )
+
+
+  case class PatternSquare(squares: PatternSquare.Square*)
+
+  @main def patternSquareBenchmark(result: String, replications: Int) =
+    val resultFile = File(result)
 
     val genomeSize = 2
     val lambda = 100
@@ -86,7 +87,7 @@ object benchmark:
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
 
-    val allPatterns = PatternSquare.allPatterns2D(square)
+    val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
 
     resultFile.delete(true)
 
@@ -103,7 +104,7 @@ object benchmark:
           val error =
             val sum = indexPattern.values.sum
             val normalized = indexPattern.view.mapValues(_ / sum)
-            val (p, q) = normalized.toSeq.map((p, d) => (PatternSquare.patternDensity(square, p), d)).unzip
+            val (p, q) = normalized.toSeq.map((p, d) => (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)).unzip
             jeffreysDivergence(p, q)
 
           resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
@@ -115,9 +116,44 @@ object benchmark:
         maxRareSample = maxRareSample,
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
-        pattern = PatternSquare.pattern(square, _),
+        pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
         trace = trace)
+
+    for r <- 0 until replications do run(r)
+
+  @main def patternSquareBenchmarkRandom(result: String, replications: Int) =
+    val resultFile = File(result)
+    val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
+
+    resultFile.delete(true)
+
+    def run(r: Int) =
+      println(s"Running replication $r")
+
+      val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
+      val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
+
+      for
+        points <- 0 to 50000
+      do
+        val (x, y) = (random.nextDouble, random.nextDouble)
+        val p = PatternSquare.pattern(PatternSquare.benchmarkPattern, Vector(x, y))
+
+        resultMap.updateWith(p): hits =>
+          Some(hits.getOrElse(0) + 1)
+
+        if points % 1000 == 0
+        then
+          val all = allPatterns.toSet
+          val indexPattern = all.map(k => k -> resultMap.getOrElse(k, 0).toDouble / points).toMap
+          val missed = allPatterns.size - resultMap.count((k, _) => all.contains(k))
+
+          val error =
+            val (p, q) = indexPattern.toSeq.map((p, d) => (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)).unzip
+            jeffreysDivergence(p, q)
+
+          resultFile.append(s"$r,$points,$error,$missed\n")
 
     for r <- 0 until replications do run(r)
 
