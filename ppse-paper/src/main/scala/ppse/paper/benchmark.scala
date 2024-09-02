@@ -18,6 +18,8 @@ package ppse.paper
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import better.files.*
+
 object benchmark:
   def kullbackLeiblerDivergence(p: Seq[Double], q: Seq[Double]): Double =
     p.zip(q).map((x, y) => if y == 0 || x == 0 then 0 else x * math.log(x / y)).sum
@@ -66,7 +68,9 @@ object benchmark:
 
   case class PatternSquare(squares: PatternSquare.Square*)
 
-  @main def patternSquareBenchmark =
+  @main def patternSquareBenchmark(result: String, replications: Int) =
+    val resultFile = File(result)
+
     val square = PatternSquare(
       PatternSquare.Square(Vector(0.5, 0.5), 0.01, 10),
       PatternSquare.Square(Vector(0.25, 0.25), 0.01, 10),
@@ -77,39 +81,45 @@ object benchmark:
 
     val genomeSize = 2
     val lambda = 100
-    val generations = 20000
+    val generations = 500
     val maxRareSample = 10
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
 
     val allPatterns = PatternSquare.allPatterns2D(square)
 
-    def trace(s: ppse.StepInfo) =
-      if s.generation % 100 == 0
-      then
-        val all = allPatterns.toSet
-        val indexPattern = all.map(k => k -> s.likelihoodRatioMap.getOrElse(k, 0.0)).toMap
-        val missed = allPatterns.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
+    resultFile.delete(true)
 
-        val error =
-          val sum = indexPattern.values.sum
-          val normalized = indexPattern.view.mapValues(_ / sum)
-          val (p, q) = normalized.toSeq.map((p, d) => (PatternSquare.patternDensity(square, p), d)).unzip
-          jeffreysDivergence(p, q)
+    def run(r: Int) =
 
-        println(s"${s.generation} $error $missed")
+      println(s"Running replication $r")
+      def trace(s: ppse.StepInfo) =
+        if s.generation % 10 == 0
+        then
+          val all = allPatterns.toSet
+          val indexPattern = all.map(k => k -> s.likelihoodRatioMap.getOrElse(k, 0.0)).toMap
+          val missed = allPatterns.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
 
-    val pdf = ppse.evolution(
-      genomeSize = genomeSize,
-      lambda = lambda,
-      generations = generations,
-      maxRareSample = maxRareSample,
-      minClusterSize = minClusterSize,
-      regularisationEpsilon = regularisationEpsilon,
-      pattern = PatternSquare.pattern(square, _),
-      random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
-      trace = trace)
+          val error =
+            val sum = indexPattern.values.sum
+            val normalized = indexPattern.view.mapValues(_ / sum)
+            val (p, q) = normalized.toSeq.map((p, d) => (PatternSquare.patternDensity(square, p), d)).unzip
+            jeffreysDivergence(p, q)
 
+          resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
+
+      ppse.evolution(
+        genomeSize = genomeSize,
+        lambda = lambda,
+        generations = generations,
+        maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
+        regularisationEpsilon = regularisationEpsilon,
+        pattern = PatternSquare.pattern(square, _),
+        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
+        trace = trace)
+
+    for r <- 0 until replications do run(r)
 
 @main def trafficBenchmark =
   def maxPatience = 50.0

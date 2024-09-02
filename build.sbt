@@ -21,7 +21,7 @@ lazy val ppse = Project("ppse", file("ppse")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" cross CrossVersion.for3Use2_13,
-  libraryDependencies += "org.openmole" %% "mgo" % "3.56-SNAPSHOT",
+  libraryDependencies += "org.openmole" %% "mgo" % "3.56",
   libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
@@ -71,6 +71,7 @@ lazy val selfContained = Project("ppse-paper", file("ppse-paper")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.2",
   excludeConflicting
 )
 
