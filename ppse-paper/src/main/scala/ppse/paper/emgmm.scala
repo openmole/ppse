@@ -127,21 +127,12 @@ object emgmm:
     val res =
       weights.zipWithIndex.map: (prior, k) =>
         val distributionTry = Try(new MultivariateNormalDistribution(means(k), covariances(k)))
-        val distribution = distributionTry match {
-          case Success(v) => v
-          case Failure(e) =>
-            println("Info from the exception: " + e.getMessage)
-            println("k: " + k)
-            println("Means: " + means(k).mkString(", "))
-            println("covar: " + toString2dArray(covariances(k)))
-            println("x: " + toString2dArray(x))
-            weights.zipWithIndex.map: (_, kk) => 
-              if (k != kk) {
-                println("k: " + kk)
-                println("Means: " + means(kk).mkString(", "))
-              }
-            new MultivariateNormalDistribution(means(k), regularize(covariances(k),0.000001))
-        }
+        val distribution =
+          distributionTry match
+            case Success(v) => v
+            case Failure(e) =>
+              new MultivariateNormalDistribution(means(k), regularize(covariances(k),0.000001))
+
         x.map: x =>
           distribution.density(x) * prior
 

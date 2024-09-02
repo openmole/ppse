@@ -177,6 +177,9 @@ object ppse :
     random: Random,
     generation: Int = 0,
     trace: StepInfo => Unit = identity): SamplingWeightMap =
+    import scala.concurrent.{Future, Await}
+    import scala.concurrent.ExecutionContext.Implicits.global
+    import scala.concurrent.duration.Duration
 
     trace(StepInfo(generation, likelihoods))
 
@@ -184,7 +187,12 @@ object ppse :
     then computePDF(likelihoods)
     else
       val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
-      val offspringPatterns = offSpringGenomes.map((g, _) => pattern(g.toVector).toArray)
+      val offspringPatterns =
+        Await.result(
+          Future.sequence:
+            offSpringGenomes.map((g, _) => Future(pattern(g.toVector).toArray)),
+          Duration.Inf
+        ).toArray
 
       val (elitedGenomes, elitedPatterns) =
         elitism(

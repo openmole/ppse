@@ -157,45 +157,49 @@ object benchmark:
 
     for r <- 0 until replications do run(r)
 
-@main def trafficBenchmark =
-  def maxPatience = 50.0
-
-  val genomeSize = 3
-  val lambda = 10
-  val generations = 2000
-  val maxRareSample = 10
-  val minClusterSize = 3
-  val regularisationEpsilon = 1e-6
-
-  val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
-
-  def behaviour(p: Vector[Double]) =
-    import scala.sys.process.*
-
+  @main def trafficBenchmark =
     def maxPatience = 50.0
-    val inputs = Vector(p(0) * 82, p(1) * 0.01, p(2) * 0.1)
-    val seed = random.nextInt()
 
-    println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $maxPatience $seed")
-    val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $maxPatience $seed").lazyLines(ProcessLogger.apply(_ => ()))
+    val genomeSize = 3
+    val lambda = 10
+    val generations = 2000
+    val maxRareSample = 10
+    val minClusterSize = 3
+    val regularisationEpsilon = 1e-6
 
-    if lines.size != 2
-    then Vector(-1, -1)
-    else
-      val speed = (lines(0).toDouble / 2.0 * 100).toInt
-      val patience = (lines(1).toDouble / 100).toInt
-      Vector(speed, patience)
+    val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
 
-  def trace(s: ppse.StepInfo) =
-    println(s"${s.generation} generation: ${s.likelihoodRatioMap.size} patterns discovered")
+    def behaviour(p: Vector[Double]) =
+      import scala.sys.process.*
 
-  val pdf = ppse.evolution(
-    genomeSize = genomeSize,
-    lambda = lambda,
-    generations = generations,
-    maxRareSample = maxRareSample,
-    minClusterSize = minClusterSize,
-    regularisationEpsilon = regularisationEpsilon,
-    pattern = behaviour,
-    random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
-    trace = trace)
+      def maxPatience = 50.0
+      def maxNumberOfCars = 82
+      def maxAcceleration = 0.01
+      def maxDeceleration = 0.1
+
+      val inputs = Vector(p(0) * maxNumberOfCars, p(1) * maxAcceleration, p(2) * maxDeceleration, maxPatience)
+      val seed = random.nextInt()
+
+      println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed")
+      val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+
+      if lines.size != 2
+      then Vector(-1, -1)
+      else
+        val speed = (lines(0).toDouble / 2.0 * 100).toInt
+        val patience = (lines(1).toDouble / 100).toInt
+        Vector(speed, patience)
+
+    def trace(s: ppse.StepInfo) =
+      println(s"${s.generation} generations: ${s.likelihoodRatioMap.size} patterns discovered")
+
+    val pdf = ppse.evolution(
+      genomeSize = genomeSize,
+      lambda = lambda,
+      generations = generations,
+      maxRareSample = maxRareSample,
+      minClusterSize = minClusterSize,
+      regularisationEpsilon = regularisationEpsilon,
+      pattern = behaviour,
+      random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
+      trace = trace)
