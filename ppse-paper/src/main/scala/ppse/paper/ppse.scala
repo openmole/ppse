@@ -178,7 +178,8 @@ object ppse :
     generation: Int = 0,
     trace: StepInfo => Unit = identity): SamplingWeightMap =
     import scala.concurrent.{Future, Await}
-    import scala.concurrent.ExecutionContext.Implicits.global
+    import java.util.concurrent.Executors
+    given scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(32))
     import scala.concurrent.duration.Duration
 
     trace(StepInfo(generation, likelihoods))
