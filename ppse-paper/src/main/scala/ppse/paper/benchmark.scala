@@ -102,9 +102,9 @@ object benchmark:
 
     resultFile.delete(true)
 
-    def run(r: Int) =
-
+    def run(r: Int)(using Async.Spawn) = Future:
       println(s"Running replication $r")
+
       def trace(s: ppse.StepInfo) =
         if s.generation % 10 == 0 && s.generation > 0
         then
@@ -124,19 +124,20 @@ object benchmark:
 
           resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
-      Async.blocking:
-        ppse.evolution(
-          genomeSize = genomeSize,
-          lambda = lambda,
-          generations = generations,
-          maxRareSample = maxRareSample,
-          minClusterSize = minClusterSize,
-          regularisationEpsilon = regularisationEpsilon,
-          pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
-          random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
-          trace = trace)
 
-    (0 until replications).foreach(run)
+      ppse.evolution(
+        genomeSize = genomeSize,
+        lambda = lambda,
+        generations = generations,
+        maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
+        regularisationEpsilon = regularisationEpsilon,
+        pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
+        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
+        trace = trace)
+
+    Async.blocking:
+      (0 until replications).map(run).awaitAll
 
   @main def patternSquareBenchmarkRandom(result: String, replications: Int) =
     val resultFile = File(result)
