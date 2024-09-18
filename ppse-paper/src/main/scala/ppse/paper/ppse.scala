@@ -24,6 +24,8 @@ object ppse :
   import util.{Failure, Success, Try}
   import java.util.Random
   import rejection.*
+  import gears.async.*
+  import gears.async.default.given
 
   type SamplingWeightMap = Map[Vector[Int], Double]
   type HitMap = Map[Vector[Int], Int]
@@ -177,63 +179,61 @@ object ppse :
     random: Random,
     generation: Int = 0,
     trace: StepInfo => Unit = identity): SamplingWeightMap =
-    import scala.concurrent.{Future, Await}
-    import java.util.concurrent.Executors
-    given scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(32))
-    import scala.concurrent.duration.Duration
 
-    trace(StepInfo(generation, likelihoods))
+    Async.blocking:
+      trace(StepInfo(generation, likelihoods))
 
-    if generation >= generations
-    then computePDF(likelihoods)
-    else
-      val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
-      val offspringPatterns =
-        Await.result(
-          Future.sequence:
-            offSpringGenomes.map((g, _) => Future(pattern(g.toVector).toArray)),
-          Duration.Inf
-        ).toArray
+      if generation >= generations
+      then computePDF(likelihoods)
+      else
+        val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
+        val offspringPatterns =
+          offSpringGenomes.toSeq.map: (g, _) =>
+            Future:
+              pattern(g.toVector).toArray
+          .awaitAll
+          .toArray
 
-      val (elitedGenomes, elitedPatterns) =
-        elitism(
-          genomes = genomes,
-          patterns = patterns,
-          offspringGenomes = offSpringGenomes,
-          offspringPatterns = offspringPatterns,
-          random = random)
 
-      val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
-        updateState(
-          genomes = elitedGenomes,
-          patterns = elitedPatterns,
-          offspringGenomes = offSpringGenomes,
-          offspringPatterns = offspringPatterns,
-          likelihoodRatioMap = likelihoods,
-          hitMap = hitMap,
+        val (elitedGenomes, elitedPatterns) =
+          elitism(
+            genomes = genomes,
+            patterns = patterns,
+            offspringGenomes = offSpringGenomes,
+            offspringPatterns = offspringPatterns,
+            random = random)
+
+        val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
+          updateState(
+            genomes = elitedGenomes,
+            patterns = elitedPatterns,
+            offspringGenomes = offSpringGenomes,
+            offspringPatterns = offspringPatterns,
+            likelihoodRatioMap = likelihoods,
+            hitMap = hitMap,
+            maxRareSample = maxRareSample,
+            regularisationEpsilon = regularisationEpsilon,
+            iterations = 1000,
+            tolerance = 0.0001,
+            dilation = 1.0,
+            warmupSampler = 10000,
+            minClusterSize = minClusterSize,
+            random = random)
+
+        evolution(
+          genomeSize = genomeSize,
+          lambda = lambda,
+          generations = generations,
           maxRareSample = maxRareSample,
-          regularisationEpsilon = regularisationEpsilon,
-          iterations = 1000,
-          tolerance = 0.0001,
-          dilation = 1.0,
-          warmupSampler = 10000,
           minClusterSize = minClusterSize,
-          random = random)
-
-      evolution(
-        genomeSize = genomeSize,
-        lambda = lambda,
-        generations = generations,
-        maxRareSample = maxRareSample,
-        minClusterSize = minClusterSize,
-        regularisationEpsilon = regularisationEpsilon,
-        pattern = pattern,
-        elitedGenomes,
-        elitedPatterns,
-        updatedlikelihoodRatioMap,
-        updatedHitMap,
-        updatedGMM,
-        random,
-        generation + 1,
-        trace = trace)
+          regularisationEpsilon = regularisationEpsilon,
+          pattern = pattern,
+          elitedGenomes,
+          elitedPatterns,
+          updatedlikelihoodRatioMap,
+          updatedHitMap,
+          updatedGMM,
+          random,
+          generation + 1,
+          trace = trace)
 

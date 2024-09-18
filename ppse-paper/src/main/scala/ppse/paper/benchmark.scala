@@ -159,15 +159,17 @@ object benchmark:
 
     for r <- 0 until replications do run(r)
 
-  @main def trafficBenchmark(result: String, replication: Int) =
-    val resultFile = File(result)
+  @main def trafficBenchmark(result: String, generation: Int, replication: Int) =
+    val resultDir = File(result)
+    val resultFile = resultDir / "patterns.csv"
+    resultFile.parent.createDirectories()
     resultFile.delete(true)
 
     def maxPatience = 50.0
 
     val genomeSize = 3
     val lambda = 100
-    val generations = 1000
+    val generations = generation
     val maxRareSample = 10
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
@@ -198,17 +200,24 @@ object benchmark:
           Vector(speed, patience)
 
       def trace(s: ppse.StepInfo) =
-        resultFile.append(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
+        resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
 
-      val pdf = ppse.evolution(
-        genomeSize = genomeSize,
-        lambda = lambda,
-        generations = generations,
-        maxRareSample = maxRareSample,
-        minClusterSize = minClusterSize,
-        regularisationEpsilon = regularisationEpsilon,
-        pattern = behaviour,
-        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
-        trace = trace)
+      val pdf =
+        ppse.evolution(
+          genomeSize = genomeSize,
+          lambda = lambda,
+          generations = generations,
+          maxRareSample = maxRareSample,
+          minClusterSize = minClusterSize,
+          regularisationEpsilon = regularisationEpsilon,
+          pattern = behaviour,
+          random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
+          trace = trace)
+
+      (resultDir / s"$r.csv").write:
+        pdf.map: (p, l) =>
+          (p ++ Seq(l)).mkString(",")
+        .mkString("\n")
+
 
     for r <- 0 until replication do run(r)

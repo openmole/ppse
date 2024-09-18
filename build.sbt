@@ -72,6 +72,7 @@ lazy val ppsePaper = Project("ppse-paper", file("ppse-paper")).settings (
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.2",
+  libraryDependencies += "ch.epfl.lamp" %% "gears" % "0.2.0",
   excludeConflicting
 )
 
