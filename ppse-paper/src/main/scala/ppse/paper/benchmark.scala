@@ -50,16 +50,23 @@ object benchmark:
         case None => Vector.fill(point.size + 1)(-1)
         case Some(s, i) => Vector(i) ++ patternIntern(s, point)
 
-    def patternDensity(ps: PatternSquare, p: Vector[Int]) =
-      p.head match
-        case -1 => patternDensityForRemaining(ps)
-        case i => patternDensityForSquare(ps.squares(i))
+    def patternDensity(ps: PatternSquare, p: Vector[Int], excludeFallBack: Boolean = false) =
+      if !excludeFallBack
+      then
+        if isFallbackPattern(p)
+        then patternDensityForRemaining(ps)
+        else patternDensityForSquare(ps.squares(p.head))
+      else
+        val totalVolume = ps.squares.map(volume).sum
+        patternDensityForSquare(ps.squares(p.head)) / totalVolume
 
     def volume(square: Square) = math.pow(square.size, square.dimension)
 
     def patternDensityForSquare(square: Square) = volume(square) / math.pow(square.grid, square.dimension)
 
     def patternDensityForRemaining(patternSquare: PatternSquare) = 1.0 - patternSquare.squares.map(volume).sum
+
+    def isFallbackPattern(p: Vector[Int]) = p.head == -1
 
     def allPatterns2D(patternSquare: PatternSquare): Vector[Vector[Int]] =
       Vector(Vector(-1, -1, -1)) ++ {
@@ -86,7 +93,7 @@ object benchmark:
 
     val genomeSize = 2
     val lambda = 100
-    val generations = 500
+    val generations = 1000
     val maxRareSample = 10
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
@@ -101,14 +108,18 @@ object benchmark:
       def trace(s: ppse.StepInfo) =
         if s.generation % 10 == 0
         then
-          val all = allPatterns.toSet
+          val all = allPatterns.toSet.filterNot(PatternSquare.isFallbackPattern)
           val indexPattern = all.map(k => k -> s.likelihoodRatioMap.getOrElse(k, 0.0)).toMap
-          val missed = allPatterns.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
+          val missed = all.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
 
           val error =
             val sum = indexPattern.values.sum
             val normalized = indexPattern.view.mapValues(_ / sum)
-            val (p, q) = normalized.toSeq.map((p, d) => (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)).unzip
+
+            val (p, q) =
+              normalized.toSeq.map: (p, d) =>
+                (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p, excludeFallBack = true), d)
+              .unzip
             jeffreysDivergence(p, q)
 
           resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
@@ -140,7 +151,7 @@ object benchmark:
       val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
 
       for
-        points <- 0 to 50000
+        points <- 0 to 100000
       do
         val (x, y) = (random.nextDouble, random.nextDouble)
         val p = PatternSquare.pattern(PatternSquare.benchmarkPattern, Vector(x, y))
@@ -150,12 +161,16 @@ object benchmark:
 
         if points % 1000 == 0
         then
-          val all = allPatterns.toSet
+          val all = allPatterns.toSet.filterNot(PatternSquare.isFallbackPattern)
           val indexPattern = all.map(k => k -> resultMap.getOrElse(k, 0).toDouble / points).toMap
-          val missed = allPatterns.size - resultMap.count((k, _) => all.contains(k))
+          val missed = all.size - resultMap.count((k, _) => all.contains(k))
 
           val error =
-            val (p, q) = indexPattern.toSeq.map((p, d) => (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)).unzip
+            val (p, q) =
+              indexPattern.toSeq.map: (p, d) =>
+                (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p, excludeFallBack = true), d)
+              .unzip
+
             jeffreysDivergence(p, q)
 
           resultFile.append(s"$r,$points,$error,$missed\n")
