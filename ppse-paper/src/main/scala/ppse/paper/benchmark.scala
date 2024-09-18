@@ -19,6 +19,8 @@ package ppse.paper
  */
 
 import better.files.*
+import gears.async.*
+import gears.async.default.given
 
 import scala.util.Random
 
@@ -111,18 +113,19 @@ object benchmark:
 
           resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
-      ppse.evolution(
-        genomeSize = genomeSize,
-        lambda = lambda,
-        generations = generations,
-        maxRareSample = maxRareSample,
-        minClusterSize = minClusterSize,
-        regularisationEpsilon = regularisationEpsilon,
-        pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
-        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
-        trace = trace)
+      Async.blocking:
+        ppse.evolution(
+          genomeSize = genomeSize,
+          lambda = lambda,
+          generations = generations,
+          maxRareSample = maxRareSample,
+          minClusterSize = minClusterSize,
+          regularisationEpsilon = regularisationEpsilon,
+          pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
+          random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
+          trace = trace)
 
-    for r <- 0 until replications do run(r)
+    (0 until replications).foreach(run)
 
   @main def patternSquareBenchmarkRandom(result: String, replications: Int) =
     val resultFile = File(result)
@@ -130,7 +133,7 @@ object benchmark:
 
     resultFile.delete(true)
 
-    def run(r: Int) =
+    def run(r: Int) = Async.blocking:
       println(s"Running replication $r")
 
       val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
@@ -157,7 +160,7 @@ object benchmark:
 
           resultFile.append(s"$r,$points,$error,$missed\n")
 
-    for r <- 0 until replications do run(r)
+    (0 until replications).foreach(run)
 
   @main def trafficBenchmark(result: String, generation: Int, replication: Int) =
     val resultDir = File(result)
@@ -175,7 +178,7 @@ object benchmark:
     val regularisationEpsilon = 1e-6
 
 
-    def run(r: Int) =
+    def run(r: Int)(using Async.Spawn) = Future:
       val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
 
       def behaviour(p: Vector[Double]) =
@@ -220,4 +223,7 @@ object benchmark:
         .mkString("\n")
 
 
-    for r <- 0 until replication do run(r)
+    Async.blocking:
+      (0 until replication).map: r =>
+        run(r)
+      .awaitAll
