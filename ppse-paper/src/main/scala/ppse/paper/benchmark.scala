@@ -97,7 +97,7 @@ object benchmark:
 
       println(s"Running replication $r")
       def trace(s: ppse.StepInfo) =
-        if s.generation % 10 == 0
+        if s.generation % 10 == 0 && s.generation > 0
         then
           val all = allPatterns.toSet
           val indexPattern = all.map(k => k -> s.likelihoodRatioMap.getOrElse(k, 0.0)).toMap
