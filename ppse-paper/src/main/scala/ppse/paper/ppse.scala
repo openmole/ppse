@@ -178,62 +178,60 @@ object ppse :
     gmm: Option[(GMM, rejection.RejectionSamplerState)] = None,
     random: Random,
     generation: Int = 0,
-    trace: StepInfo => Unit = identity): SamplingWeightMap =
+    trace: StepInfo => Unit = identity)(using Async.Spawn): SamplingWeightMap =
+    trace(StepInfo(generation, likelihoods))
 
-    Async.blocking:
-      trace(StepInfo(generation, likelihoods))
-
-      if generation >= generations
-      then computePDF(likelihoods)
-      else
-        val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
-        val offspringPatterns =
-          offSpringGenomes.toSeq.map: (g, _) =>
-            Future:
-              pattern(g.toVector).toArray
-          .awaitAll
-          .toArray
+    if generation >= generations
+    then computePDF(likelihoods)
+    else
+      val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
+      val offspringPatterns =
+        offSpringGenomes.toSeq.map: (g, _) =>
+          Future:
+            pattern(g.toVector).toArray
+        .awaitAll
+        .toArray
 
 
-        val (elitedGenomes, elitedPatterns) =
-          elitism(
-            genomes = genomes,
-            patterns = patterns,
-            offspringGenomes = offSpringGenomes,
-            offspringPatterns = offspringPatterns,
-            random = random)
+      val (elitedGenomes, elitedPatterns) =
+        elitism(
+          genomes = genomes,
+          patterns = patterns,
+          offspringGenomes = offSpringGenomes,
+          offspringPatterns = offspringPatterns,
+          random = random)
 
-        val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
-          updateState(
-            genomes = elitedGenomes,
-            patterns = elitedPatterns,
-            offspringGenomes = offSpringGenomes,
-            offspringPatterns = offspringPatterns,
-            likelihoodRatioMap = likelihoods,
-            hitMap = hitMap,
-            maxRareSample = maxRareSample,
-            regularisationEpsilon = regularisationEpsilon,
-            iterations = 1000,
-            tolerance = 0.0001,
-            dilation = 1.0,
-            warmupSampler = 10000,
-            minClusterSize = minClusterSize,
-            random = random)
-
-        evolution(
-          genomeSize = genomeSize,
-          lambda = lambda,
-          generations = generations,
+      val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
+        updateState(
+          genomes = elitedGenomes,
+          patterns = elitedPatterns,
+          offspringGenomes = offSpringGenomes,
+          offspringPatterns = offspringPatterns,
+          likelihoodRatioMap = likelihoods,
+          hitMap = hitMap,
           maxRareSample = maxRareSample,
-          minClusterSize = minClusterSize,
           regularisationEpsilon = regularisationEpsilon,
-          pattern = pattern,
-          elitedGenomes,
-          elitedPatterns,
-          updatedlikelihoodRatioMap,
-          updatedHitMap,
-          updatedGMM,
-          random,
-          generation + 1,
-          trace = trace)
+          iterations = 1000,
+          tolerance = 0.0001,
+          dilation = 1.0,
+          warmupSampler = 10000,
+          minClusterSize = minClusterSize,
+          random = random)
+
+      evolution(
+        genomeSize = genomeSize,
+        lambda = lambda,
+        generations = generations,
+        maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
+        regularisationEpsilon = regularisationEpsilon,
+        pattern = pattern,
+        elitedGenomes,
+        elitedPatterns,
+        updatedlikelihoodRatioMap,
+        updatedHitMap,
+        updatedGMM,
+        random,
+        generation + 1,
+        trace = trace)
 
