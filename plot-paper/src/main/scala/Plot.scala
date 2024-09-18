@@ -16,17 +16,34 @@
  */
 
 package ppse.plot
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
+
 
 @main def plot =
-  import plotly.*
-  import plotly.element.*
-  import plotly.layout.*
-  import plotly.Plotly.*
+  import plotly._
+  import plotly.element._
+  import plotly.element.Error._
+  import plotly.layout._
+  import plotly.Plotly._
 
-  val (x, y) = Seq(
-    "Banana" -> 10,
-    "Apple" -> 8,
-    "Grapefruit" -> 5
-  ).unzip
+  val inputFile = "/tmp/psppse_random.csv"
+  val source = scala.io.Source.fromFile(inputFile)
+  val data = source.getLines.map(_.split(",")).toSeq
+  source.close
+  val simulations = data.map(row=>row(1).toInt).distinct
+  val error = simulations.map(s=>data.filter(row=>row(1).toInt == s).map(row=>row(2).toDouble))
 
-  Bar(x, y).plot("/tmp/plot.html", Layout())
+  val stats = error.map(s=>
+    val stats = new DescriptiveStatistics
+    s.foreach(v=>stats.addValue(v))
+    stats
+  )
+
+  val error_mean = stats.map(_.getMean)
+  val error_std = stats.map(_.getStandardDeviation)
+//  val patterns = Seq()
+  println(simulations)
+  println(error_mean)
+  println(error_std)
+  val scatter = Scatter().withX(simulations).withY(error_mean).withError_y(Data(error_std))
+  scatter.plot("/tmp/psppse_random.html", Layout())
