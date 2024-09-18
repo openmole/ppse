@@ -26,7 +26,7 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
   import plotly.layout._
   import plotly.Plotly._
 
-  val inputFile = "/tmp/psppse_random.csv"
+  val inputFile = "/tmp/patternSquareBenchmark.csv"
   val source = scala.io.Source.fromFile(inputFile)
   val data = source.getLines.map(_.split(",")).toSeq
   source.close
@@ -41,9 +41,12 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 
   val error_mean = stats.map(_.getMean)
   val error_std = stats.map(_.getStandardDeviation)
+  val error_5 = stats.map(_.getPercentile(5))
+  val error_median = stats.map(_.getPercentile(50))
+  val error_95 = stats.map(_.getPercentile(95))
 //  val patterns = Seq()
   println(simulations)
   println(error_mean)
   println(error_std)
-  val scatter = Scatter().withX(simulations).withY(error_mean).withError_y(Data(error_std))
-  scatter.plot("/tmp/psppse_random.html", Layout())
+  val scatter = Scatter().withX(simulations).withY(error_mean).withError_y(Data(error_95).withSymmetric(false).withArrayminus(arrayminus=error_5))
+  scatter.plot("/tmp/patternSquareBenchmark.html", Layout())
