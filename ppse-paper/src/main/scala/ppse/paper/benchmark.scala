@@ -31,6 +31,9 @@ object benchmark:
   def jeffreysDivergence(p: Seq[Double], q: Seq[Double]): Double =
     kullbackLeiblerDivergence(p, q) + kullbackLeiblerDivergence(q, p)
 
+  def kolmogorovSmirnovTest(p: Seq[Double], q: Seq[Double]): Double =
+    p.zip(q).map((x, y) => math.abs(x-y)).max
+
   object PatternSquare:
     case class Square(center: Vector[Double], size: Double, grid: Int):
       def dimension = center.size
@@ -88,12 +91,12 @@ object benchmark:
 
   case class PatternSquare(squares: PatternSquare.Square*)
 
-  @main def patternSquareBenchmark(result: String, replications: Int) =
+  @main def patternSquareBenchmark(result: String, replications: Int, generations: Int) =
     val resultFile = File(result)
 
     val genomeSize = 2
     val lambda = 100
-    val generations = 1000
+//    val generations = 1000
     val maxRareSample = 10
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
@@ -120,7 +123,7 @@ object benchmark:
               normalized.toSeq.map: (p, d) =>
                 (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p, excludeFallBack = true), d)
               .unzip
-            jeffreysDivergence(p, q)
+            kolmogorovSmirnovTest(p, q)
 
           resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
@@ -139,7 +142,7 @@ object benchmark:
     Async.blocking:
       (0 until replications).map(run).awaitAll
 
-  @main def patternSquareBenchmarkRandom(result: String, replications: Int) =
+  @main def patternSquareBenchmarkRandom(result: String, replications: Int, nbPoints: Int) =
     val resultFile = File(result)
     val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
 
@@ -152,7 +155,7 @@ object benchmark:
       val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
 
       for
-        points <- 0 to 100000
+        points <- 0 to nbPoints
       do
         val (x, y) = (random.nextDouble, random.nextDouble)
         val p = PatternSquare.pattern(PatternSquare.benchmarkPattern, Vector(x, y))
@@ -172,7 +175,7 @@ object benchmark:
                 (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p, excludeFallBack = true), d)
               .unzip
 
-            jeffreysDivergence(p, q)
+            kolmogorovSmirnovTest(p, q)
 
           resultFile.append(s"$r,$points,$error,$missed\n")
 

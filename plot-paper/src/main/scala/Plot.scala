@@ -26,27 +26,37 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
   import plotly.layout._
   import plotly.Plotly._
 
-  val inputFile = "/tmp/patternSquareBenchmark.csv"
-  val source = scala.io.Source.fromFile(inputFile)
-  val data = source.getLines.map(_.split(",")).toSeq
-  source.close
-  val simulations = data.map(row=>row(1).toInt).distinct
-  val error = simulations.map(s=>data.filter(row=>row(1).toInt == s).map(row=>row(2).toDouble))
+  /*val inputFile = "/tmp/patternSquareBenchmark.csv"*/
+  /*val inputFile = "/home/JPerret/devel/ppse/repli.csv"*/
+  val inputFile1 = "/tmp/patternSquareBenchmark.csv"
+  val inputFile2 = "/tmp/patternSquareBenchmarkRandom.csv"
+  def getTraces(name: String, inputFile: String, color: Color, color2: Color) =
+    val source = scala.io.Source.fromFile(inputFile)
+    val data = source.getLines.map(_.split(",")).toSeq
+    source.close
+    val simulations = data.map(row=>row(1).toInt).distinct
+    val error = simulations.map(s=>data.filter(row=>row(1).toInt == s).map(row=>row(3).toDouble))
 
-  val stats = error.map(s=>
-    val stats = new DescriptiveStatistics
-    s.foreach(v=>stats.addValue(v))
-    stats
-  )
+    val stats = error.map(s=>
+      val stats = new DescriptiveStatistics
+      s.foreach(v=>if !v.isNaN then stats.addValue(v))
+      stats
+    )
 
-  val error_mean = stats.map(_.getMean)
-  val error_std = stats.map(_.getStandardDeviation)
-  val error_5 = stats.map(_.getPercentile(5))
-  val error_median = stats.map(_.getPercentile(50))
-  val error_95 = stats.map(_.getPercentile(95))
-//  val patterns = Seq()
-  println(simulations)
-  println(error_mean)
-  println(error_std)
-  val scatter = Scatter().withX(simulations).withY(error_mean).withError_y(Data(error_95).withSymmetric(false).withArrayminus(arrayminus=error_5))
-  scatter.plot("/tmp/patternSquareBenchmark.html", Layout())
+    val error_mean = stats.map(_.getMean)
+    val error_std = stats.map(_.getStandardDeviation)
+    val error_low = stats.map(_.getPercentile(10))
+    val error_median = stats.map(_.getPercentile(50))
+    val error_high = stats.map(_.getPercentile(90))
+  //  val patterns = Seq()
+    println(simulations)
+    println(error_mean)
+    println(error_std)
+    //val scatter = Scatter().withLine(Line().withColor(Color.RGB(255,0,0)).withWidth(4)).withX(simulations).withY(error_mean).withError_y(Data(error_high).withSymmetric(false).withArrayminus(arrayminus=error_low))
+    //scatter.plot("/tmp/patternSquareBenchmark.html", Layout())//.withYaxis(Axis().withType(AxisType.Log)))
+    val scatter = Scatter().withLine(Line().withColor(color).withWidth(4)).withX(simulations).withY(error_mean).withName(name)
+    val errorScatter = Scatter().withX(simulations ++ simulations.reverse).withY(error_high ++ error_low.reverse).withFillcolor(color2).withFill(Fill.ToZeroX).withLine(Line().withColor(Color.RGBA(0,0,0,0.0))).withName("")
+    Seq(scatter, errorScatter)
+  val traces = getTraces("PPSE", inputFile1, Color.RGB(255,0,0), Color.RGBA(255,127,127,0.2)) ++ getTraces("Uniform", inputFile2, Color.RGB(0,255,0), Color.RGBA(127,255,127,0.2))
+  val layout = Layout().withTitle("Results for the patternSquare benchmark")
+  Plotly.plot("div-id.html", traces, layout)
