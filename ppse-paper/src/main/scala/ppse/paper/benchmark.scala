@@ -117,7 +117,10 @@ object benchmark:
 
           val error =
             val sum = indexPattern.values.sum
-            val normalized = indexPattern.view.mapValues(_ / sum)
+            val normalized =
+              if sum != 0
+              then indexPattern.view.mapValues(_ / sum)
+              else all.map(p => (p, 0.0))
 
             val (p, q) =
               normalized.toSeq.map: (p, d) =>
@@ -200,7 +203,7 @@ object benchmark:
     def run(r: Int)(using Async.Spawn) = Future:
       val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
 
-      def behaviour(p: Vector[Double]) =
+      def behaviour(p: Vector[Double]): Vector[Int] =
         import scala.sys.process.*
 
         def maxPatience = 50.0
@@ -218,7 +221,7 @@ object benchmark:
         then Vector(-1, -1)
         else
           val speed = (lines(0).toDouble / 2.0 * 100).toInt
-          val patience = (lines(1).toDouble / 100).toInt
+          val patience = (lines(1).toDouble).toInt
           Vector(speed, patience)
 
       def trace(s: ppse.StepInfo) =
