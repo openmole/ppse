@@ -96,7 +96,6 @@ object benchmark:
 
     val genomeSize = 2
     val lambda = 100
-//    val generations = 1000
     val maxRareSample = 10
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
@@ -184,13 +183,89 @@ object benchmark:
 
     (0 until replications).foreach(run)
 
-  @main def trafficBenchmark(result: String, generation: Int, replication: Int) =
+  @main def patternSquareBenchmarkPSE(result: String, replications: Int, generations: Int) =
+    import mgo.evolution.algorithm.*
+    import mgo.evolution.*
+    val resultFile = File(result)
+
+    val genomeSize = 2
+    val lambda = 100
+
+    val maxRareSample = 10
+    val minClusterSize = 3
+    val regularisationEpsilon = 1e-6
+
+    val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
+    resultFile.delete(true)
+
+    def run(r: Int)(using Async.Spawn) = Future:
+      println(s"Running replication $r")
+
+      val pse = PSE(
+        lambda = lambda,
+        phenotype = (d, _) => d,
+        pattern = x => PatternSquare.pattern(PatternSquare.benchmarkPattern, x),
+        continuous = Vector.fill(2)(C(0.0, 1.0)),
+        maxRareSample = maxRareSample)
+
+      pse
+        .until(afterGeneration(generations))
+        .trace: (s, is) =>
+          if s.generation % 10 == 0 && s.generation > 0
+          then
+            val points = s.evaluated
+            val resultSet =
+              PSE.result(pse, is).map: i =>
+                i.pattern
+              .toSet
+
+            val all = allPatterns.toSet.filterNot(PatternSquare.isFallbackPattern)
+            val missed = all.size - resultSet.count(all.contains)
+            resultFile.append(s"$r,$points,$missed\n")
+        .eval(newRNG(r))
+
+
+    Async.blocking:
+      (0 until replications).map(run).awaitAll
+
+
+  object Traffic:
+    def behaviour(p: Vector[Double], random: Random): Vector[Double] =
+      import scala.sys.process.*
+
+      def maxPatience = 50.0
+      def maxNumberOfCars = 82
+      def maxAcceleration = 0.01
+      def maxDeceleration = 0.1
+
+      val inputs = Vector(p(0) * maxNumberOfCars, p(1) * maxAcceleration, p(2) * maxDeceleration, maxPatience)
+      val seed = random.nextInt()
+
+      println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed")
+      val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+
+      if lines.size != 2
+      then Vector(-1.0, -1.0)
+      else
+        val speed = lines(0).toDouble
+        val patience = lines(1).toDouble
+        Vector(speed, patience)
+
+
+    def pattern(v: Vector[Double]): Vector[Int] =
+      if v == Vector(-1.0, -1.0)
+      then Vector(-1, -1)
+      else
+        val speed = (v(0) / 2.0 * 100).toInt
+        val patience = v(1).toInt
+        Vector(speed, patience)
+
+
+  @main def trafficBenchmarkPPSE(result: String, generation: Int, replication: Int) =
     val resultDir = File(result)
     val resultFile = resultDir / "patterns.csv"
     resultFile.parent.createDirectories()
     resultFile.delete(true)
-
-    def maxPatience = 50.0
 
     val genomeSize = 3
     val lambda = 100
@@ -199,30 +274,8 @@ object benchmark:
     val minClusterSize = 3
     val regularisationEpsilon = 1e-6
 
-
     def run(r: Int)(using Async.Spawn) = Future:
       val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
-
-      def behaviour(p: Vector[Double]): Vector[Int] =
-        import scala.sys.process.*
-
-        def maxPatience = 50.0
-        def maxNumberOfCars = 82
-        def maxAcceleration = 0.01
-        def maxDeceleration = 0.1
-
-        val inputs = Vector(p(0) * maxNumberOfCars, p(1) * maxAcceleration, p(2) * maxDeceleration, maxPatience)
-        val seed = random.nextInt()
-
-        println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed")
-        val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
-
-        if lines.size != 2
-        then Vector(-1, -1)
-        else
-          val speed = (lines(0).toDouble / 2.0 * 100).toInt
-          val patience = (lines(1).toDouble).toInt
-          Vector(speed, patience)
 
       def trace(s: ppse.StepInfo) =
         resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
@@ -235,7 +288,7 @@ object benchmark:
           maxRareSample = maxRareSample,
           minClusterSize = minClusterSize,
           regularisationEpsilon = regularisationEpsilon,
-          pattern = behaviour,
+          pattern = v => Traffic.pattern(Traffic.behaviour(v, random)),
           random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
           trace = trace)
 
@@ -244,6 +297,50 @@ object benchmark:
           (p ++ Seq(l)).mkString(",")
         .mkString("\n")
 
+    Async.blocking:
+      (0 until replication).map: r =>
+        run(r)
+      .awaitAll
+
+  @main def trafficBenchmarkPSE(result: String, generation: Int, replication: Int) =
+    import mgo.evolution.algorithm.*
+    import mgo.evolution.*
+
+    val resultDir = File(result)
+    val resultFile = resultDir / "patterns.csv"
+    resultFile.parent.createDirectories()
+    resultFile.delete(true)
+
+    val genomeSize = 3
+    val lambda = 100
+    val generations = generation
+    val maxRareSample = 10
+    val minClusterSize = 3
+    val regularisationEpsilon = 1e-6
+
+    def run(r: Int)(using Async.Spawn) = Future:
+      val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
+
+      def trace(s: ppse.StepInfo) =
+        resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
+
+      val pse = NoisyPSE(
+        lambda = lambda,
+        phenotype = (r, d, _) => Traffic.behaviour(d, r),
+        pattern = Traffic.pattern,
+        continuous = Vector.fill(3)(C(0.0, 1.0)),
+        maxRareSample = maxRareSample,
+        aggregation = Aggregation.median
+      )
+
+      val result = pse.until(afterGeneration(generations)).eval(newRNG(r))
+
+      val pdf = NoisyPSE.result(pse, result._2)
+
+      (resultDir / s"$r.csv").write:
+        pdf.map: r =>
+          r.pattern.mkString(",")
+        .mkString("\n")
 
     Async.blocking:
       (0 until replication).map: r =>
