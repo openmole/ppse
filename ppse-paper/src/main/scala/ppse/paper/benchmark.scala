@@ -271,7 +271,7 @@ object benchmark:
     val lambda = 100
     val generations = generation
     val maxRareSample = 10
-    val minClusterSize = 3
+    val minClusterSize = 10
     val regularisationEpsilon = 1e-6
 
     def run(r: Int)(using Async.Spawn) = Future:
