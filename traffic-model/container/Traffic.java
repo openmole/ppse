@@ -33,7 +33,7 @@ public class Traffic {
             workspace.command(cmd);
           }
 
-          for(int i = 0; i < 100; i++) {
+          for(int i = 0; i < 400; i++) {
             workspace.command("go");
           }
 
