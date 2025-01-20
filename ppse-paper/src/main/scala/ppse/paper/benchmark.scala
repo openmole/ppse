@@ -233,12 +233,24 @@ object benchmark:
     def behaviour(p: Vector[Double], random: Random): Vector[Double] =
       import scala.sys.process.*
 
-      def maxPatience = 50.0
-      def maxNumberOfCars = 82
+      def minPatience = 1.0
+      def maxPatience = 100.0
+
+      def numberOfCars = 40
+
+      def minAcceleration = 0.001
       def maxAcceleration = 0.01
+
+      def minDeceleration = 0.01
       def maxDeceleration = 0.1
 
-      val inputs = Vector(p(0) * maxNumberOfCars, p(1) * maxAcceleration, p(2) * maxDeceleration, maxPatience)
+      val inputs =
+        Vector(
+          numberOfCars,
+          minAcceleration + p(1) * (maxAcceleration - minAcceleration),
+          minDeceleration + p(2) * (maxDeceleration - minDeceleration),
+          minPatience + p(0) * (maxPatience - minPatience))
+
       val seed = random.nextInt()
 
       println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed")
@@ -270,7 +282,7 @@ object benchmark:
     val genomeSize = 3
     val lambda = 100
     val generations = generation
-    val maxRareSample = 10
+    val maxRareSample = 100
     val minClusterSize = 10
     val regularisationEpsilon = 1e-6
 
