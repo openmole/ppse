@@ -302,7 +302,7 @@ object Traffic:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         pattern = v => Traffic.pattern(Traffic.behaviour(v, random)),
-        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
+        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = trace)
 
     (resultDir / s"$r.csv").write:
