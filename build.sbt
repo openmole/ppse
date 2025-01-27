@@ -7,6 +7,7 @@ val laminarVersion = "15.0.1"
 val scalajsDomVersion = "2.0.0"
 val endpoints4SVersion = "1.9.0"
 val endpointCirceVersion = "2.3.0"
+val betterFilesVersion = "3.9.2"
 
 ThisBuild / organization := "org.openmole"
 ThisBuild / version := "1.0-SNAPSHOT"
@@ -20,8 +21,8 @@ def excludeConflicting = Seq(
 lazy val ppse = Project("ppse", file("ppse")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
-  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" cross CrossVersion.for3Use2_13,
-  libraryDependencies += "org.openmole" %% "mgo" % "3.56",
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % betterFilesVersion,
+  libraryDependencies += "org.openmole" %% "mgo" % "3.59",
   libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "2.6.0",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
@@ -71,9 +72,9 @@ lazy val ppsePaper = Project("ppse-paper", file("ppse-paper")).settings (
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
-  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.2",
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % betterFilesVersion,
   libraryDependencies += "ch.epfl.lamp" %% "gears" % "0.2.0",
-  libraryDependencies += "org.openmole" %% "mgo" % "3.59-SNAPSHOT",
+  libraryDependencies += "org.openmole" %% "mgo" % "3.59",
   excludeConflicting
 )
 
@@ -81,7 +82,7 @@ lazy val plotPaper  = Project("plot-paper", file("plot-paper")).settings (
   version := "1.0-SNAPSHOT",
   scalaVersion := Scala3Version,
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
-  libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.2",
+  libraryDependencies += "com.github.pathikrit" %% "better-files" % betterFilesVersion,
   libraryDependencies += "org.plotly-scala" %% "plotly-render" % "0.8.5" cross CrossVersion.for3Use2_13,
   excludeConflicting
 )
