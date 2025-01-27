@@ -283,7 +283,7 @@ object Traffic:
   val genomeSize = 3
   val lambda = 100
   val generations = generation
-  val maxRareSample = 100
+  val maxRareSample = 10
   val minClusterSize = 10
   val regularisationEpsilon = 1e-6
 
