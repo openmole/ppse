@@ -500,3 +500,104 @@ case class Hypercubes(patterns: Hypercubes.Hypercube*)
         resultFile.append(s"$r,$points,$error,$missed\n")
 
   (0 until replications).foreach(run)
+
+
+// Modèle SEIR en Scala
+
+object SEIRModel:
+
+  case class SEIRState(S: Double, E: Double, I: Double, R: Double)
+
+  def update(state: SEIRState, beta: Double, sigma: Double, gamma: Double, dt: Double): SEIRState =
+    val dS = -beta * state.S * state.I * dt
+    val dE = (beta * state.S * state.I - sigma * state.E) * dt
+    val dI = (sigma * state.E - gamma * state.I) * dt
+    val dR = gamma * state.I * dt
+
+    SEIRState(
+      S = state.S + dS,
+      E = state.E + dE,
+      I = state.I + dI,
+      R = state.R + dR
+    )
+
+  def simulate(
+    initialState: SEIRState,
+    beta: Double,
+    sigma: Double,
+    gamma: Double,
+    dt: Double,
+    steps: Int): Seq[SEIRState] =
+    (1 to steps).scanLeft(initialState): (currentState, _) =>
+      update(currentState, beta, sigma, gamma, dt)
+
+  def behaviour(p: Vector[Double]): Vector[Double] =
+
+    val population = 1000.0
+    val initialInfected = 1.0
+    val initialExposed = 0.0
+    val initialRecovered = 0.0
+    val initialSusceptible = population - initialInfected - initialExposed - initialRecovered
+
+    val beta = p(0)
+    val sigma = p(1)
+    val gamma = p(2)
+
+    val dt = 0.1
+    val steps = 1000
+
+    val initialState = SEIRState(
+      S = initialSusceptible / population,
+      E = initialExposed / population,
+      I = initialInfected / population,
+      R = initialRecovered / population
+    )
+
+    val results = simulate(initialState, beta, sigma, gamma, dt, steps)
+
+    val pic = results.map(_.I).max
+    val picTime = results.indexWhere(_.I >= pic)
+
+    Vector(pic, picTime.toDouble)
+
+
+  def pattern(v: Vector[Double]): Vector[Int] = v.map(x => (x / 100).toInt)
+
+@main def SEIRPPSEBenchmark(result: String, generation: Int, replication: Int) =
+  val resultDir = File(result)
+  val resultFile = resultDir / "patterns.csv"
+  resultFile.parent.createDirectories()
+  resultFile.delete(true)
+
+  val genomeSize = 3
+  val lambda = 100
+  val generations = generation
+  val maxRareSample = 100
+  val minClusterSize = 10
+  val regularisationEpsilon = 1e-6
+
+  def run(r: Int)(using Async.Spawn) = Future:
+    def trace(s: ppse.StepInfo) =
+      resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
+
+    val pdf =
+      ppse.evolution(
+        genomeSize = genomeSize,
+        lambda = lambda,
+        generations = generations,
+        maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
+        regularisationEpsilon = regularisationEpsilon,
+        pattern = v => SEIRModel.pattern(SEIRModel.behaviour(v)),
+        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
+        trace = trace)
+
+    (resultDir / s"$r.csv").write:
+      pdf.map: (p, l) =>
+        (p ++ Seq(l)).mkString(",")
+      .mkString("\n")
+
+  Async.blocking:
+    (0 until replication).map: r =>
+      run(r)
+    .awaitAll
