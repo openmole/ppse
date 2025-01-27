@@ -10,6 +10,7 @@ import org.nlogo.headless.HeadlessWorkspace;
 
 public class Traffic {
     public static void main(String[] args) {
+      java.lang.System.setProperty("netlogo.libraries.disabled", "true");
       try {
         var model = new File("Traffic_2_Lanes.nlogo");
 
