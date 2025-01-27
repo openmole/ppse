@@ -10,6 +10,6 @@ set xlabel 'y'
 #set format y '%.2t*10^%+03T';
 set pm3d map
 set size square
-splot "/tmp/map.csv" with points ls 1 palette
-#splot "/tmp/map74479.csv" with points palette
+#set cbrange [0:0.2]   # Fix color map interval to 0 to 0.2
+splot "/tmp/seir-ppse/0.csv" with points ls 1 palette
 

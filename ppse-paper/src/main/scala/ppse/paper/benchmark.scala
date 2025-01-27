@@ -534,14 +534,14 @@ object SEIRModel:
   def behaviour(p: Vector[Double]): Vector[Double] =
 
     val population = 1000.0
-    val initialInfected = 1.0
+    val initialInfected = 10.0
     val initialExposed = 0.0
     val initialRecovered = 0.0
     val initialSusceptible = population - initialInfected - initialExposed - initialRecovered
 
-    val beta = p(0)
-    val sigma = p(1)
-    val gamma = p(2)
+    val beta = 0.1 + p(0) * (0.9 - 0.01)
+    val sigma = 0.1 + p(1) * (0.9 - 0.01)
+    val gamma = 0.1 + p(2) * (0.9 - 0.01)
 
     val dt = 0.1
     val steps = 1000
@@ -555,15 +555,16 @@ object SEIRModel:
 
     val results = simulate(initialState, beta, sigma, gamma, dt, steps)
 
-    val pic = results.map(_.I).max
-    val picTime = results.indexWhere(_.I >= pic)
+    val infectedResult = results.map(_.I * population)
+    val pic = infectedResult.max
+    val picTime = infectedResult.indexWhere(_ >= pic)
 
     Vector(pic, picTime.toDouble)
 
 
-  def pattern(v: Vector[Double]): Vector[Int] = v.map(x => (x / 100).toInt)
+  def pattern(v: Vector[Double]): Vector[Int] = v.map(x => (x / 20).toInt)
 
-@main def SEIRPPSEBenchmark(result: String, generation: Int, replication: Int) =
+@main def SEIRBenchmarkPPSE(result: String, generation: Int, replication: Int) =
   val resultDir = File(result)
   val resultFile = resultDir / "patterns.csv"
   resultFile.parent.createDirectories()
@@ -572,7 +573,7 @@ object SEIRModel:
   val genomeSize = 3
   val lambda = 100
   val generations = generation
-  val maxRareSample = 100
+  val maxRareSample = 10
   val minClusterSize = 10
   val regularisationEpsilon = 1e-6
 
@@ -589,7 +590,7 @@ object SEIRModel:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         pattern = v => SEIRModel.pattern(SEIRModel.behaviour(v)),
-        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
+        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = trace)
 
     (resultDir / s"$r.csv").write:
