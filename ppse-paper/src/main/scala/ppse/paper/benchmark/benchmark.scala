@@ -185,8 +185,6 @@ case class PatternSquare(squares: PatternSquare.Square*)
   (0 until replications).foreach(run)
 
 @main def patternSquareBenchmarkPSE(result: String, replications: Int, generations: Int) =
-  import mgo.evolution.algorithm.*
-  import mgo.evolution.*
   val resultFile = File(result)
 
   val genomeSize = 2
@@ -200,6 +198,9 @@ case class PatternSquare(squares: PatternSquare.Square*)
   resultFile.delete(true)
 
   def run(r: Int)(using Async.Spawn) = Future:
+    import mgo.evolution.algorithm.*
+    import mgo.evolution.*
+
     println(s"Running replication $r")
 
     val pse = PSE(
@@ -316,8 +317,6 @@ object Traffic:
     .awaitAll
 
 @main def trafficBenchmarkPSE(result: String, generation: Int, replication: Int) =
-  import mgo.evolution.algorithm.*
-  import mgo.evolution.*
 
   val resultDir = File(result)
   val resultFile = resultDir / "patterns.csv"
@@ -332,6 +331,9 @@ object Traffic:
   val regularisationEpsilon = 1e-6
 
   def run(r: Int)(using Async.Spawn) = Future:
+    import mgo.evolution.algorithm.*
+    import mgo.evolution.*
+
     val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
 
     def trace(s: ppse.StepInfo) =
