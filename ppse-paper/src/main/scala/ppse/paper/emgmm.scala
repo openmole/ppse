@@ -150,6 +150,22 @@ object emgmm:
       array.zipWithIndex.map: (value, j) =>
         if i == j then value + v else value
 
+  def pointsGMM(x: Array[Array[Double]], regularisationEpsilon: Double): GMM =
+    if x.isEmpty
+    then GMM(Seq())
+    else
+      val size = x.head.length
+      val cov =
+        Array.tabulate(size, size): (i, j) =>
+          if i == j then regularisationEpsilon else 0.0
+
+      val components =
+        x.map: x =>
+          GMM.Component(x, cov, 1)
+
+      GMM(components)
+
+
   /**
    * M-step, update parameters.
    * @param X data points
