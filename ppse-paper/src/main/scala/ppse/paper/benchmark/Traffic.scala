@@ -171,15 +171,19 @@ object Traffic:
       k -> maps.map(_.getOrElse(k, 0.0)).sum / maps.length
     .toMap
 
+
+
   val errors =
     maps.map: m =>
-      //val test = new KolmogorovSmirnovTest()
+      val test = new KolmogorovSmirnovTest()
       val patterns = keys.map(k => m.getOrElse(k, 0.0))
-      val d =
-        keys.count: k =>
-          val p = m.getOrElse(k, 0.0)
-          val a = avgPattern.getOrElse(k, 0.0)
-          math.abs(p - a) / a < 0.3
-      d.toDouble / keys.size
+      val avg = keys.map(k => avgPattern.getOrElse(k, 0.0))
+      test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
+//      val d =
+//        keys.count: k =>
+//          val p = m.getOrElse(k, 0.0)
+//          val a = avgPattern.getOrElse(k, 0.0)
+//          math.abs(p - a) / a < 0.3
+//      d.toDouble / keys.size
 
   println(errors.zip(files).mkString(","))

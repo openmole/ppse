@@ -123,3 +123,53 @@ object SEIRModel:
     (0 until replication).map: r =>
       run(r)
     .awaitAll
+
+
+@main def resultSEIRModelPPSE(result: String) =
+  import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
+  def readFile(f: File) =
+    f.lines.map: l =>
+      val s = l.split(',')
+      (s.take(2).map(_.toInt).toSeq, s.last.toDouble)
+    .toMap
+
+  val files = File(result).list.filter(_.name.matches("[0-9]+.csv")).toSeq.sortBy(_.name.dropRight(".csv".size).toInt)
+  val maps = files.map(readFile).toArray
+  val keys = maps.flatMap(_.keys).distinct
+
+  /*val avgPattern =
+    keys.map: k =>
+      k -> maps.map(_.getOrElse(k, 0.0)).sum / maps.length
+    .toMap*/
+
+
+  val randomPattern =
+    val nbPoints = 1_000_000
+    val random = org.apache.commons.math3.random.Well44497b(42)
+    val resultMap = collection.mutable.Map[Seq[Int], Double]()
+
+    for
+      points <- 0 until nbPoints
+    do
+      if points % 1000000 == 0 then println(points)
+      val v = Vector.fill(3)(random.nextDouble)
+      val p = SEIRModel.pattern(SEIRModel.behaviour(v))
+
+      resultMap.updateWith(p)(x => Some(x.getOrElse(0.0) + 1))
+
+    resultMap.view.mapValues(_ / nbPoints).toMap
+
+  val errors =
+    maps.map: m =>
+      val test = new KolmogorovSmirnovTest()
+      val patterns = keys.map(k => m.getOrElse(k, 0.0))
+      val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
+      test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
+  //      val d =
+  //        keys.count: k =>
+  //          val p = m.getOrElse(k, 0.0)
+  //          val a = avgPattern.getOrElse(k, 0.0)
+  //          math.abs(p - a) / a < 0.3
+  //      d.toDouble / keys.size
+
+  println(errors.zip(files).mkString(","))

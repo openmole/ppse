@@ -83,26 +83,25 @@ def computeGMM(
       Some:
         val fittedGMM =
           if rareIndividuals.length < minClusterSize
-          then emgmm.pointsGMM(rareIndividuals, regularisationEpsilon)
+          then
+            emgmm.integrateOutliers(rareIndividuals, GMM.empty, regularisationEpsilon)
           else
-            val x = rareIndividuals
-            val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(x, minClusterSize)
+            val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(rareIndividuals, minClusterSize)
 
-            val newGMM = emgmm.fit(
+            val fittedGMM = emgmm.fit(
               components = clusterMeans.length,
               iterations = iterations,
               tolerance = tolerance,
-              x = x,
+              x = rareIndividuals,
               means = clusterMeans,
               covariances = clusterCovariances,
               weights = clusterWeights,
               regularisationEpsilon = regularisationEpsilon)
 
-            val newTGMM = GMM(newGMM._1.means, newGMM._1.covariances, newGMM._1.weights)
+            val newGMM = GMM(fittedGMM._1.means, fittedGMM._1.covariances, fittedGMM._1.weights)
 
-            def gmmWithOutliers = emgmm.integrateOutliers(x, newTGMM, regularisationEpsilon)
-            gmmWithOutliers
-
+            emgmm.integrateOutliers(rareIndividuals, newGMM, regularisationEpsilon)
+            
         val dilatedGMM = GMM.dilate(fittedGMM, dilation)
 
         val samplerState =

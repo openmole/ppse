@@ -150,9 +150,9 @@ object emgmm:
       array.zipWithIndex.map: (value, j) =>
         if i == j then value + v else value
 
-  def pointsGMM(x: Array[Array[Double]], regularisationEpsilon: Double): GMM =
+  def punctualGMM(x: Array[Array[Double]], regularisationEpsilon: Double): GMM =
     if x.isEmpty
-    then GMM(Seq())
+    then GMM.empty
     else
       val size = x.head.length
       val cov =
@@ -198,26 +198,27 @@ object emgmm:
     (weights, means, covariances)
 
   def integrateOutliers(x: Array[Array[Double]], gmm: GMM, regularisationEpsilon: Double) =
-    val (_, resp) = emgmm.eStep(x, gmm.means, gmm.covariances, gmm.weights, regularisationEpsilon)
-    val excluded = resp.count(_.sum == 0)
-    val newResp =
-      //TODO better
-      var encountered = 0
+    if GMM.isEmpty(gmm)
+    then punctualGMM(x, regularisationEpsilon)
+    else
+      val (_, resp) = emgmm.eStep(x, gmm.means, gmm.covariances, gmm.weights, regularisationEpsilon)
 
-      for
-        r <- resp
-      yield
-        if r.sum != 0
-        then r ++ Vector.fill(excluded)(0.0)
-        else
+      val excludedIndex = resp.zipWithIndex.filter((r, _) => r.sum == 0.0).map(_._2).zipWithIndex.toMap
+      val excluded = excludedIndex.size
+
+      def newResp =
+        for
+          (r, i) <- resp.zipWithIndex
+        yield
           val excludedWeight =
-            Vector.tabulate(excluded): i =>
-              if i == encountered then 1.0 else 0.0
-          encountered = encountered + 1
+            excludedIndex.get(i) match
+              case None => Vector.fill(excluded)(0.0)
+              case Some(index) => Vector.tabulate(excluded)(i => if i == index then 1.0 else 0.0)
+
           r ++ excludedWeight
 
-    val (w, m, c) = emgmm.mStep(x, newResp, gmm.size + excluded, regularisationEpsilon)
-    GMM(m, c, w)
+      val (w, m, c) = emgmm.mStep(x, newResp, gmm.size + excluded, regularisationEpsilon)
+      GMM(m, c, w)
 
   /**
    * 2d matrix dot product.
@@ -238,7 +239,7 @@ object GMM:
       (means zip covariances zip weights).map:
         case ((m, c), w) => Component(m, c, w)
 
-    GMM(components)
+    GMM(IArray.unsafeFromArray(components))
 
   def dilate(gmm: GMM, f: Double): GMM =
     def dilatedComponents = gmm.components.map(c => c.copy(covariance = c.covariance.map(_.map(_ * math.pow(f, 2)))))
@@ -256,12 +257,16 @@ object GMM:
 
     new MixtureMultivariateNormalDistribution(tool.toApacheRandom(random), pairs.asJava)
 
-
   case class Component(mean: Array[Double], covariance: Array[Array[Double]], weight: Double)
 
-case class GMM(components: Seq[GMM.Component]):
-  def means: Array[Array[Double]] = components.map(_.mean).toArray
-  def covariances: Array[Array[Array[Double]]] = components.map(_.covariance).toArray
-  def weights: Array[Double] = components.map(_.weight).toArray
-  def size = components.size
+  def empty: GMM = GMM(Seq.empty)
+
+  extension (gmm: GMM)
+    def means: Array[Array[Double]] = gmm.components.map(_.mean).toArray
+    def covariances: Array[Array[Array[Double]]] = gmm.components.map(_.covariance).toArray
+    def weights: Array[Double] = gmm.components.map(_.weight).toArray
+    def size: Int = gmm.components.size
+    def isEmpty: Boolean = gmm.components.isEmpty
+
+case class GMM(components: Seq[GMM.Component])
 
