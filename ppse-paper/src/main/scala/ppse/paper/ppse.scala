@@ -81,14 +81,13 @@ def computeGMM(
     then None
     else
       Some:
-        val fittedGMM =
+        def fittedGMM =
           if rareIndividuals.length < minClusterSize
-          then
-            emgmm.integrateOutliers(rareIndividuals, GMM.empty, regularisationEpsilon)
+          then GMM.empty
           else
             val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(rareIndividuals, minClusterSize)
 
-            val fittedGMM = emgmm.fit(
+            emgmm.fit(
               components = clusterMeans.length,
               iterations = iterations,
               tolerance = tolerance,
@@ -96,13 +95,11 @@ def computeGMM(
               means = clusterMeans,
               covariances = clusterCovariances,
               weights = clusterWeights,
-              regularisationEpsilon = regularisationEpsilon)
+              regularisationEpsilon = regularisationEpsilon)._1
 
-            val newGMM = GMM(fittedGMM._1.means, fittedGMM._1.covariances, fittedGMM._1.weights)
+        def gmmWithOutliers = emgmm.integrateOutliers(rareIndividuals, fittedGMM, regularisationEpsilon)
 
-            emgmm.integrateOutliers(rareIndividuals, newGMM, regularisationEpsilon)
-            
-        val dilatedGMM = GMM.dilate(fittedGMM, dilation)
+        val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
 
         val samplerState =
           val sampler = RejectionSampler(dilatedGMM, random)
@@ -110,7 +107,7 @@ def computeGMM(
 
         (dilatedGMM, samplerState)
 
-  res//.flatMap(_.toOption)
+  res
 
 def updateState(
   genomes: Array[Array[Double]],

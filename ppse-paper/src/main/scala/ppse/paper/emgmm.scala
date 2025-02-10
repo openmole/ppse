@@ -12,10 +12,6 @@ import scala.util.{Try, Success, Failure}
  * Inspired by the work of Maël Fabien: https://github.com/maelfabien/EM_GMM_HMM
  */
 object emgmm:
-  def toString2dArray(a: Array[Array[Double]]) = {
-    a.map { l => "[" + l.map(_.toString).mkString(" ") + "]" }.mkString("[", "\n ", "]")
-  }
-
   /**
    * Full covariance Gaussian Mixture Model, trained using Expectation Maximization.
    *
@@ -182,12 +178,11 @@ object emgmm:
 
 // covariance
     val resp_t = resp.transpose
-    val covariances = Array.tabulate(components) { k =>
+    val covariances = Array.tabulate(components): k =>
       val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
       val resp_k = resp_t(k)
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
       regularize(w_sum.map(_.map(_ / resp_weights(k))), epsilon)
-    }
 
     assert(resp.flatten.forall(!_.isNaN))
     assert(means.flatten.forall(!_.isNaN))
