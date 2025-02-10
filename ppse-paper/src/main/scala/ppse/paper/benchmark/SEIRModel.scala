@@ -112,7 +112,7 @@ object SEIRModel:
         dilation = 4.0,
         pattern = v => SEIRModel.pattern(SEIRModel.behaviour(v)),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
-        trace = trace)
+        trace = Some(trace))
 
     (resultDir / s"$r.csv").write:
       pdf.map: (p, l) =>
@@ -161,10 +161,9 @@ object SEIRModel:
 
   val errors =
     maps.map: m =>
-      val test = new KolmogorovSmirnovTest()
       val patterns = keys.map(k => m.getOrElse(k, 0.0))
       val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
-      test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
+      kolmogorovSmirnovTest(avg, patterns)
   //      val d =
   //        keys.count: k =>
   //          val p = m.getOrElse(k, 0.0)

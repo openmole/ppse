@@ -179,8 +179,9 @@ def evolution(
   gmm: Option[(GMM, rejection.RejectionSamplerState)] = None,
   random: Random,
   generation: Int = 0,
-  trace: StepInfo => Unit = identity)(using Async.Spawn): SamplingWeightMap =
-  trace(StepInfo(generation, likelihoods))
+  trace: Option[StepInfo => Unit] = None)(using Async.Spawn): SamplingWeightMap =
+  trace.foreach: f =>
+    f(StepInfo(generation, computePDF(likelihoods)))
 
   if generation >= generations
   then computePDF(likelihoods)

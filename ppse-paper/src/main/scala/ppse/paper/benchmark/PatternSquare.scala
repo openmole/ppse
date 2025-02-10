@@ -21,6 +21,7 @@ import ppse.paper.*
 import better.files.*
 import gears.async.*
 import gears.async.default.given
+import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
 
 object PatternSquare:
   case class Square(center: Vector[Double], size: Double, grid: Int):
@@ -28,7 +29,9 @@ object PatternSquare:
 
   def inSquare(square: Square, point: Vector[Double]) =
     (point zip square.center).forall: (c, sc) =>
-      c >= sc - square.size / 2 && c < sc + square.size / 2
+      val lowBound = sc - square.size / 2
+      val highBound = sc + square.size / 2
+      c >= lowBound && c < highBound
 
   def patternIntern(square: Square, point: Vector[Double]) =
     def grid(size: Int, x: Vector[Double]) = x.map(_ * size).map(_.floor.toInt)
@@ -41,19 +44,14 @@ object PatternSquare:
       case None => Vector.fill(point.size + 1)(-1)
       case Some(s, i) => Vector(i) ++ patternIntern(s, point)
 
-  def patternDensity(ps: PatternSquare, p: Vector[Int], excludeFallBack: Boolean = false) =
-    if !excludeFallBack
-    then
-      if isFallbackPattern(p)
-      then patternDensityForRemaining(ps)
-      else patternDensityForSquare(ps.squares(p.head))
-    else
-      val totalVolume = ps.squares.map(volume).sum
-      patternDensityForSquare(ps.squares(p.head)) / totalVolume
+  def patternDensity(ps: PatternSquare, p: Vector[Int]) =
+    if isFallbackPattern(p)
+    then patternDensityForRemaining(ps)
+    else patternDensityForPatternInSquare(ps.squares(p.head))
 
   def volume(square: Square) = math.pow(square.size, square.dimension)
 
-  def patternDensityForSquare(square: Square) = volume(square) / math.pow(square.grid, square.dimension)
+  def patternDensityForPatternInSquare(square: Square) = volume(square) / math.pow(square.grid, square.dimension)
 
   def patternDensityForRemaining(patternSquare: PatternSquare) = 1.0 - patternSquare.squares.map(volume).sum
 
@@ -76,8 +74,8 @@ object PatternSquare:
     PatternSquare.Square(Vector(0.75, 0.75), 0.01, 10)
   )
 
-
 case class PatternSquare(squares: PatternSquare.Square*)
+
 
 @main def patternSquareBenchmarkPPSE(result: String, replications: Int, generations: Int) =
   val resultFile = File(result)
@@ -99,22 +97,17 @@ case class PatternSquare(squares: PatternSquare.Square*)
     def trace(s: ppse.StepInfo) =
       if s.generation % 10 == 0 && s.generation > 0
       then
-        val all = allPatterns.toSet.filterNot(PatternSquare.isFallbackPattern)
+        val all = allPatterns.filterNot(PatternSquare.isFallbackPattern)
         val indexPattern = all.map(k => k -> s.likelihoodRatioMap.getOrElse(k, 0.0)).toMap
         val missed = all.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
 
         val error =
-          val sum = indexPattern.values.sum
-          val normalized =
-            if sum != 0
-            then indexPattern.view.mapValues(_ / sum)
-            else all.map(p => (p, 0.0))
-
-          val (p, q) =
-            normalized.toSeq.map: (p, d) =>
-              (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p, excludeFallBack = true), d)
+          val (ref, q) =
+            indexPattern.toSeq.map: (p, d) =>
+              (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
-          kolmogorovSmirnovTest(p, q)
+
+          kullbackLeiblerDivergenceWithSmoothing(ref, q)
 
         resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
@@ -129,10 +122,53 @@ case class PatternSquare(squares: PatternSquare.Square*)
       dilation = dilation,
       pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
       random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
-      trace = trace)
+      trace = Some(trace))
 
   Async.blocking:
     (0 until replications).map(run).awaitAll
+
+
+@main def patternSquareBenchmarkPPSEKS(result: String, replications: Int, generations: Int) =
+  val resultFile = File(result)
+
+  val genomeSize = 2
+  val lambda = 100
+  val maxRareSample = 10
+  val minClusterSize = 10
+  val regularisationEpsilon = 1e-6
+  val dilation = 4.0
+
+  val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
+
+  resultFile.delete(true)
+
+  def run(r: Int)(using Async.Spawn) = Future:
+    println(s"Running replication $r")
+
+    ppse.evolution(
+      genomeSize = genomeSize,
+      lambda = lambda,
+      generations = generations,
+      maxRareSample = maxRareSample,
+      minClusterSize = minClusterSize,
+      regularisationEpsilon = regularisationEpsilon,
+      dilation = dilation,
+      pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
+      random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)))
+
+  val maps =
+    Async.blocking:
+      (0 until replications).map(run).awaitAll
+
+  val all = allPatterns.filterNot(PatternSquare.isFallbackPattern)
+
+  val pValues =
+    maps.map: m =>
+      val patterns = all.map(k => m.getOrElse(k, 0.0))
+      val real = all.map(k => PatternSquare.patternDensity(PatternSquare.benchmarkPattern, k))
+      resultFile.appendLine:
+        kolmogorovSmirnovTest(real, patterns).toString
+
 
 @main def patternSquareBenchmarkRandom(result: String, replications: Int, nbPoints: Int) =
   val resultFile = File(result)
@@ -147,7 +183,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
     val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
 
     for
-      points <- 0 to nbPoints
+      points <- 1 to nbPoints
     do
       val (x, y) = (random.nextDouble, random.nextDouble)
       val p = PatternSquare.pattern(PatternSquare.benchmarkPattern, Vector(x, y))
@@ -157,17 +193,17 @@ case class PatternSquare(squares: PatternSquare.Square*)
 
       if points % 1000 == 0
       then
-        val all = allPatterns.toSet.filterNot(PatternSquare.isFallbackPattern)
+        val all = allPatterns.filterNot(PatternSquare.isFallbackPattern)
         val indexPattern = all.map(k => k -> resultMap.getOrElse(k, 0).toDouble / points).toMap
         val missed = all.size - resultMap.count((k, _) => all.contains(k))
 
         val error =
-          val (p, q) =
+          val (ref, q) =
             indexPattern.toSeq.map: (p, d) =>
-              (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p, excludeFallBack = true), d)
+              (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
 
-          kolmogorovSmirnovTest(p, q)
+          kullbackLeiblerDivergenceWithSmoothing(ref, q)
 
         resultFile.append(s"$r,$points,$error,$missed\n")
 
@@ -210,7 +246,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
               i.pattern
             .toSet
 
-          val all = allPatterns.toSet.filterNot(PatternSquare.isFallbackPattern)
+          val all = allPatterns.filterNot(PatternSquare.isFallbackPattern)
           val missed = all.size - resultSet.count(all.contains)
           resultFile.append(s"$r,$points,$missed\n")
       .eval(newRNG(r))

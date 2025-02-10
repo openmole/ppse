@@ -98,7 +98,7 @@ object Traffic:
         dilation = dilation,
         pattern = v => Traffic.pattern(Traffic.behaviour(v, random)),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
-        trace = trace)
+        trace = Some(trace))
 
     (resultDir / s"$r.csv").write:
       pdf.map: (p, l) =>

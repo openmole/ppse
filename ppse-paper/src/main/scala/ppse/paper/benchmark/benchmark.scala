@@ -22,26 +22,52 @@ package ppse.paper.benchmark
 
 import ppse.paper.*
 
+def normalise(p: Seq[Double]) =
+  val sum = p.sum
+  p.map(_ / sum)
+
 def kullbackLeiblerDivergence(p: Seq[Double], q: Seq[Double]): Double =
-  p.zip(q).map((x, y) => if y == 0 || x == 0 then 0 else x * math.log(x / y)).sum
+  (normalise(p) zip normalise(q)).map: (x, y) =>
+    if y == 0 && x == 0 then 0 else x * math.log(x / y)
+  .sum
 
 def jeffreysDivergence(p: Seq[Double], q: Seq[Double]): Double =
   kullbackLeiblerDivergence(p, q) + kullbackLeiblerDivergence(q, p)
 
-def kolmogorovSmirnovTest(p: Seq[Double], q: Seq[Double]): Double =
-  p.zip(q).map((x, y) => math.abs(x-y)).max
+def kullbackLeiblerDivergenceWithSmoothing(reference: Seq[Double], q: Seq[Double], epsilon: Double = 1e-10): Double =
+  require(reference.length == q.length, "Distributions must have the same length")
+  require(reference.forall(_ >= 0) && q.forall(_ >= 0), "Probabilities must be non-negative")
 
-// Function to compute the Hellinger Distance
-def hellingerDistance(p: Array[Double], q: Array[Double]): Double =
+  (normalise(reference) zip normalise(q)).map: (x, y) =>
+    if x == 0
+    then 0
+    else x * math.log(x / (y + epsilon))
+  .sum
+
+def jeffreysDivergenceWithSmoothing(p: Seq[Double], q: Seq[Double], epsilon: Double = 1e-10): Double =
+  kullbackLeiblerDivergenceWithSmoothing(p, q, epsilon) + kullbackLeiblerDivergenceWithSmoothing(q, p, epsilon)
+
+def kolmogorovSmirnov(p: Seq[Double], q: Seq[Double]) =
+  (normalise(p) zip normalise(q)).map((x, y) => math.abs(x-y)).max
+
+def kolmogorovSmirnovTest(p: Seq[Double], q: Seq[Double]): Double =
+  import org.apache.commons.math3.stat.inference.*
+  val test = new KolmogorovSmirnovTest()
+  test.kolmogorovSmirnovTest(normalise(p).toArray, normalise(q).toArray)
+
+def totalVariationDistance(p: Seq[Double], q: Seq[Double]): Double =
   require(p.length == q.length, "Distributions must have the same length")
   require(p.forall(_ >= 0) && q.forall(_ >= 0), "Probabilities must be non-negative")
+  (normalise(p) zip normalise(q)).map { case (pi, qi) => math.abs(pi - qi) }.sum / 2.0
 
-  // Ensure both distributions sum to 1 (normalization)
-  val pNorm = p.map(_ / p.sum)
-  val qNorm = q.map(_ / q.sum)
+
+// Function to compute the Hellinger Distance
+def hellingerDistance(p: Seq[Double], q: Seq[Double]): Double =
+  require(p.length == q.length, "Distributions must have the same length")
+  require(p.forall(_ >= 0) && q.forall(_ >= 0), s"Probabilities must be non-negative $p $q")
 
   val sumOfSquares =
-    pNorm.zip(qNorm).map: (pi, qi) =>
+    (normalise(p) zip normalise(q)).map: (pi, qi) =>
       math.pow(math.sqrt(pi) - math.sqrt(qi), 2)
     .sum
 
