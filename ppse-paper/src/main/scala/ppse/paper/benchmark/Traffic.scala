@@ -24,7 +24,7 @@ import gears.async.default.given
 import scala.util.Random
 
 object Traffic:
-  def behaviour(p: Vector[Double], random: Random): Vector[Double] =
+  def behaviour(p: Vector[Double], seed: Int): Vector[Double] =
     import scala.sys.process.*
 
     def minPatience = 1.0
@@ -44,8 +44,6 @@ object Traffic:
         minAcceleration + p(1) * (maxAcceleration - minAcceleration),
         minDeceleration + p(2) * (maxDeceleration - minDeceleration),
         minPatience + p(0) * (maxPatience - minPatience))
-
-    val seed = random.nextInt()
 
     println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed")
     val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
@@ -96,7 +94,7 @@ object Traffic:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         dilation = dilation,
-        pattern = v => Traffic.pattern(Traffic.behaviour(v, random)),
+        pattern = v => Traffic.pattern(Traffic.behaviour(v, random.nextInt)),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
@@ -134,7 +132,7 @@ object Traffic:
 
     val pse = NoisyPSE(
       lambda = lambda,
-      phenotype = (r, d, _) => Traffic.behaviour(d, r),
+      phenotype = (r, d, _) => Traffic.behaviour(d, r.nextInt),
       pattern = Traffic.pattern,
       continuous = Vector.fill(3)(C(0.0, 1.0)),
       maxRareSample = maxRareSample,
@@ -154,6 +152,37 @@ object Traffic:
     (0 until replication).foreach(run)
 
 
+@main def trafficRandom(result: String, nbPoints: Int) =
+  val resultFile = File(result)
+  resultFile.delete(true)
+
+  val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
+  val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
+
+  def run(using Async.Spawn) =
+    for
+      points <- 1 to nbPoints
+    yield
+      val x = Vector.fill(3)(random.nextDouble)
+      val seed = random.nextInt
+
+      Future:
+        Traffic.pattern(Traffic.behaviour(x, seed))
+
+
+  val patterns = Async.blocking:
+    run.awaitAll
+
+
+  val size = patterns.size
+  val probabilities = patterns.view.groupBy(identity).view.mapValues(_.size.toDouble / size)
+
+  for
+    (p, prob) <- probabilities
+  do
+    resultFile.appendLine(s"${p.mkString(",")},$prob")
+
+
 @main def resultTrafficPPSE(result: String) =
   import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
   def readFile(f: File) =
@@ -170,8 +199,6 @@ object Traffic:
     keys.map: k =>
       k -> maps.map(_.getOrElse(k, 0.0)).sum / maps.length
     .toMap
-
-
 
   val errors =
     maps.map: m =>

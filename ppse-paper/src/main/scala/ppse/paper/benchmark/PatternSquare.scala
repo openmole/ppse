@@ -128,48 +128,6 @@ case class PatternSquare(squares: PatternSquare.Square*)
     (0 until replications).map(run).awaitAll
 
 
-@main def patternSquareBenchmarkPPSEKS(result: String, replications: Int, generations: Int) =
-  val resultFile = File(result)
-
-  val genomeSize = 2
-  val lambda = 100
-  val maxRareSample = 10
-  val minClusterSize = 10
-  val regularisationEpsilon = 1e-6
-  val dilation = 4.0
-
-  val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
-
-  resultFile.delete(true)
-
-  def run(r: Int)(using Async.Spawn) = Future:
-    println(s"Running replication $r")
-
-    ppse.evolution(
-      genomeSize = genomeSize,
-      lambda = lambda,
-      generations = generations,
-      maxRareSample = maxRareSample,
-      minClusterSize = minClusterSize,
-      regularisationEpsilon = regularisationEpsilon,
-      dilation = dilation,
-      pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
-      random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)))
-
-  val maps =
-    Async.blocking:
-      (0 until replications).map(run).awaitAll
-
-  val all = allPatterns.filterNot(PatternSquare.isFallbackPattern)
-
-  val pValues =
-    maps.map: m =>
-      val patterns = all.map(k => m.getOrElse(k, 0.0))
-      val real = all.map(k => PatternSquare.patternDensity(PatternSquare.benchmarkPattern, k))
-      resultFile.appendLine:
-        kolmogorovSmirnovTest(real, patterns).toString
-
-
 @main def patternSquareBenchmarkRandom(result: String, replications: Int, nbPoints: Int) =
   val resultFile = File(result)
   val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
