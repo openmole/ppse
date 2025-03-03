@@ -44,6 +44,13 @@ def kolmogorovSmirnovTest(p: Seq[Double], q: Seq[Double]): Double =
   val test = new KolmogorovSmirnovTest()
   test.kolmogorovSmirnovTest(normalise(p).toArray, normalise(q).toArray)
 
+/** Jensen-Shannon Divergence */
+def jsDivergence(p: Seq[Double], q: Seq[Double], epsilon: Option[Double] = Some(1e-10)): Double =
+  val m = p.zip(q).map { case (pi, qi) => (pi + qi) / 2 }
+  0.5 *
+    kullbackLeiblerDivergence(p, m, epsilon) + 0.5 *
+    kullbackLeiblerDivergence(q, m, epsilon)
+
 def totalVariationDistance(p: Seq[Double], q: Seq[Double]): Double =
   require(p.length == q.length, "Distributions must have the same length")
   require(p.forall(_ >= 0) && q.forall(_ >= 0), "Probabilities must be non-negative")

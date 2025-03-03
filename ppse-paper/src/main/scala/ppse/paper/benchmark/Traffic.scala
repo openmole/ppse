@@ -82,8 +82,16 @@ object Traffic:
   def run(r: Int)(using Async.Spawn) = Future:
     val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
 
+    def save(pdf: ppse.SamplingWeightMap, eval: Int) =
+      (resultDir / s"$r").createDirectories()
+      (resultDir / s"$r/$eval.csv").write:
+        pdf.map: (p, l) =>
+          (p ++ Seq(l)).mkString(",")
+        .mkString("\n")
+
     def trace(s: ppse.StepInfo) =
       resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
+      save(s.likelihoodRatioMap, s.generation * lambda)
 
     val pdf =
       ppse.evolution(
@@ -98,10 +106,6 @@ object Traffic:
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
-    (resultDir / s"$r.csv").write:
-      pdf.map: (p, l) =>
-        (p ++ Seq(l)).mkString(",")
-      .mkString("\n")
 
   Async.blocking:
     (0 until replication).map: r =>
@@ -183,7 +187,7 @@ object Traffic:
     resultFile.appendLine(s"${p.mkString(",")},$prob")
 
 
-@main def resultTrafficPPSE(result: String) =
+@main def resultTrafficPPSE(result: String, random: String) =
   import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
   def readFile(f: File) =
     f.lines.map: l =>
@@ -193,19 +197,28 @@ object Traffic:
 
   val files = File(result).list.filter(_.name.matches("[0-9]+.csv")).toSeq.sortBy(_.name.dropRight(".csv".size).toInt)
   val maps = files.map(readFile).toArray
-  val keys = maps.flatMap(_.keys).distinct
 
-  val avgPattern =
-    keys.map: k =>
-      k -> maps.map(_.getOrElse(k, 0.0)).sum / maps.length
+  //val keys = maps.flatMap(_.keys).distinct
+
+  val randomPattern =
+    File(random).lines.map: l =>
+      val s = l.split(',').map(_.toDouble)
+      (s.take(2).toSeq, s.last)
     .toMap
+
+
+
+  val keys = randomPattern.keys.toSeq.filter(_ != Seq(-1, -1))
+
+  //println(keys)
 
   val errors =
     maps.map: m =>
       val test = new KolmogorovSmirnovTest()
       val patterns = keys.map(k => m.getOrElse(k, 0.0))
-      val avg = keys.map(k => avgPattern.getOrElse(k, 0.0))
-      test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
+      val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
+      jsDivergence(avg, patterns)
+      //test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
 //      val d =
 //        keys.count: k =>
 //          val p = m.getOrElse(k, 0.0)
