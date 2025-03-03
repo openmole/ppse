@@ -26,26 +26,15 @@ def normalise(p: Seq[Double]) =
   val sum = p.sum
   p.map(_ / sum)
 
-def kullbackLeiblerDivergence(p: Seq[Double], q: Seq[Double]): Double =
+def kullbackLeiblerDivergence(p: Seq[Double], q: Seq[Double], epsilon: Option[Double] = Some(1e-10)): Double =
+  val epsilonValue = epsilon.map(e => Math.max(0, e)).getOrElse(0.0)
   (normalise(p) zip normalise(q)).map: (x, y) =>
-    if y == 0 && x == 0 then 0 else x * math.log(x / y)
+    val yValue = Math.max(epsilonValue, y)
+    if yValue == 0 || x == 0 then 0 else x * math.log(x / yValue)
   .sum
 
-def jeffreysDivergence(p: Seq[Double], q: Seq[Double]): Double =
-  kullbackLeiblerDivergence(p, q) + kullbackLeiblerDivergence(q, p)
-
-def kullbackLeiblerDivergenceWithSmoothing(reference: Seq[Double], q: Seq[Double], epsilon: Double = 1e-10): Double =
-  require(reference.length == q.length, "Distributions must have the same length")
-  require(reference.forall(_ >= 0) && q.forall(_ >= 0), "Probabilities must be non-negative")
-
-  (normalise(reference) zip normalise(q)).map: (x, y) =>
-    if x == 0
-    then 0
-    else x * math.log(x / (y + epsilon))
-  .sum
-
-def jeffreysDivergenceWithSmoothing(p: Seq[Double], q: Seq[Double], epsilon: Double = 1e-10): Double =
-  kullbackLeiblerDivergenceWithSmoothing(p, q, epsilon) + kullbackLeiblerDivergenceWithSmoothing(q, p, epsilon)
+def jeffreysDivergence(p: Seq[Double], q: Seq[Double], epsilon: Option[Double] = Some(1e-10)): Double =
+  kullbackLeiblerDivergence(p, q, epsilon) + kullbackLeiblerDivergence(q, p, epsilon)
 
 def kolmogorovSmirnov(p: Seq[Double], q: Seq[Double]) =
   (normalise(p) zip normalise(q)).map((x, y) => math.abs(x-y)).max

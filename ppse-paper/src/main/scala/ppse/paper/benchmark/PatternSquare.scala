@@ -83,7 +83,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
   val genomeSize = 2
   val lambda = 100
   val maxRareSample = 10
-  val minClusterSize = 3
+  val minClusterSize = 10
   val regularisationEpsilon = 1e-6
   val dilation = 4.0
 
@@ -107,7 +107,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
               (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
 
-          kullbackLeiblerDivergenceWithSmoothing(ref, q)
+          kullbackLeiblerDivergence(ref, q)
 
         resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
@@ -161,7 +161,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
               (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
 
-          kullbackLeiblerDivergenceWithSmoothing(ref, q)
+          kullbackLeiblerDivergence(ref, q)
 
         resultFile.append(s"$r,$points,$error,$missed\n")
 
