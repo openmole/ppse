@@ -107,7 +107,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
               (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
 
-          kullbackLeiblerDivergence(ref, q)
+          jeffreysDivergence(ref, q)
 
         resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
@@ -161,7 +161,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
               (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
 
-          kullbackLeiblerDivergence(ref, q)
+          jeffreysDivergence(ref, q)
 
         resultFile.append(s"$r,$points,$error,$missed\n")
 

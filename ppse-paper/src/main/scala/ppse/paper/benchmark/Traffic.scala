@@ -178,25 +178,37 @@ object Traffic:
     run.awaitAll
 
 
-  val size = patterns.size
-  val probabilities = patterns.view.groupBy(identity).view.mapValues(_.size.toDouble / size)
-
   for
-    (p, prob) <- probabilities
+    p <- patterns
   do
-    resultFile.appendLine(s"${p.mkString(",")},$prob")
+    resultFile.appendLine(s"${p.mkString(",")}")
+
+  //val size = patterns.size
+  //val probabilities = patterns.view.groupBy(identity).view.mapValues(_.size.toDouble / size)
+
+//  for
+//    (p, prob) <- probabilities
+//  do
+//    resultFile.appendLine(s"${p.mkString(",")},$prob")
 
 
-@main def resultTrafficPPSE(result: String, random: String) =
+@main def resultTrafficPPSE(result: String, random: String, trafficError: String) =
   import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
+
+  val trafficErrorFile = File(trafficError)
+  trafficErrorFile.delete(true)
+  trafficErrorFile.parent.createDirectoryIfNotExists(true)
+
   def readFile(f: File) =
     f.lines.map: l =>
       val s = l.split(',').map(_.toDouble)
       (s.take(2).toSeq, s.last)
     .toMap
 
+
+  val replications = File(result).list.filter(_.name.matches("[0-9]+")).toSeq.sortBy(_.name.toInt)
+
   val files = File(result).list.filter(_.name.matches("[0-9]+.csv")).toSeq.sortBy(_.name.dropRight(".csv".size).toInt)
-  val maps = files.map(readFile).toArray
 
   //val keys = maps.flatMap(_.keys).distinct
 
@@ -206,18 +218,26 @@ object Traffic:
       (s.take(2).toSeq, s.last)
     .toMap
 
-
-
   val keys = randomPattern.keys.toSeq.filter(_ != Seq(-1, -1))
+
+  def error(m: Map[Seq[Double], Double]) =
+    val test = new KolmogorovSmirnovTest()
+    val patterns = keys.map(k => m.getOrElse(k, 0.0))
+    val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
+    jeffreysDivergence(avg, patterns)
 
   //println(keys)
 
   val errors =
-    maps.map: m =>
-      val test = new KolmogorovSmirnovTest()
-      val patterns = keys.map(k => m.getOrElse(k, 0.0))
-      val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
-      jsDivergence(avg, patterns)
+    for
+      r <- replications
+      i <- r.list.filter(_.name.matches("[0-9]+.csv")).toSeq.sortBy(_.name.dropRight(".csv".size).toInt)
+    do
+      val map = readFile(i)
+      val err = error(map)
+      trafficErrorFile.appendLine(s"${r.name},${i.name.dropRight(".csv".size).toInt},$err")
+
+
       //test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
 //      val d =
 //        keys.count: k =>
@@ -225,5 +245,3 @@ object Traffic:
 //          val a = avgPattern.getOrElse(k, 0.0)
 //          math.abs(p - a) / a < 0.3
 //      d.toDouble / keys.size
-
-  println(errors.zip(files).mkString(","))
