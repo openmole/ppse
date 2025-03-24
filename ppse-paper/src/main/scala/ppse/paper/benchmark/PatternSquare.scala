@@ -106,7 +106,7 @@ case class PatternSquare(squares: PatternSquare.Square*)
             indexPattern.toSeq.map: (p, d) =>
               (PatternSquare.patternDensity(PatternSquare.benchmarkPattern, p), d)
             .unzip
-
+          
           jeffreysDivergence(ref, q)
 
         resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")

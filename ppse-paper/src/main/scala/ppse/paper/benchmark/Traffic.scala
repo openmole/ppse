@@ -177,7 +177,6 @@ object Traffic:
   val patterns = Async.blocking:
     run.awaitAll
 
-
   for
     p <- patterns
   do
@@ -201,8 +200,8 @@ object Traffic:
 
   def readFile(f: File) =
     f.lines.map: l =>
-      val s = l.split(',').map(_.toDouble)
-      (s.take(2).toSeq, s.last)
+      val s = l.split(',')
+      (s.take(2).toSeq.map(_.toInt), s.last.toDouble)
     .toMap
 
 
@@ -210,18 +209,11 @@ object Traffic:
 
   val files = File(result).list.filter(_.name.matches("[0-9]+.csv")).toSeq.sortBy(_.name.dropRight(".csv".size).toInt)
 
-  //val keys = maps.flatMap(_.keys).distinct
-
-  val randomPattern =
-    File(random).lines.map: l =>
-      val s = l.split(',').map(_.toDouble)
-      (s.take(2).toSeq, s.last)
-    .toMap
+  val randomPattern = ResultTrafficRandom.randomError(File(random))
 
   val keys = randomPattern.keys.toSeq.filter(_ != Seq(-1, -1))
 
-  def error(m: Map[Seq[Double], Double]) =
-    val test = new KolmogorovSmirnovTest()
+  def error(m: Map[Seq[Int], Double]) =
     val patterns = keys.map(k => m.getOrElse(k, 0.0))
     val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
     jeffreysDivergence(avg, patterns)
@@ -239,6 +231,72 @@ object Traffic:
 
 
       //test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
+//      val d =
+//        keys.count: k =>
+//          val p = m.getOrElse(k, 0.0)
+//          val a = avgPattern.getOrElse(k, 0.0)
+//          math.abs(p - a) / a < 0.3
+//      d.toDouble / keys.size
+
+
+object ResultTrafficRandom:
+  def computeMap(p: Seq[Seq[Int]]) =
+    val hits = p.size
+    p.groupBy(identity).view.mapValues(_.size).map: (p, s) =>
+      p -> (s.toDouble / hits)
+    .toMap
+
+  def hits(f: File) =
+    f.lines.map: l =>
+      l.split(",").toSeq.map(_.toInt)
+    .toArray.filter(_ != Seq(-1, -1))
+
+  def randomError(f: File) =
+    computeMap(hits(f).toSeq)
+
+
+@main def resultTrafficRandom(result: String, output: String) =
+  import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
+  val random = scala.util.Random(42)
+
+  val outputFile = File(output)
+  outputFile.delete(true)
+  outputFile.parent.createDirectories()
+
+  val resultFile = File(result)
+
+  val randomPattern = ResultTrafficRandom.randomError(resultFile)
+  val keys = randomPattern.keys.toSeq
+
+  def error(m: Map[Seq[Int], Double]) =
+    val patterns = keys.map(k => m.getOrElse(k, 0.0))
+    val avg = keys.map(k => randomPattern.getOrElse(k, 0.0))
+    jeffreysDivergence(avg, patterns)
+
+  val hits = ResultTrafficRandom.hits(resultFile)
+
+  def sample(n: Int) =
+    (0 until n).map(_ => hits(random.nextInt(hits.length)))
+
+
+
+  for
+    s <- 1000 to 100000 by 1000
+    r <- 0 until 32
+  do
+    val e = error(ResultTrafficRandom.computeMap(sample(s)))
+    outputFile.appendLine(s"$r,$s,$e")
+
+
+  //(outputDirectory / "random.csv").
+
+
+
+  //println(keys)
+
+
+
+//test.kolmogorovSmirnovTest(avg.toArray, patterns.toArray)
 //      val d =
 //        keys.count: k =>
 //          val p = m.getOrElse(k, 0.0)

@@ -30,6 +30,7 @@ def kullbackLeiblerDivergence(p: Seq[Double], q: Seq[Double], epsilon: Option[Do
   val epsilonValue = epsilon.map(e => Math.max(0, e)).getOrElse(0.0)
   (normalise(p) zip normalise(q)).map: (x, y) =>
     val yValue = Math.max(epsilonValue, y)
+    val r = x * math.log(x / yValue)
     if yValue == 0 || x == 0 then 0 else x * math.log(x / yValue)
   .sum
 
