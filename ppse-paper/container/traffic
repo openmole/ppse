@@ -1,3 +1,0 @@
-#!/bin/bash
-
-java -cp "/traffic/traffic.jar:/netlogo/lib/app/*" -Dfile.encoding=UTF-8 -Dcom.sun.media.jai.disableMediaLib=true -Dnetlogo.extensions.dir="$NETLOGO_HOME/extensions/" $JAVA_OPT Traffic $@ 

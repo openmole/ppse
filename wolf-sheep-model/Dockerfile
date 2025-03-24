@@ -34,14 +34,12 @@ COPY WolfSheep.java /wolf-sheep
 RUN cd /wolf-sheep && \
     scala-cli --power package -f --jar "$NETLOGO_HOME/lib/app" -o wolf-sheep.jar --java WolfSheep.java --library && ls wolf-sheep.jar
 
+
 FROM debian:testing-slim
 
-RUN apt-get update \
-        && apt-get install -y --no-install-recommends locales ca-certificates fakeroot sudo wget \
-        && rm -rf /var/lib/apt/lists/*
+COPY OpenJDK21U-jre_x64_linux_hotspot_21.0.3_9.tar.gz jre.tar.gz
 
-RUN wget -O jre.tar.gz https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.7%2B7/OpenJDK17U-jre_x64_linux_hotspot_17.0.7_7.tar.gz && \
-    tar -xvzf jre.tar.gz && \
+RUN tar -xvzf jre.tar.gz && \
     rm jre.tar.gz && \
     mv jdk* jre
 
@@ -54,14 +52,3 @@ COPY --from=build /wolf-sheep /wolf-sheep
 COPY ./WolfSheep.nlogo /wolf-sheep
 COPY ./wolf-sheep /bin/wolf-sheep
 WORKDIR /wolf-sheep
-
-
-#RUN touch run.sc && scala-cli run --server=false -j 17 --dep "com.thoughtworks.xstream:xstream:1.4.20" run.sc && rm run.sc
-
-#WORKDIR $NETLOGO_HOME
-    
-#(cd $NETLOGO_HOME && cp netlogo-headless.sh netlogo-headless-limit.sh && sed 's/^\"\$\JAVA\"/cpulimit -l 100 -f -- \"\$JAVA\"/1' netlogo-headless-limit.sh)
-
-#ENV PATH=${NETLOGO_HOME}:${PATH}
-
-

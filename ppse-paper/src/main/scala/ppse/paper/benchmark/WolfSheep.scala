@@ -23,7 +23,7 @@ import gears.async.*
 import gears.async.default.given
 import scala.util.Random
 
-object Traffic:
+object WolfSheep:
   def behaviour(p: Vector[Double], seed: Int): Vector[Double] =
     import scala.sys.process.*
     def numberOfAgent = 500
@@ -100,7 +100,7 @@ object Traffic:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         dilation = dilation,
-        pattern = v => Traffic.pattern(Traffic.behaviour(v, random.nextInt)),
+        pattern = v => WolfSheep.pattern(WolfSheep.behaviour(v, random.nextInt)),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
@@ -169,7 +169,7 @@ object Traffic:
       val seed = random.nextInt
 
       Future:
-        Traffic.pattern(Traffic.behaviour(x, seed))
+        WolfSheep.pattern(WolfSheep.behaviour(x, seed))
 
 
   val patterns = Async.blocking:
