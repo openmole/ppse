@@ -59,8 +59,8 @@ object WolfSheep:
     then Vector(-1, -1)
     else
       Vector(
-        (v(0) / 1000 * 100).toInt,
-        (v(1) / 1000 * 100).toInt
+        (v(0) / 10).toInt,
+        v(1).toInt
       )
 
 @main def wolfSheepBenchmarkPPSE(result: String, generation: Int, replication: Int) =
