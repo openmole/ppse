@@ -43,8 +43,8 @@ object WolfSheep:
         maxEnergyGainFromSheep * p(4),
         maxMaxGrass * p(5))
 
-    println(s"docker exec traffic /usr/bin/wolf-sheep ${inputs.mkString(" ")} $seed")
-    val lines = Process(s"docker exec traffic /usr/bin/wolf-sheep ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
+    println(s"docker exec wolf-sheep /usr/bin/wolf-sheep ${inputs.mkString(" ")} $seed")
+    val lines = Process(s"docker exec wolf-sheep /usr/bin/wolf-sheep ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
 
     if lines.size != 2
     then Vector(-1.0, -1.0)
