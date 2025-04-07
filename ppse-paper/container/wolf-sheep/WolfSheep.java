@@ -10,6 +10,7 @@ import org.nlogo.headless.HeadlessWorkspace;
 
 public class WolfSheep {
     public static void main(String[] args) {
+      java.lang.System.setProperty("netlogo.libraries.disabled", "true");
       try {
         var model = new File("WolfSheep.nlogo");
 
