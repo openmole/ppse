@@ -24,7 +24,23 @@ import gears.async.default.given
 import scala.util.Random
 
 object WolfSheep:
-  def behaviour(p: Vector[Double], seed: Int): Vector[Double] =
+
+  type Aggregation = (Seq[Double], Seq[Double]) => Vector[Double]
+
+  def buildAggregation(s: String): Aggregation =
+    import tool.percentile
+    val pattern = "([sw])(\\d+)([sw])(\\d+)".r
+
+    s match
+      case pattern(l1, v1, l2, v2) =>
+        (s, w) =>
+          val data1 = if l1 == "s" then s else w
+          val data2 = if l2 == "s" then s else w
+          Vector(percentile(data1, v1.toInt), percentile(data2, v2.toInt))
+      case _ => throw new IllegalArgumentException("Input does not match expected pattern.")s
+
+
+  def behaviour(p: Vector[Double], seed: Int, aggregation: Aggregation): Vector[Double] =
     import scala.sys.process.*
     def numberOfAgent = 500
     def maxMovementCost = 2.0
@@ -49,9 +65,9 @@ object WolfSheep:
     if lines.size != 2
     then Vector(-1.0, -1.0)
     else
-      val sheeps = lines(0).toDouble
-      val wolfs = lines(1).toDouble
-      Vector(sheeps, wolfs)
+      val sheeps = lines(0).split(",").map(_.toDouble).toSeq
+      val wolfs = lines(1).split(",").map(_.toDouble).toSeq
+      aggregation(sheeps, wolfs)
 
 
   def pattern(v: Vector[Double]): Vector[Int] =
@@ -63,8 +79,8 @@ object WolfSheep:
         v(1).toInt
       )
 
-@main def wolfSheepBenchmarkPPSE(result: String, generation: Int, replication: Int) =
-  val resultDir = File(result)
+@main def wolfSheepBenchmarkPPSE(result: String, generation: Int, replication: Int, agg: String) =
+  val resultDir = File(result) / agg
   val resultFile = resultDir / "patterns.csv"
   resultFile.parent.createDirectories()
   resultFile.delete(true)
@@ -76,6 +92,7 @@ object WolfSheep:
   val minClusterSize = 10
   val regularisationEpsilon = 1e-6
   val dilation = 4.0
+  val aggregation = WolfSheep.buildAggregation(agg)
 
   def run(r: Int)(using Async.Spawn) = Future:
     val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
@@ -91,6 +108,7 @@ object WolfSheep:
       resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
       save(s.likelihoodRatioMap, s.generation * lambda)
 
+
     val pdf =
       ppse.evolution(
         genomeSize = genomeSize,
@@ -100,7 +118,7 @@ object WolfSheep:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         dilation = dilation,
-        pattern = v => WolfSheep.pattern(WolfSheep.behaviour(v, random.nextInt)),
+        pattern = v => WolfSheep.pattern(WolfSheep.behaviour(v, random.nextInt, aggregation)),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
@@ -169,8 +187,7 @@ object WolfSheep:
       val seed = random.nextInt
 
       Future:
-        WolfSheep.pattern(WolfSheep.behaviour(x, seed))
-
+        WolfSheep.pattern(WolfSheep.behaviour(x, seed, WolfSheep.buildAggregation("s50w50")))
 
   val patterns = Async.blocking:
     run.awaitAll

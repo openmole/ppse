@@ -53,4 +53,7 @@ object tool:
 
   def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
 
-
+  def percentile(data: Seq[Double], percentile: Double): Double =
+    val sortedData = data.sorted
+    val index = math.ceil((percentile / 100) * sortedData.length).toInt - 1
+    sortedData(index)

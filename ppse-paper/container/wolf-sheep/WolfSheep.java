@@ -1,5 +1,6 @@
 import java.util.*;
 import java.io.File;
+import java.util.stream.*;
 
 import org.nlogo.agent.Observer;
 import org.nlogo.agent.World;
@@ -60,12 +61,16 @@ public class WolfSheep {
           workspace.dispose();
         }
 
-        System.out.println(mean(sheeps.toArray(new Double[0])));
-        System.out.println(mean(wolves.toArray(new Double[0])));
+        System.out.println(toCSV(sheeps.toArray(new Double[0])));
+        System.out.println(toCSV(wolves.toArray(new Double[0])));
 
       } catch(Exception e) {
         e.printStackTrace();
       }
+    }
+
+    public static String toCSV(Double[] v) {
+      return Arrays.stream(v).map(String::valueOf).collect(Collectors.joining(","));
     }
 
     public static double mean(Double[] m) {
