@@ -37,7 +37,7 @@ object WolfSheep:
           val data1 = if l1 == "s" then s else w
           val data2 = if l2 == "s" then s else w
           Vector(percentile(data1, v1.toInt), percentile(data2, v2.toInt))
-      case _ => throw new IllegalArgumentException("Input does not match expected pattern.")s
+      case _ => throw new IllegalArgumentException("Input does not match expected pattern.")
 
 
   def behaviour(p: Vector[Double], seed: Int, aggregation: Aggregation): Vector[Double] =
