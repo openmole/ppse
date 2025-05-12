@@ -57,3 +57,20 @@ object tool:
     val sortedData = data.sorted
     val index = math.ceil((percentile / 100) * sortedData.length).toInt - 1
     sortedData(index)
+
+  def linearRegression(data: Seq[Double]) =
+    import org.apache.commons.math3.stat.regression.SimpleRegression
+    val s = new SimpleRegression()
+    s.addData(data.zipWithIndex.map((d, i) => Array(i, d)).toArray)
+    (slope = s.getSlope, intercept = s.getIntercept)
+
+  def countOscillations(data: Seq[Double], a: Double, b: Double): Int =
+    val n = data.length
+    val xs = (0 until n).map(_.toDouble)
+    val residuals = xs.zip(data).map((x, y) => y - (a * x + b))
+    val signChanges = residuals.sliding(2).count:
+      case Seq(r1, r2) => r1 * r2 < 0
+      case _ => false
+
+    signChanges / 2
+

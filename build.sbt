@@ -2,7 +2,7 @@ name := "ppse"
 
 val breezeVersion = "2.0.1-RC2"
 val circeVersion = "0.14.5"
-val Scala3Version = "3.3.3"
+val Scala3Version = "3.7.0"
 val laminarVersion = "15.0.1"
 val scalajsDomVersion = "2.0.0"
 val endpoints4SVersion = "1.9.0"

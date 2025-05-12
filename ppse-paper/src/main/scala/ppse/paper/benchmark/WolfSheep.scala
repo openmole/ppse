@@ -27,21 +27,20 @@ object WolfSheep:
 
   type Aggregation = (Seq[Double], Seq[Double]) => Vector[Double]
 
-  def buildAggregation(s: String): Aggregation =
-    import tool.percentile
-    val pattern = "([sw])(\\d+)([sw])(\\d+)".r
+//  def buildAggregation(s: String): Aggregation =
+//    import tool.percentile
+//    val pattern = "([sw])(\\d+)([sw])(\\d+)".r
+//
+//    s match
+//      case pattern(l1, v1, l2, v2) =>
+//        (s, w) =>
+//          val data1 = if l1 == "s" then s else w
+//          val data2 = if l2 == "s" then s else w
+//          Vector(percentile(data1, v1.toInt), percentile(data2, v2.toInt))
+//      case _ => throw new IllegalArgumentException("Input does not match expected pattern.")
 
-    s match
-      case pattern(l1, v1, l2, v2) =>
-        (s, w) =>
-          val data1 = if l1 == "s" then s else w
-          val data2 = if l2 == "s" then s else w
-          Vector(percentile(data1, v1.toInt), percentile(data2, v2.toInt))
-      case _ => throw new IllegalArgumentException("Input does not match expected pattern.")
 
-
-  def behaviour(p: Vector[Double], seed: Int, aggregation: Aggregation): Vector[Double] =
-    import scala.sys.process.*
+  def modelInputs(p: Vector[Double]) =
     def numberOfAgent = 500
     def maxMovementCost = 2.0
     def maxRegrowthRate = 2.0
@@ -49,21 +48,23 @@ object WolfSheep:
     def maxEnergyGainFromSheep = 2.0
     def maxMaxGrass = 10.0
 
-    val inputs =
-      Vector(
-        numberOfAgent * p(0),
-        numberOfAgent * (1 - p(0)),
-        maxMovementCost * p(1),
-        maxRegrowthRate * p(2),
-        maxEnergyGainFromGrass * p(3),
-        maxEnergyGainFromSheep * p(4),
-        maxMaxGrass * p(5))
+    Vector(
+      numberOfAgent * p(0),
+      numberOfAgent * (1 - p(0)),
+      maxMovementCost * p(1),
+      maxRegrowthRate * p(2),
+      maxEnergyGainFromGrass * p(3),
+      maxEnergyGainFromSheep * p(4),
+      maxMaxGrass * p(5))
+
+  def behaviour(inputs: Vector[Double], seed: Int, aggregation: Aggregation): Vector[Double] =
+    import scala.sys.process.*
 
     println(s"docker exec wolf-sheep /usr/bin/wolf-sheep ${inputs.mkString(" ")} $seed")
     val lines = Process(s"docker exec wolf-sheep /usr/bin/wolf-sheep ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
 
     if lines.size != 2
-    then Vector(-1.0, -1.0)
+    then Vector()
     else
       val sheeps = lines(0).split(",").map(_.toDouble).toSeq
       val wolfs = lines(1).split(",").map(_.toDouble).toSeq
@@ -71,19 +72,23 @@ object WolfSheep:
 
 
   def pattern(v: Vector[Double]): Vector[Int] =
-    if v == Vector(-1.0, -1.0)
-    then Vector(-1, -1)
+    if v.isEmpty
+    then Vector.fill(4)(-1000)
     else
       Vector(
-        (v(0) / 10).toInt,
-        v(1).toInt
+        v(0).toInt,
+        v(1).toInt,
+        v(2).toInt,
+        v(3).toInt
       )
 
-@main def wolfSheepBenchmarkPPSE(result: String, generation: Int, replication: Int, agg: String) =
-  val resultDir = File(result) / agg
+@main def wolfSheepBenchmarkPPSE(result: String, generation: Int, replication: Int) =
+  val resultDir = File(result)
   val resultFile = resultDir / "patterns.csv"
-  resultFile.parent.createDirectories()
+  val evalFile = resultDir / "eval.csv"
+  resultDir.createDirectories()
   resultFile.delete(true)
+  evalFile.delete(true)
 
   val genomeSize = 6
   val lambda = 100
@@ -92,7 +97,25 @@ object WolfSheep:
   val minClusterSize = 10
   val regularisationEpsilon = 1e-6
   val dilation = 4.0
-  val aggregation = WolfSheep.buildAggregation(agg)
+
+
+  val aggregation: WolfSheep.Aggregation =
+    (_, wolves) =>
+      val reg = tool.linearRegression(wolves)
+      val slope =
+        reg.slope match
+          case s if s < -10 => -2
+          case s if s < -5 => -1
+          case s if s < 5 => 0
+          case s if s < 10 => 1
+          case s => 2
+
+      val osc = tool.countOscillations(wolves, reg.slope, reg.intercept)
+      val amplitude = wolves.max - wolves.min
+      val median = tool.percentile(wolves, 50)
+
+      Vector(slope.toDouble, osc.toDouble, amplitude / 10, median / 10)
+
 
   def run(r: Int)(using Async.Spawn) = Future:
     val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r))
@@ -108,6 +131,9 @@ object WolfSheep:
       resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
       save(s.likelihoodRatioMap, s.generation * lambda)
 
+    def traceEval(i: Vector[Double], p: Vector[Int]) =
+      evalFile.appendLine:
+        (i ++ p).mkString(",")
 
     val pdf =
       ppse.evolution(
@@ -118,7 +144,12 @@ object WolfSheep:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         dilation = dilation,
-        pattern = v => WolfSheep.pattern(WolfSheep.behaviour(v, random.nextInt, aggregation)),
+        pattern = v =>
+          val inputs = WolfSheep.modelInputs(v)
+          val p = WolfSheep.pattern(WolfSheep.behaviour(inputs, random.nextInt, aggregation))
+          traceEval(inputs, p)
+          p
+        ,
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
@@ -172,30 +203,30 @@ object WolfSheep:
 //    (0 until replication).foreach(run)
 
 
-@main def wolfSheepRandom(result: String, nbPoints: Int) =
-  val resultFile = File(result)
-  resultFile.delete(true)
-
-  val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
-  val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
-
-  def run(using Async.Spawn) =
-    for
-      points <- 1 to nbPoints
-    yield
-      val x = Vector.fill(6)(random.nextDouble)
-      val seed = random.nextInt
-
-      Future:
-        WolfSheep.pattern(WolfSheep.behaviour(x, seed, WolfSheep.buildAggregation("s50w50")))
-
-  val patterns = Async.blocking:
-    run.awaitAll
-
-  for
-    p <- patterns
-  do
-    resultFile.appendLine(s"${p.mkString(",")}")
+//@main def wolfSheepRandom(result: String, nbPoints: Int) =
+//  val resultFile = File(result)
+//  resultFile.delete(true)
+//
+//  val random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
+//  val resultMap = collection.mutable.HashMap[Vector[Int], Int]()
+//
+//  def run(using Async.Spawn) =
+//    for
+//      points <- 1 to nbPoints
+//    yield
+//      val x = Vector.fill(6)(random.nextDouble)
+//      val seed = random.nextInt
+//
+//      Future:
+//        WolfSheep.pattern(WolfSheep.behaviour(x, seed, WolfSheep.buildAggregation("s50w50")))
+//
+//  val patterns = Async.blocking:
+//    run.awaitAll
+//
+//  for
+//    p <- patterns
+//  do
+//    resultFile.appendLine(s"${p.mkString(",")}")
 
   //val size = patterns.size
   //val probabilities = patterns.view.groupBy(identity).view.mapValues(_.size.toDouble / size)
