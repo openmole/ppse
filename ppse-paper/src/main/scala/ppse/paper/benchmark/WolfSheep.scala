@@ -70,7 +70,6 @@ object WolfSheep:
       val wolfs = lines(1).split(",").map(_.toDouble).toSeq
       aggregation(sheeps, wolfs)
 
-
   def pattern(v: Vector[Double]): Vector[Int] =
     if v.isEmpty
     then Vector.fill(4)(-1000)
@@ -113,7 +112,7 @@ object WolfSheep:
       val amplitude = wolves.max - wolves.min
       val median = tool.percentile(wolves, 50)
 
-      Vector(slope.toDouble, osc.toDouble, amplitude, median)
+      Vector(slope.toDouble, osc.toDouble, amplitude / 10, median / 10)
 
 
   def run(r: Int)(using Async.Spawn) = Future:
