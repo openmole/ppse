@@ -130,9 +130,9 @@ object WolfSheep:
       resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
       save(s.likelihoodRatioMap, s.generation * lambda)
 
-    def traceEval(i: Vector[Double], p: Vector[Int]) =
+    def traceEval(i: Vector[Double], p: Vector[Int], seed: Int) =
       evalFile.appendLine:
-        (i ++ p).mkString(",")
+        (Seq(seed) ++ i ++ p).mkString(",")
 
     val pdf =
       ppse.evolution(
@@ -145,8 +145,9 @@ object WolfSheep:
         dilation = dilation,
         pattern = v =>
           val inputs = WolfSheep.modelInputs(v)
+          val seed = random.nextInt
           val p = WolfSheep.pattern(WolfSheep.behaviour(inputs, random.nextInt, aggregation))
-          traceEval(inputs, p)
+          traceEval(inputs, p, seed)
           p
         ,
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
