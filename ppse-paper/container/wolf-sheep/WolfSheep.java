@@ -15,17 +15,14 @@ public class WolfSheep {
       try {
         var model = new File("WolfSheep.nlogo");
 
-        String[] preInitialize = {
-          "set max-grass " + args[6]
-        };
-
         String[] initialize = {
           "set number-of-sheep " + args[0],
           "set number-of-wolves " + args[1],
           "set movement-cost " + args[2],
           "set grass-regrowth-rate " + args[3],
           "set energy-gain-from-grass " + args[4],
-          "set energy-gain-from-sheep " + args[5]
+          "set energy-gain-from-sheep " + args[5],
+          "set max-grass " + args[6]
         };
 
         var sheeps = new ArrayList<Double>();
@@ -36,15 +33,11 @@ public class WolfSheep {
           workspace.open(model.getPath());
           workspace.command("random-seed " + Integer.parseInt(args[7]));
 
-          for(String cmd: preInitialize) {
+          for(String cmd: initialize) {
             workspace.command(cmd);
           }
 
           workspace.command("setup");
-
-          for(String cmd: initialize) {
-            workspace.command(cmd);
-          }
 
           for(int i = 0; i < 400; i++) {
             workspace.command("go");
