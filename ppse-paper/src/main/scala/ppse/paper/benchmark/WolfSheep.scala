@@ -98,7 +98,6 @@ object WolfSheep:
   val regularisationEpsilon = 1e-6
   val dilation = 4.0
 
-
   val aggregation: WolfSheep.Aggregation =
     (_, wolves) =>
       val reg = tool.linearRegression(wolves)
@@ -114,7 +113,7 @@ object WolfSheep:
       val amplitude = wolves.max - wolves.min
       val median = tool.percentile(wolves, 50)
 
-      Vector(slope.toDouble, osc.toDouble, amplitude / 10, median / 10)
+      Vector(slope.toDouble, osc.toDouble, amplitude, median)
 
 
   def run(r: Int)(using Async.Spawn) = Future:
@@ -158,6 +157,41 @@ object WolfSheep:
     (0 until replication).map: r =>
       run(r)
     .awaitAll
+
+@main def resultWolfSheepPPSE(result: String, aggregated: String) =
+  case class Line(osc: Double, amplitude: Double, median: Double, probability: Double)
+
+  val d =
+    File(result).lines.map: l =>
+      val sl = l.split(",")
+      Line(osc = sl(1).toDouble, amplitude = sl(2).toDouble, median = sl(3).toDouble, probability = sl(4).toDouble)
+    .filterNot(_.osc == -1000)
+
+  val normalized = normalise(d.map(_.probability).toSeq)
+  val data = (d zip normalized).map((d, n) => d.copy(probability = n))
+
+  val aggregationDirectory = File(aggregated)
+  aggregationDirectory.delete(true)
+  aggregationDirectory.createDirectories()
+
+  (aggregationDirectory / "osc_amplitude.csv").write:
+    data.groupBy(d => Seq(d.osc, d.amplitude)).view.
+      mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
+        (k ++ Seq(v)).mkString(",")
+    .mkString("\n")
+
+
+  (aggregationDirectory / "osc_median.csv").write:
+    data.groupBy(d => Seq(d.osc, d.median)).view.mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
+      (k ++ Seq(v)).mkString(",")
+    .mkString("\n")
+
+
+  (aggregationDirectory / "amplitude_median.csv").write:
+    data.groupBy(d => Seq(d.amplitude, d.median)).view.mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
+      (k ++ Seq(v)).mkString(",")
+    .mkString("\n")
+
 
 //@main def trafficBenchmarkPSE(result: String, generation: Int, replication: Int) =
 //
