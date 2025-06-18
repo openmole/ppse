@@ -41,21 +41,23 @@ object WolfSheep:
 
 
   def modelInputs(p: Vector[Double]) =
-    def numberOfAgent = 500
-    def maxMovementCost = 2.0
-    def maxRegrowthRate = 2.0
-    def maxEnergyGainFromGrass = 2.0
-    def maxEnergyGainFromSheep = 2.0
-    def maxMaxGrass = 10.0
+
+    val numberOfSeep = tool.scale(p(0), 400, 600)
+    val numberOfWolves = tool.scale(p(1), 5, 20)
+    val movementCost = tool.scale(p(2), 0.3, 0.5)
+    val regrowthRate = tool.scale(p(3), 0.2, 0.4)
+    val energyGainFromGrass = tool.scale(p(4), 1.6, 1.8)
+    val energyGainFromSheep = tool.scale(p(5), 3.4, 3.6)
+    val maxGrass = tool.scale(p(6), 9.0, 11.0)
 
     Vector(
-      numberOfAgent * p(0),
-      numberOfAgent * (1 - p(0)),
-      maxMovementCost * p(1),
-      maxRegrowthRate * p(2),
-      maxEnergyGainFromGrass * p(3),
-      maxEnergyGainFromSheep * p(4),
-      maxMaxGrass * p(5))
+      numberOfSeep,
+      numberOfWolves,
+      movementCost,
+      regrowthRate,
+      energyGainFromGrass,
+      energyGainFromSheep,
+      maxGrass)
 
   def behaviour(inputs: Vector[Double], seed: Int, aggregation: Aggregation): Vector[Double] =
     import scala.sys.process.*
@@ -89,7 +91,7 @@ object WolfSheep:
   resultFile.delete(true)
   evalFile.delete(true)
 
-  val genomeSize = 6
+  val genomeSize = 7
   val lambda = 100
   val generations = generation
   val maxRareSample = 10
@@ -159,38 +161,40 @@ object WolfSheep:
     .awaitAll
 
 @main def resultWolfSheepPPSE(result: String, aggregated: String) =
-  case class Line(osc: Double, amplitude: Double, median: Double, probability: Double)
+  case class Line(slope: Double, osc: Double, amplitude: Double, median: Double, probability: Double)
 
   val d =
     File(result).lines.map: l =>
       val sl = l.split(",")
-      Line(osc = sl(1).toDouble, amplitude = sl(2).toDouble, median = sl(3).toDouble, probability = sl(4).toDouble)
+      Line(slope = sl(0).toDouble, osc = sl(1).toDouble, amplitude = sl(2).toDouble, median = sl(3).toDouble, probability = sl(4).toDouble)
     .filterNot(_.osc == -1000)
 
   val normalized = normalise(d.map(_.probability).toSeq)
   val data = (d zip normalized).map((d, n) => d.copy(probability = n))
 
+
+  val dims =
+    Seq(
+      ("slope", (_: Line).slope),
+      ("osc", (_: Line).osc),
+      ("amplitude", (_: Line).amplitude),
+      ("median", (_: Line).median)
+    )
+
   val aggregationDirectory = File(aggregated)
   aggregationDirectory.delete(true)
   aggregationDirectory.createDirectories()
 
-  (aggregationDirectory / "osc_amplitude.csv").write:
-    data.groupBy(d => Seq(d.osc, d.amplitude)).view.
-      mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
-        (k ++ Seq(v)).mkString(",")
-    .mkString("\n")
-
-
-  (aggregationDirectory / "osc_median.csv").write:
-    data.groupBy(d => Seq(d.osc, d.median)).view.mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
-      (k ++ Seq(v)).mkString(",")
-    .mkString("\n")
-
-
-  (aggregationDirectory / "amplitude_median.csv").write:
-    data.groupBy(d => Seq(d.amplitude, d.median)).view.mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
-      (k ++ Seq(v)).mkString(",")
-    .mkString("\n")
+  for
+    d1 <- dims
+    d2 <- dims
+    if d1 != d2
+  do
+    (aggregationDirectory / s"${d1._1}_${d2._1}.csv").write:
+      data.groupBy(d => Seq(d1._2(d), d2._2(d))).view.
+        mapValues(_.map(_.probability).sum).toSeq.map: (k, v) =>
+          (k ++ Seq(v)).mkString(",")
+      .mkString("\n")
 
 
 //@main def trafficBenchmarkPSE(result: String, generation: Int, replication: Int) =

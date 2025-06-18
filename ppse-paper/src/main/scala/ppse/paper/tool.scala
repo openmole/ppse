@@ -74,3 +74,6 @@ object tool:
 
     signChanges / 2
 
+  def scale(v: Double, toMin: Double, toMax: Double, fromMin: Double = 0.0, fromMax: Double = 1.0): Double =
+    val factor = (toMax - toMin) / (fromMax - fromMin)
+    factor * (v - fromMin) + toMin
