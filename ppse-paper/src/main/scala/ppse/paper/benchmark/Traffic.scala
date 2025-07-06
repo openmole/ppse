@@ -24,26 +24,29 @@ import gears.async.default.given
 import scala.util.Random
 
 object Traffic:
-  def behaviour(p: Vector[Double], seed: Int): Vector[Double] =
-    import scala.sys.process.*
 
-    def minPatience = 1.0
-    def maxPatience = 100.0
+  def modelInputs(p: Vector[Double]) =
+    def minNumberOfCars = 35
+    def maxNumberOfCars = 45
 
-    def numberOfCars = 40
+    def minPatience = 45.0
+    def maxPatience = 55.0
 
-    def minAcceleration = 0.001
-    def maxAcceleration = 0.01
+    def minAcceleration = 0.004
+    def maxAcceleration = 0.006
 
     def minDeceleration = 0.01
-    def maxDeceleration = 0.1
+    def maxDeceleration = 0.03
 
-    val inputs =
-      Vector(
-        numberOfCars,
-        minAcceleration + p(1) * (maxAcceleration - minAcceleration),
-        minDeceleration + p(2) * (maxDeceleration - minDeceleration),
-        minPatience + p(0) * (maxPatience - minPatience))
+    Vector(
+      tool.scale(p(0), minNumberOfCars, maxNumberOfCars),
+      tool.scale(p(1), minAcceleration, maxAcceleration),
+      tool.scale(p(2), minDeceleration, maxDeceleration),
+      tool.scale(p(3), minPatience, maxPatience)
+    )
+
+  def behaviour(inputs: Vector[Double], seed: Int): Vector[Double] =
+    import scala.sys.process.*
 
     println(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed")
     val lines = Process(s"docker exec traffic /usr/bin/traffic ${inputs.mkString(" ")} $seed").lazyLines(ProcessLogger.apply(_ => ()))
@@ -65,13 +68,18 @@ object Traffic:
       Vector(speed, patience)
 
 
+@main def trafficRun =
+  val b = Traffic.behaviour(Vector(40.0, 0.005, 0.02, 50.0), 42)
+  println(b)
+
+
 @main def trafficBenchmarkPPSE(result: String, generation: Int, replication: Int) =
   val resultDir = File(result)
   val resultFile = resultDir / "patterns.csv"
   resultFile.parent.createDirectories()
   resultFile.delete(true)
 
-  val genomeSize = 3
+  val genomeSize = 4
   val lambda = 100
   val generations = generation
   val maxRareSample = 10
