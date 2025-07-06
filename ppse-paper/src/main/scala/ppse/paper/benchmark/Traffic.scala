@@ -110,7 +110,7 @@ object Traffic:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         dilation = dilation,
-        pattern = v => Traffic.pattern(Traffic.behaviour(v, random.nextInt)),
+        pattern = v => Traffic.pattern(Traffic.behaviour(Traffic.modelInputs(v), random.nextInt)),
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
