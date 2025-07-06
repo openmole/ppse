@@ -144,7 +144,7 @@ object Traffic:
 
     val pse = NoisyPSE(
       lambda = lambda,
-      phenotype = (r, d, _) => Traffic.behaviour(d, r.nextInt),
+      phenotype = (r, d, _) => Traffic.behaviour(Traffic.modelInputs(d), r.nextInt),
       pattern = Traffic.pattern,
       continuous = Vector.fill(3)(C(0.0, 1.0)),
       maxRareSample = maxRareSample,
@@ -179,7 +179,7 @@ object Traffic:
       val seed = random.nextInt
 
       Future:
-        Traffic.pattern(Traffic.behaviour(x, seed))
+        Traffic.pattern(Traffic.behaviour(Traffic.modelInputs(x), seed))
 
 
   val patterns = Async.blocking:
