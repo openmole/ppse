@@ -76,6 +76,7 @@ object Traffic:
 @main def trafficBenchmarkPPSE(result: String, generation: Int, replication: Int) =
   val resultDir = File(result)
   val resultFile = resultDir / "patterns.csv"
+  val evalFile = resultDir / "eval.csv"
   resultFile.parent.createDirectories()
   resultFile.delete(true)
 
@@ -101,6 +102,10 @@ object Traffic:
       resultFile.appendLine(s"$r,${s.generation * lambda},${s.likelihoodRatioMap.size}")
       save(s.likelihoodRatioMap, s.generation * lambda)
 
+    def traceEval(i: Vector[Double], p: Vector[Int], seed: Int) =
+      evalFile.appendLine:
+        (Seq(seed) ++ i ++ p).mkString(",")
+
     val pdf =
       ppse.evolution(
         genomeSize = genomeSize,
@@ -110,7 +115,14 @@ object Traffic:
         minClusterSize = minClusterSize,
         regularisationEpsilon = regularisationEpsilon,
         dilation = dilation,
-        pattern = v => Traffic.pattern(Traffic.behaviour(Traffic.modelInputs(v), random.nextInt)),
+        pattern =
+          v =>
+            val inputs = Traffic.modelInputs(v)
+            val seed = random.nextInt
+            val p = Traffic.pattern(Traffic.behaviour(inputs, random.nextInt))
+            traceEval(inputs, p, seed)
+            p
+        ,
         random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r + 1111)),
         trace = Some(trace))
 
