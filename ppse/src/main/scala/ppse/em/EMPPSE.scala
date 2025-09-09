@@ -1,15 +1,11 @@
 package ppse.em
 
-import breeze.linalg.DenseVector
-import jsat.SimpleDataSet
-import jsat.classifiers.DataPoint
-import jsat.clustering.{ClustererBase, EMGaussianMixture, SeedSelectionMethods}
-import ppse.tool
-import ppse.tool.{Breeze, RejectionSampler}
 import mgo.tools.Lazy
+import ppse.em.GMM.IMPL
+import ppse.tool
+import ppse.tool.{RejectionSampler, Stat}
 
 import java.io.{PrintWriter, StringWriter}
-import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 import scala.util.{Random, Try}
 
@@ -31,18 +27,15 @@ import scala.util.{Random, Try}
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import cats.implicits._
-import mgo.evolution.algorithm._
-import mgo.evolution._
-import mgo.evolution.algorithm.GenomeVectorDouble._
-import mgo.evolution.breeding._
-import mgo.evolution.elitism._
-import mgo.evolution.ranking._
-import mgo.tools._
-import mgo.tools.execution._
-
-import monocle._
-import monocle.syntax.all._
+import cats.implicits.*
+import mgo.evolution.*
+import mgo.evolution.algorithm.*
+import mgo.evolution.algorithm.GenomeVectorDouble.*
+import mgo.evolution.breeding.*
+import mgo.evolution.elitism.*
+import mgo.tools.*
+import monocle.*
+import monocle.syntax.all.*
 
 object EMPPSE {
 
@@ -63,7 +56,7 @@ object EMPPSE {
       val pa = pattern(ph)
 
       Result(
-        scaleContinuousValues(i.genome._1.toVector, continuous),
+        IArray.genericWrapArray(scaleContinuousValues(IArray.from(i.genome._1), continuous)).toVector,
         pa,
         densityMap.getOrElse(pa, 0.0) / total,
         ph,
@@ -78,9 +71,11 @@ object EMPPSE {
 
   case class Individual[P](
     genome: Genome,
-    phenotype: P)
+    phenotype: P,
+    generation: Long,
+    initial: Boolean)
 
-  def buildIndividual[P](g: Genome, f: P) = Individual(g, f)
+  def buildIndividual[P](g: Genome, f: P, generation: Long, initial: Boolean) = Individual(g, f, generation, initial)
   //def vectorPhenotype[P] = Focus[Individual[P]](_.phenotype) andThen arrayToVectorIso[Double]
 
   def initialGenomes(number: Int, continuous: Vector[C]/*, reject: Option[Genome => Boolean]*/, rng: scala.util.Random) = {
@@ -104,9 +99,9 @@ object EMPPSE {
     continuous: Vector[C],
     lambda: Int,
     explorationProbability: Double): Breeding[EvolutionState[EMPPSEState], Individual[P], Genome] =
-    EMPPSEOperations.breeding(continuous, identity[Genome] _, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get, explorationProbability)
+    EMPPSEOperations.breeding(continuous, identity[Genome], lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get, explorationProbability)
 
-  def elitism[P: CanBeNaN](
+  def elitism[P: CanContainNaN](
     pattern: P => Vector[Int],
     iterations: Int,
     tolerance: Double,
@@ -133,9 +128,9 @@ object EMPPSE {
       genomeSize = genomeSize
     )
 
-  def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]): Genome => Individual[P] = (g: Genome) =>
-    val sc = scaleContinuousValues(g._1.toVector, continuous)
-    Individual(g, phenotype(sc))
+  def expression[P](phenotype: Vector[Double] => P, continuous: Vector[C]) = (g: Genome, generation: Long, initial: Boolean) =>
+    val sc = scaleContinuousValues(IArray.from(g._1), continuous)
+    Individual(g, phenotype(IArray.genericWrapArray(sc).toVector), generation, initial)
 
   given Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] {
     def initialState(t: EMPPSE, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
@@ -167,7 +162,7 @@ object EMPPSE {
       val x = distribution.sample()
       (x.toVector, Lazy(distribution.density(x)))
 
-    new tool.RejectionSampler(sample _, EMPPSE.acceptPoint)
+    new tool.RejectionSampler(sample, EMPPSE.acceptPoint)
 }
 
 case class EMPPSE(
@@ -212,7 +207,7 @@ object EMPPSEOperations:
           val breed = sampled.map(s => buildGenome(s._1.toArray, s._2))
           breed
 
-  def elitism[S, I, P: CanBeNaN](
+  def elitism[S, I, P: CanContainNaN](
     values: I => (Array[Double], Double),
     phenotype: I => P,
     pattern: P => Vector[Int],
@@ -243,7 +238,7 @@ object EMPPSEOperations:
 
       val rareIndividuals =
         val pop = (genomes zip patterns)
-        if pop.size > fitOnRarest
+        if pop.length > fitOnRarest
         then
           val weighted = (genomes zip patterns).map { p =>
             val weight = maxHits.toDouble + 1 - newHitMap.getOrElse(p._2.toVector, 0)
@@ -259,26 +254,17 @@ object EMPPSEOperations:
 //          (totalHits - hits) / totalHits.toDouble
 //          //1.0
 //        }
-      import scala.jdk.CollectionConverters._
 
       val res =
         Try {
           val x = rareIndividuals.map(_._1._1)
-          val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
-
-          def newGMM = EMGMM.fit(
-            components = clusterMeans.length,
-            iterations = 10,
-            tolerance = 0.0001,
+          def newGMM = GMM.build(
             x = x,
-            means = clusterMeans,
-            covariances = clusterCovariances,
-            weights = clusterWeights,
-            regularisationEpsilon = regularisationEpsilon)
-
-
-          def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1, regularisationEpsilon)
-
+            rng = rng,
+            minClusterSize = minClusterSize,
+            regularisationEpsilon = regularisationEpsilon,
+            impl = IMPL.VBGMM)
+          def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM, regularisationEpsilon)
 
           /*
           val emgmm = new EMGaussianMixture(SeedSelectionMethods.SeedSelection.FARTHEST_FIRST)

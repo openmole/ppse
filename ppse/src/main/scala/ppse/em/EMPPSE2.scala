@@ -17,25 +17,23 @@ package ppse.em
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import jsat.clustering.{ClustererBase, EMGaussianMixture, SeedSelectionMethods}
+import cats.implicits.*
+import mgo.evolution.*
+import mgo.evolution.algorithm.*
+import mgo.evolution.algorithm.GenomeVectorDouble.*
+import mgo.evolution.breeding.*
+import mgo.evolution.elitism.*
+import mgo.tools.*
+import monocle.*
+import monocle.syntax.all.*
+import ppse.em.GMM.IMPL
 import ppse.tool
-import ppse.tool.{Breeze, RejectionSampler}
-import mgo.tools.Lazy
+import ppse.tool.{RejectionSampler, Stat}
 
+import scala.annotation.tailrec
+import scala.collection.immutable.Vector
 import scala.reflect.ClassTag
-import scala.util.{Random, Try}
-import cats.implicits._
-import mgo.evolution.algorithm._
-import mgo.evolution._
-import mgo.evolution.algorithm.GenomeVectorDouble._
-import mgo.evolution.breeding._
-import mgo.evolution.elitism._
-import mgo.evolution.ranking._
-import mgo.tools._
-import mgo.tools.execution._
-
-import monocle._
-import monocle.syntax.all._
+import scala.util.Random
 
 object EMPPSE2:
 
@@ -47,7 +45,7 @@ object EMPPSE2:
 
   case class Result[P](continuous: Vector[Double], pattern: Vector[Int], density: Double, phenotype: Vector[Double], individual: Individual[P])
 
-  def result[P](population: Vector[Individual[P]], state: EvolutionState[EMPPSEState], continuous: Vector[C], phenotype: P => Vector[Double], pattern: Vector[Double] ⇒ Vector[Int]) =
+  def result[P](population: Vector[Individual[P]], state: EvolutionState[EMPPSEState], continuous: Vector[C], phenotype: P => Vector[Double], pattern: Vector[Double] ⇒ Vector[Int]): Vector[Result[P]] =
     val densityMap = state.focus(_.s) andThen Focus[EMPPSEState](_.probabilityMap) get
     val total = densityMap.map(_._2).sum
 
@@ -57,7 +55,7 @@ object EMPPSE2:
 
       densityMap.get(pa).map: d =>
         Result(
-          scaleContinuousValues(i.genome._1.toVector, continuous),
+          IArray.genericWrapArray(scaleContinuousValues(IArray.from(i.genome._1), continuous)).toVector,
           pa,
           d / total,
           ph,
@@ -69,17 +67,21 @@ object EMPPSE2:
   type Genome = (Array[Double], Double)
 
   case class Individual[P](
-    genome: Genome,
-    phenotype: P)
+                            genome: Genome,
+                            phenotype: P,
+                            generation: Long,
+                            initial: Boolean
+                          )
 
-  def buildIndividual[P](g: Genome, f: P) = Individual(g, f)
+  def buildIndividual[P](g: Genome, f: P, generation: Long, initial: Boolean): Individual[P] = Individual(g, f, generation, initial)
   //def vectorPhenotype[P] = Focus[Individual[P]](_.phenotype) andThen arrayToVectorIso[Double]
 
-  def initialGenomes(number: Int, continuous: Vector[C]/*, reject: Option[Genome => Boolean]*/, rng: scala.util.Random) =
+  def initialGenomes(number: Int, continuous: Vector[C]/*, reject: Option[Genome => Boolean]*/, rng: scala.util.Random): Vector[(Array[Double], Double)] =
     def randomUnscaledContinuousValues(genomeLength: Int, rng: scala.util.Random) = Array.fill(genomeLength)(() => rng.nextDouble()).map(_())
 
     //val rejectValue = reject.getOrElse((_: Genome) => false)
 
+    @tailrec
     def generate(acc: List[Genome], n: Int): Vector[Genome] =
       if n >= number
       then acc.toVector
@@ -92,9 +94,9 @@ object EMPPSE2:
   def breeding[P](
     continuous: Vector[C],
     lambda: Int): Breeding[EvolutionState[EMPPSEState], Individual[P], Genome] =
-    EMPPSE2Operations.breeding(continuous, identity[Genome] _, lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
+    EMPPSE2Operations.breeding(continuous, identity[Genome], lambda, Focus[EvolutionState[EMPPSEState]](_.s) andThen Focus[EMPPSEState](_.gmm) get)
 
-  def elitism[P: CanBeNaN](
+  def elitism[P: CanContainNaN](
     pattern: P => Vector[Int],
     iterations: Int,
     tolerance: Double,
@@ -103,7 +105,7 @@ object EMPPSE2:
     maxRareSample: Int,
     genomeSize: Int,
     minClusterSize: Int,
-    regularisationEpsilon: Double) =
+    regularisationEpsilon: Double): Elitism[EvolutionState[EMPPSEState], Individual[P]] =
     EMPPSE2Operations.elitism[EvolutionState[EMPPSEState], Individual[P], P](
       values = _.genome,
       phenotype = (_: Individual[P]).phenotype,
@@ -121,21 +123,21 @@ object EMPPSE2:
       regularisationEpsilon = regularisationEpsilon
     )
 
-  def expression[P](phenotype: (Random, Vector[Double]) => P, continuous: Vector[C]) = (rng: Random, g: Genome) =>
-    val sc = scaleContinuousValues(g._1.toVector, continuous)
-    Individual(g, phenotype(rng, sc))
+  def expression[P](phenotype: (Random, Vector[Double]) => P, continuous: Vector[C]): (Random, (Array[Double], Double), Long, Boolean) => Individual[P] = (rng: Random, g: Genome, generation: Long, initial: Boolean) =>
+    val sc = scaleContinuousValues(IArray.from(g._1), continuous)
+    Individual(g, phenotype(rng, IArray.genericWrapArray(sc).toVector), generation, initial)
 
   implicit def isAlgorithm: Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]] = new Algorithm[EMPPSE2, Individual[Vector[Double]], Genome, EvolutionState[EMPPSEState]]:
-    def initialState(t: EMPPSE2, rng: util.Random) = EvolutionState[EMPPSEState](s = EMPPSEState())
+    def initialState(t: EMPPSE2, rng: util.Random): EvolutionState[EMPPSEState] = EvolutionState[EMPPSEState](s = EMPPSEState())
 
-    override def initialPopulation(t: EMPPSE2, rng: scala.util.Random, parallel: Algorithm.ParallelContext) =
+    override def initialPopulation(t: EMPPSE2, rng: scala.util.Random, parallel: Algorithm.ParallelContext): Vector[Individual[Vector[Double]]] =
       noisy.initialPopulation[Genome, Individual[Vector[Double]]](
         EMPPSE2.initialGenomes(t.lambda, t.continuous, rng),
         EMPPSE2.expression(t.phenotype, t.continuous),
         rng,
         parallel)
 
-    def step(t: EMPPSE2) =
+    def step(t: EMPPSE2): (EvolutionState[EMPPSEState], Vector[Individual[Vector[Double]]], Random, Algorithm.ParallelContext) => (EvolutionState[EMPPSEState], Vector[Individual[Vector[Double]]]) =
       noisy.step[EvolutionState[EMPPSEState], Individual[Vector[Double]], Genome](
         EMPPSE2.breeding(t.continuous, t.lambda),
         EMPPSE2.expression[Vector[Double]](t.phenotype, t.continuous),
@@ -145,17 +147,17 @@ object EMPPSE2:
       )
 
 
-  def acceptPoint(x: Vector[Double]) =
+  def acceptPoint(x: Vector[Double]): Boolean =
     x.forall(_ <= 1.0) && x.forall(_ >= 0.0)
 
-  def toSampler(gmm: GMM, rng: Random) =
+  def toSampler(gmm: GMM, rng: Random): RejectionSampler =
     val distribution = GMM.toDistribution(gmm, rng)
 
     def sample() =
       val x = distribution.sample()
       (x.toVector, Lazy(distribution.density(x)))
 
-    new tool.RejectionSampler(sample _, EMPPSE.acceptPoint)
+    new tool.RejectionSampler(sample, EMPPSE.acceptPoint)
 
 
 case class EMPPSE2(
@@ -195,7 +197,7 @@ object EMPPSE2Operations:
           breed
 
 
-  def elitism[S, I, P: CanBeNaN](
+  def elitism[S, I, P: CanContainNaN](
     values: I => (Array[Double], Double),
     phenotype: I => P,
     pattern: P => Vector[Int],
@@ -230,19 +232,15 @@ object EMPPSE2Operations:
         else
           Some:
             val x = rareIndividuals
-            val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
 
-            def newGMM = EMGMM.fit(
-              components = clusterMeans.length,
-              iterations = iterations,
-              tolerance = tolerance,
+            def newGMM = GMM.build(
               x = x,
-              means = clusterMeans,
-              covariances = clusterCovariances,
-              weights = clusterWeights,
-              regularisationEpsilon = regularisationEpsilon)
+              rng = rng,
+              minClusterSize = minClusterSize,
+              regularisationEpsilon = regularisationEpsilon,
+              impl = IMPL.VBGMM)
 
-            def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM._1, regularisationEpsilon)
+            def gmmWithOutliers = EMGMM.integrateOutliers(x, newGMM, regularisationEpsilon)
 
             val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
             val samplerState = EMPPSE2.toSampler(dilatedGMM, rng).warmup(warmupSampler)

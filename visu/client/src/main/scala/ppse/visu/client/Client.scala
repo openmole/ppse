@@ -1,28 +1,15 @@
 package ppse.visu.client
 
-import com.raquo.airstream.core
-
-import java.nio.ByteBuffer
+import com.raquo.laminar.api.L.*
+import com.raquo.laminar.api.features.unitArrows
+import com.raquo.laminar.codecs
 import org.scalajs.dom.*
-
-import scala.concurrent.Future
-import org.scalajs
-import org.scalajs.dom.html.Canvas
+import ppse.visu.shared.Data
+import typings.svgdotjsSvgJs.mod.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
-import com.raquo.laminar.api.L.*
-import com.raquo.laminar.codecs
-import com.raquo.laminar.api.features.unitArrows
-import org.scalablytyped.runtime.StObject
-import ppse.visu.shared.Data
-
-import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel, JSImport}
-import typings.svgdotjsSvgJs.mod.*
+import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
 //import typings.svgdotjsSvgPanzoomJs.mod.*
-
-import scala.scalajs.js
-import scala.scalajs.js.Object.isFrozen
 
 //@JSExportTopLevel (name="libpanzoom")
 //object PanzoomLib {

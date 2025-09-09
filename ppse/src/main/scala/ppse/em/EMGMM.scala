@@ -1,12 +1,26 @@
 package ppse.em
 
 import better.files.File
-import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution, NormalDistribution}
+import jsat.SimpleDataSet
+import jsat.classifiers.DataPoint
+import jsat.clustering.VBGMM
+import jsat.linear.DenseVector
+import org.apache.commons.math3.distribution.{MixtureMultivariateNormalDistribution, MultivariateNormalDistribution}
 import org.apache.commons.math3.util.Pair
+import ppse.tool.*
+import smile.stat.distribution.MultivariateGaussianMixture
 
 import scala.annotation.tailrec
+import scala.jdk.CollectionConverters.*
 import scala.util.Random
-import ppse.tool.*
+
+class PPSE_VBGMM extends VBGMM:
+  def getGMM(x: Array[Array[Double]]): GMM =
+    val dataSet =
+      val dataPoints = x.map(v => new DataPoint(new DenseVector(v)))
+      new SimpleDataSet(dataPoints.toList.asJava)
+    val clusters = cluster(dataSet).asScala.toSeq
+    GMM(clusters.map(_.asScala.toArray.map(_.getNumericalValues.arrayCopy())).zipWithIndex.map((c, index) => GMM.Component(Stat.mean(c), Stat.covariance(c), this.log_pi(index))))
 
 /**
  * EM-GMM implementation.
@@ -182,8 +196,8 @@ object EMGMM:
 
     (weights, means, covariances)
 
-  def integrateOutliers(x: Array[Array[Double]], gmm: GMM, regularisationEpsilon: Double) =
-    val (_, resp) = EMGMM.eStep(x, gmm.means, gmm.covariances, gmm.weights)
+  def integrateOutliers(x: Array[Array[Double]], gmm: GMM, regularisationEpsilon: Double): GMM =
+    val (_, resp) = EMGMM.eStep(x, gmm.means, gmm.covariances, gmm.weights, regularisationEpsilon)
     val excluded = resp.count(_.sum == 0)
     val newResp =
       //TODO better
@@ -214,7 +228,69 @@ object EMGMM:
 
 object GMM:
 
-  import ppse.tool.Display._
+  import ppse.tool.Display.*
+
+  def p(gmm: GMM, x: Array[Double]): Double =
+    gmm.components.map(c=>c.weight * new MultivariateNormalDistribution(c.mean, c.covariance).density(x)).sum
+  private def bic(gmm: GMM, x: Array[Array[Double]]): Double =
+    val logLikelihood = x.map(v=>
+      val p_ = p(gmm, v)
+      if p_ > 0 then math.log(p_) else 0d
+    ).sum
+    logLikelihood - 0.5 * gmm.components.size * math.log(x.length)
+  enum IMPL:
+    // EMGMM uses HDBSCAN and EMGMM
+    // XEMGMM computes EMGMM for all numbers of clusters in 1 x.length/2 and keeps the best BIC
+    // SMILE uses a similar approach
+    // VBGMM uses the Variational Bayesian approach
+    case EMGMM, XEMGMM, SMILE, VBGMM
+  def build(
+             x: Array[Array[Double]],
+             rng: Random,
+             minClusterSize: Int,
+             regularisationEpsilon: Double,
+             impl: IMPL = IMPL.VBGMM
+           ): GMM =
+    impl match
+      case IMPL.EMGMM =>
+        val (clusterMeans, clusterCovariances, clusterWeights) = Clustering.build(x, minClusterSize)
+        EMGMM.fit(
+          components = clusterMeans.length,
+          iterations = 10,
+          tolerance = 0.0001,
+          x = x,
+          means = clusterMeans,
+          covariances = clusterCovariances,
+          weights = clusterWeights,
+          regularisationEpsilon = regularisationEpsilon)._1
+      case IMPL.XEMGMM =>
+        val max = (1 until x.length / 2).map(k=>
+          val gmm = EMGMM.initializeAndFit(
+            components = k,
+            iterations = 100,
+            tolerance = 1e-4,
+            regularisationEpsilon = 1e-6,
+            x = x,
+            columns = x.head.length,
+            random = rng
+          )._1
+          val bic_ = bic(gmm, x)
+          (gmm, bic_)
+        ).maxBy(_._2)
+        max._1
+      case IMPL.SMILE =>
+        // MultivariateGaussianMixture will fail if less than 20 points
+        if x.length < 20 then
+          GMM(Seq(GMM.Component(Stat.mean(x), Stat.covariance(x), 1d)))
+        else
+          // TODO add Try catch + fallback method?
+          GMM(MultivariateGaussianMixture.fit(x).components.map(c => GMM.Component(c.distribution().mean(), c.distribution().cov().toArray, c.priori())).toSeq)
+      case IMPL.VBGMM =>
+        PPSE_VBGMM().getGMM(x)
+/*
+      val gmm = MultivariateGaussianMixture.fit(x)
+      Some(GMM(gmm.components.map(c => GMM.Component(c.distribution().mean(), c.distribution().cov().toArray, c.priori())).toSeq))
+*/
 
   def apply(
    means: Array[Array[Double]],
@@ -238,10 +314,10 @@ object GMM:
     gmm.copy(dilatedComponents)
 
   def toDistribution(gmm: GMM, random: Random): MixtureMultivariateNormalDistribution =
-    import org.apache.commons.math3.distribution._
-    import org.apache.commons.math3.util._
+    import org.apache.commons.math3.distribution.*
+    import org.apache.commons.math3.util.*
 
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
 
     def dist = (gmm.means zip gmm.covariances).map { (m, c) => new MultivariateNormalDistribution(mgo.tools.apacheRandom(random), m, c) }
     def pairs = (dist zip gmm.weights).map { (d, w) => new Pair(java.lang.Double.valueOf(w), d) }.toList
@@ -270,7 +346,7 @@ case class GMM(components: Seq[GMM.Component]):
   def means: Array[Array[Double]] = components.filter(_.valid).map(_.mean).toArray
   def covariances: Array[Array[Array[Double]]] = components.filter(_.valid).map(_.covariance).toArray
   def weights: Array[Double] = components.filter(_.valid).map(_.weight).toArray
-  def size = components.filter(_.valid).size
+  def size: Int = components.count(_.valid)
 
 object EMGMMTest extends App {
 

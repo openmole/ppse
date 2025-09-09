@@ -96,8 +96,8 @@ import scala.collection.mutable.ListBuffer
         phenotype = (d, _) => d,
         pattern =
           x =>
-            println(x -> PatternSquare.pattern(square, x))
-            PatternSquare.pattern(square, x)
+            println(x -> PatternSquare.pattern(square, IArray.genericWrapArray(x).toVector))
+            PatternSquare.pattern(square, IArray.genericWrapArray(x).toVector)
         ,
         continuous = Vector.fill(2)(C(0.0, 1.0)))
 

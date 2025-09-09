@@ -17,11 +17,10 @@ package ppse.paper.benchmark
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import ppse.paper.*
 import better.files.*
 import gears.async.*
 import gears.async.default.given
-import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest
+import ppse.paper.*
 
 object PatternSquare:
   case class Square(center: Vector[Double], size: Double, grid: Int):
@@ -181,15 +180,15 @@ case class PatternSquare(squares: PatternSquare.Square*)
   resultFile.delete(true)
 
   def run(r: Int)(using Async.Spawn) = Future:
-    import mgo.evolution.algorithm.*
     import mgo.evolution.*
+    import mgo.evolution.algorithm.*
 
     println(s"Running replication $r")
 
     val pse = PSE(
       lambda = lambda,
       phenotype = (d, _) => d,
-      pattern = x => PatternSquare.pattern(PatternSquare.benchmarkPattern, x),
+      pattern = x => PatternSquare.pattern(PatternSquare.benchmarkPattern, x.toVector),
       continuous = Vector.fill(2)(C(0.0, 1.0)),
       maxRareSample = maxRareSample)
 

@@ -50,6 +50,7 @@ object tool:
       // Skip the call from Random.init
       if initialized then generator.setSeed(seed)
 
+  def mean(x: Array[Array[Double]]): Array[Double] = x.transpose.map(a=>a.sum/a.length)
 
   def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
 

@@ -21,7 +21,8 @@ import org.apache.commons.math3.stat.correlation.Covariance
  */
 
 object Stat:
-  def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
+  def mean(x: Array[Array[Double]]): Array[Double] = x.transpose.map(a=>a.sum/a.length)
+  def covariance(x: Array[Array[Double]]): Array[Array[Double]] = new Covariance(x).getCovarianceMatrix.getData
   def averageDifference(p:Seq[Double], q:Seq[Double]): Double =
     DescriptiveStats.percentile(p.zip(q).map((x,y) => math.abs(x - y)), 0.5)
   def jensenShannonDivergence(p:Seq[Double], q:Seq[Double]): Double =

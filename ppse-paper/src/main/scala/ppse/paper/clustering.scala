@@ -54,7 +54,8 @@ object clustering:
           dataWeights match
             case Some(dataWeights) =>
               (x zip dataWeights).map: (p, w) =>
-                new DataPoint(new jsat.linear.DenseVector(p), w)
+                // FIXME ignoring weights
+                new DataPoint(new jsat.linear.DenseVector(p))//, w)
             case None =>
               x.map: x =>
                 new DataPoint(new jsat.linear.DenseVector(x))
@@ -68,15 +69,18 @@ object clustering:
         val centroids =
           clusters.map: cluster =>
             val points = cluster.map(_.getNumericalValues.arrayCopy())
-            val weights = cluster.map(_.getWeight)
-            computeCentroid(points, Some(weights))
+            // FIXME ignoring weights
+            //val weights = cluster.map(_.getWeight)
+            computeCentroid(points, None)//Some(weights))
 
-        val totalWeight = clusters.flatten.map(_.getWeight).sum
-        val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
+        // FIXME ignoring weights
+        //val totalWeight = clusters.flatten.map(_.getWeight).sum
+        //val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
 
         val covariances = clusters.map(c => tool.covariance(c.map(_.getNumericalValues.arrayCopy())))
 
-        (centroids, covariances, weights)
+        // FIXME ignoring weights
+        (centroids, covariances, Array())//weights)
       else buildSingleCluster()
 
 

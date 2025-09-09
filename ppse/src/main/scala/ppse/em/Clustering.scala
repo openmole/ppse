@@ -2,19 +2,19 @@ package ppse.em
 
 import jsat.SimpleDataSet
 import jsat.classifiers.DataPoint
-import org.apache.commons.math3.stat.correlation.Covariance
-import scala.jdk.CollectionConverters._
 import ppse.tool.*
+
+import scala.jdk.CollectionConverters.*
 /**
  * Simplistic implementation of K-Means.
  */
 object Clustering:
 
-  def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]]) =
+  def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]]): Array[Double] =
     def average(x: Array[Double], w: Option[Array[Double]]) =
       w match
         case Some(w) => (x zip w).map { case (x, w) => x * w }.sum / w.sum
-        case None => x.sum / x.size
+        case None => x.sum / x.length
 
     points.transpose.map { coord => average(coord, weights) }
 
@@ -34,9 +34,7 @@ object Clustering:
 
       (Array(centroids), Array(covariance), weight)
     
-    import jsat.clustering._
-    import jsat.clustering.kmeans._
-    import jsat.linear.distancemetrics._
+    import jsat.clustering.*
 
     val hdbScan = new HDBSCAN
     /*
@@ -54,7 +52,8 @@ object Clustering:
           dataWeights match
             case Some(dataWeights) =>
               (x zip dataWeights).map: (p, w) =>
-                new DataPoint(new jsat.linear.DenseVector(p), w)
+                //FIXME ignoring weight
+                new DataPoint(new jsat.linear.DenseVector(p))//, w)
             case None =>
               x.map: x =>
                 new DataPoint(new jsat.linear.DenseVector(x))
@@ -68,11 +67,12 @@ object Clustering:
         val centroids =
           clusters.map: cluster =>
             val points = cluster.map(_.getNumericalValues.arrayCopy())
-            val weights = cluster.map(_.getWeight)
-            computeCentroid(points, Some(weights))
+            // FIXME ignoring weights
+            //val weights = cluster.map(_.getWeight)
+            computeCentroid(points, None)//Some(weights))
 
-        val totalWeight = clusters.flatten.map(_.getWeight).sum
-        val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
+        //val totalWeight = clusters.flatten.map(_.getWeight).sum
+        //val weights = clusters.map(_.map(_.getWeight).sum / totalWeight)
 
         val covariances = clusters.map(c => Stat.covariance(c.map(_.getNumericalValues.arrayCopy())))
 
@@ -83,7 +83,8 @@ object Clustering:
              |${covariances.map { p => "COV\n" + p }.mkString("\n")}
              |""".stripMargin
 
-        (centroids, covariances, weights)
+        // FIXME ignoring weights
+        (centroids, covariances, Array())//weights)
       else buildSingleCluster()
 
 

@@ -25,6 +25,9 @@ import ppse.paper.*
 import rejection.*
 import gears.async.*
 import gears.async.default.given
+import smile.stat.distribution.MultivariateGaussianMixture
+
+import scala.annotation.tailrec
 
 type SamplingWeightMap = Map[Vector[Int], Double]
 type HitMap = Map[Vector[Int], Int]
@@ -85,6 +88,7 @@ def computeGMM(
           if rareIndividuals.length < minClusterSize
           then GMM.empty
           else
+            /*
             val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(rareIndividuals, minClusterSize)
 
             emgmm.fit(
@@ -96,6 +100,13 @@ def computeGMM(
               covariances = clusterCovariances,
               weights = clusterWeights,
               regularisationEpsilon = regularisationEpsilon)._1
+             */
+            GMM.build(
+              rareIndividuals, 
+              rng = random, 
+              minClusterSize = minClusterSize, 
+              regularisationEpsilon = regularisationEpsilon, 
+              impl = GMM.IMPL.VBGMM)
 
         def gmmWithOutliers = emgmm.integrateOutliers(rareIndividuals, fittedGMM, regularisationEpsilon)
 
@@ -163,6 +174,7 @@ def computePDF(likelihoodRatioMap: SamplingWeightMap) =
 
 case class StepInfo(generation: Int, likelihoodRatioMap: SamplingWeightMap)
 
+@tailrec
 def evolution(
   genomeSize: Int,
   lambda: Int,

@@ -26,7 +26,7 @@ import io.circe.generic.auto.*
 
 object Serialization:
   case class PatternDensityMap(map: Array[(Vector[Int], Double)]) derives Codec.AsObject
-  case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: Option[GMM])
+  case class PPSEDrawState(evaluation: Long, point: Vector[Vector[Double]], gmm: Option[GMM]) derives Codec.AsObject
   case class PPSEEvolution(states: Seq[PPSEDrawState]) derives Codec.AsObject
 
   def save[T: Codec](s: T, f: File) =

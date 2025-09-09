@@ -156,7 +156,7 @@ object Traffic:
 
     val pse = NoisyPSE(
       lambda = lambda,
-      phenotype = (r, d, _) => Traffic.behaviour(Traffic.modelInputs(d), r.nextInt),
+      phenotype = (r, d, _) => Traffic.behaviour(Traffic.modelInputs(d.toVector), r.nextInt),
       pattern = Traffic.pattern,
       continuous = Vector.fill(3)(C(0.0, 1.0)),
       maxRareSample = maxRareSample,
