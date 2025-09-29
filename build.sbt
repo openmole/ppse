@@ -21,13 +21,16 @@ def excludeConflicting = Seq(
 
 lazy val ppse = project.in(file("ppse")).settings (
   scalaVersion := Scala3Version,
+  resolvers += "jitpack" at "https://jitpack.io",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % betterFilesVersion,
   libraryDependencies += "org.openmole" %% "mgo" % "3.66",
   libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "4.4.0",
   //libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
-  libraryDependencies += "com.edwardraff" % "JSAT" % "0.1.0-SNAPSHOT",// from baseDirectory.value / "lib" / "JSAT-0.1.0-SNAPSHOT.jar",
+
+  libraryDependencies += "com.github.EdwardRaff" % "JSAT" % "c0a08d472412af91e86162372a34ac7b6a1b8687",
+  //libraryDependencies += "com.edwardraff" % "JSAT" % "0.1.0-SNAPSHOT",// from baseDirectory.value / "lib" / "JSAT-0.1.0-SNAPSHOT.jar",
   libraryDependencies += "com.outr" %% "scribe" % "3.17.0",
   libraryDependencies ++= Seq(
     "org.scalanlp" %% "breeze" % breezeVersion,
