@@ -102,10 +102,11 @@ object emgmm:
   def eStep(
     x: Array[Array[Double]],
     means: Array[Array[Double]],
-    covariances: Array[Array[Array[Double]]],
+    _covariances: Array[Array[Array[Double]]],
     weights: Array[Double],
     regularisationEpsilon: Double): (Double, Array[Array[Double]]) =
     // resp matrix
+    val covariances = _covariances.map(c => regularize(c, regularisationEpsilon))
     val resp = compute_log_likelihood(x, means, covariances, weights, regularisationEpsilon)
     assert(resp.flatten.forall(!_.isNaN))
 
@@ -238,7 +239,7 @@ class PPSE_VBGMM extends VBGMM:
       val dataPoints = x.map(v => new DataPoint(new DenseVector(v)))
       new SimpleDataSet(dataPoints.toList.asJava)
     val clusters = cluster(dataSet).asScala.toSeq
-    GMM(clusters.map(_.asScala.toArray.map(_.getNumericalValues.arrayCopy())).zipWithIndex.map((c, index) => GMM.Component(tool.mean(c), tool.covariance(c), this.log_pi(index))))
+    GMM(clusters.map(_.asScala.toArray.map(_.getNumericalValues.arrayCopy())).zipWithIndex.map((c, index) => GMM.Component(tool.mean(c), tool.covariance(c), math.exp(this.log_pi(index)))))
 
 object GMM:
 
