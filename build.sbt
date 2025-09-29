@@ -29,7 +29,7 @@ lazy val ppse = project.in(file("ppse")).settings (
   libraryDependencies += "com.github.haifengl" % "smile-core" % "4.4.0",
   //libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
 
-  libraryDependencies += "com.github.EdwardRaff" % "JSAT" % "c0a08d472412af91e86162372a34ac7b6a1b8687",
+  libraryDependencies += "com.github.openmole" % "JSAT" % "52daf354b728051f22bdb429ca77f561f9791872",
   //libraryDependencies += "com.edwardraff" % "JSAT" % "0.1.0-SNAPSHOT",// from baseDirectory.value / "lib" / "JSAT-0.1.0-SNAPSHOT.jar",
   libraryDependencies += "com.outr" %% "scribe" % "3.17.0",
   libraryDependencies ++= Seq(
@@ -79,7 +79,7 @@ lazy val ppsePaper = Project("ppse-paper", file("ppse-paper")).settings (
   resolvers += "jitpack" at "https://jitpack.io",
   libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1",
   libraryDependencies += "com.github.haifengl" % "smile-core" % "4.4.0",
-  libraryDependencies += "com.github.EdwardRaff" % "JSAT" % "c0a08d472412af91e86162372a34ac7b6a1b8687",
+  libraryDependencies += "com.github.openmole" % "JSAT" % "52daf354b728051f22bdb429ca77f561f9791872",
   //libraryDependencies += "com.edwardraff" % "JSAT" % "0.0.9",
   //libraryDependencies += "com.edwardraff" % "JSAT" % "0.1.0-SNAPSHOT",// from baseDirectory.value / "lib" / "JSAT-0.1.0-SNAPSHOT.jar",
   libraryDependencies += "com.github.pathikrit" %% "better-files" % betterFilesVersion,
