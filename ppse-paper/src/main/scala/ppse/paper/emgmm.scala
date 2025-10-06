@@ -247,7 +247,7 @@ object emgmm:
   def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
 
 class PPSE_VBGMM extends VBGMM:
-  def getGMM(x: Array[Array[Double]]): GMM =
+  def getGMM(x: Array[Array[Double]], regularisationEpsilon: Double): GMM =
     val dataSet =
       val dataPoints = x.map(v => new DataPoint(new DenseVector(v)))
       new SimpleDataSet(dataPoints.toList.asJava)
@@ -256,11 +256,16 @@ class PPSE_VBGMM extends VBGMM:
     if one_point_clusters == x.length then 
       GMM(Array(tool.mean(x)), Array(tool.covariance(x)), Array(1.0))
     else 
-      val clusters_with_multiple_points = clusters.filter(_._1.length > 1)
-      val weightSum = clusters_with_multiple_points.map(_._2).sum
-      GMM(clusters_with_multiple_points.map((c, weight) =>
+      //val clusters_with_multiple_points = clusters.filter(_._1.length > 1)
+      val weightSum = clusters.map(_._2).sum
+      GMM(clusters.map((c, weight) =>
         val cc = c.map(_.getNumericalValues.arrayCopy())
-        GMM.Component(tool.mean(cc), tool.covariance(cc), weight / weightSum))
+        val covariance = if cc.length == 1 then
+          val size = x.head.length
+          Array.tabulate(size, size): (i, j) => 
+            if i == j then regularisationEpsilon else 0.0
+          else tool.covariance(cc)
+        GMM.Component(tool.mean(cc), covariance, weight / weightSum))
       )
 
 object GMM:
@@ -323,7 +328,7 @@ object GMM:
           // TODO add Try catch + fallback method?
           GMM(MultivariateGaussianMixture.fit(x).components.map(c => GMM.Component(c.distribution().mean(), c.distribution().cov().toArray, c.priori())).toSeq)
       case IMPL.VBGMM =>
-        PPSE_VBGMM().getGMM(x)
+        PPSE_VBGMM().getGMM(x, regularisationEpsilon)
 
   def apply(
    means: Array[Array[Double]],
