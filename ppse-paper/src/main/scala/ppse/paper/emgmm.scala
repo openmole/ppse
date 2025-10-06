@@ -238,12 +238,17 @@ class PPSE_VBGMM extends VBGMM:
     val dataSet =
       val dataPoints = x.map(v => new DataPoint(new DenseVector(v)))
       new SimpleDataSet(dataPoints.toList.asJava)
-    val clusters = cluster(dataSet).asScala.toSeq.map(_.asScala.toArray).zipWithIndex.map((d,index)=>(d,math.exp(this.log_pi(index)))).filter(_._1.length > 1)
-    val weightSum = clusters.map(_._2).sum
-    GMM(clusters.map((c, weight) =>
-      val cc = c.map(_.getNumericalValues.arrayCopy())
-      GMM.Component(tool.mean(cc), tool.covariance(cc), weight / weightSum))
-    )
+    val clusters = cluster(dataSet).asScala.toSeq.map(_.asScala.toArray).zipWithIndex.map((d,index)=>(d,math.exp(this.log_pi(index))))
+    val one_point_clusters = clusters.count(_._1.length == 1)
+    if one_point_clusters == x.length then 
+      GMM(Array(tool.mean(x)), Array(tool.covariance(x)), Array(1.0))
+    else 
+      val clusters_with_multiple_points = clusters.filter(_._1.length > 1)
+      val weightSum = clusters_with_multiple_points.map(_._2).sum
+      GMM(clusters_with_multiple_points.map((c, weight) =>
+        val cc = c.map(_.getNumericalValues.arrayCopy())
+        GMM.Component(tool.mean(cc), tool.covariance(cc), weight / weightSum))
+      )
 
 object GMM:
 
