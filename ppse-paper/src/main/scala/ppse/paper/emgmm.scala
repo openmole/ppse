@@ -74,19 +74,24 @@ object emgmm:
       case 0 => (gmm, trace)
       case i =>
         val (updatedLogLikelihood, resp) = eStep(x, means, covariances, weights, regularisationEpsilon)
-        val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components, regularisationEpsilon)
-        if (math.abs(updatedLogLikelihood - logLikelihood) <= tolerance) (gmm, trace :+ updatedLogLikelihood)
-        else fit(
-          x = x,
-          means = updatedMeans,
-          covariances = updatedCovariances,
-          weights = updatedWeights,
-          logLikelihood = updatedLogLikelihood,
-          regularisationEpsilon = regularisationEpsilon,
-          components = components,
-          iterations = i - 1,
-          tolerance = tolerance,
-          trace = trace :+ updatedLogLikelihood)
+
+        if resp.isEmpty
+        then (GMM.empty, Seq.empty)
+        else
+          val (updatedWeights, updatedMeans, updatedCovariances) = mStep(x, resp, components, regularisationEpsilon)
+          if math.abs(updatedLogLikelihood - logLikelihood) <= tolerance
+          then (gmm, trace :+ updatedLogLikelihood)
+          else fit(
+            x = x,
+            means = updatedMeans,
+            covariances = updatedCovariances,
+            weights = updatedWeights,
+            logLikelihood = updatedLogLikelihood,
+            regularisationEpsilon = regularisationEpsilon,
+            components = components,
+            iterations = i - 1,
+            tolerance = tolerance,
+            trace = trace :+ updatedLogLikelihood)
 
 
   /**
@@ -181,13 +186,21 @@ object emgmm:
     val weights = resp_weights.map(_ / X.length)
     // means
     val weighted_sum = dot(resp.transpose, X)
-    val means = weighted_sum.zip(resp_weights).map { case (array, w) => array.map(_ / w) }
 
+    val means =
+      assert(weighted_sum.length == resp_weights.length, s"size ${weighted_sum.toSeq} != size ${resp_weights.toSeq}")
+      weighted_sum.zip(resp_weights).map: (array, w) =>
+        array.map(_ / w)
 
-// covariance
+    // covariance
     val resp_t = resp.transpose
     val covariances = Array.tabulate(components): k =>
-      val diff = X.map(x => x.indices.map(i => x(i) - means(k)(i)).toArray).transpose
+      val diff =
+        X.map: x =>
+          x.indices.map: i =>
+            x(i) - means(k)(i)
+          .toArray
+        .transpose
       val resp_k = resp_t(k)
       val w_sum = dot(diff.map { l => l.zip(resp_k).map {case (a, b) => a * b }}, diff.transpose)
       regularize(w_sum.map(_.map(_ / resp_weights(k))), epsilon)
@@ -270,12 +283,11 @@ object GMM:
     case EMGMM, XEMGMM, SMILE, VBGMM
 
   def build(
-             x: Array[Array[Double]],
-             rng: Random,
-             minClusterSize: Int,
-             regularisationEpsilon: Double,
-             impl: IMPL = IMPL.VBGMM
-           ): GMM =
+    x: Array[Array[Double]],
+    rng: Random,
+    minClusterSize: Int,
+    regularisationEpsilon: Double,
+    impl: IMPL): GMM =
     impl match
       case IMPL.EMGMM =>
         val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(x, minClusterSize)
