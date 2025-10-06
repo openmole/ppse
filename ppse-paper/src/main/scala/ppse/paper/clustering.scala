@@ -25,7 +25,7 @@ object clustering:
     //val pointSize = x.head.length
     
     def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
-      val centroids = computeCentroid(x, dataWeights)
+      val centroids = computeCentroid(x, dataWeights) // TODO: use method in tool
       val weight = Array(1.0)
       val covariance = tool.covariance(x)
 //        val clusterMatrix = Breeze.arrayToDenseMatrix(x)
