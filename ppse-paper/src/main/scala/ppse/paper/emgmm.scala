@@ -295,7 +295,8 @@ object GMM:
     impl: IMPL): GMM =
     impl match
       case IMPL.EMGMM =>
-        val (clusterMeans, clusterCovariances, clusterWeights) = clustering.build(x, minClusterSize)
+        val (clusterMeans, clusterCovariances) = clustering.build(x, minClusterSize)
+        val clusterWeights = Array.fill(clusterMeans.length)(1.0 / clusterMeans.length)
         emgmm.fit(
           components = clusterMeans.length,
           iterations = 10,

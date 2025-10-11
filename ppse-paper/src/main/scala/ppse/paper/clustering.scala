@@ -10,7 +10,7 @@ import scala.jdk.CollectionConverters.*
  * Simplistic implementation of K-Means.
  */
 object clustering:
-  def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]]) =
+  def computeCentroid(points: Array[Array[Double]], weights: Option[Array[Double]] = None) =
     def average(x: Array[Double], w: Option[Array[Double]]) =
       w match
         case Some(w) => (x zip w).map { case (x, w) => x * w }.sum / w.sum
@@ -20,19 +20,17 @@ object clustering:
 
   def build(
     x: Array[Array[Double]],
-    minPoints: Int,
-    dataWeights: Option[Array[Double]] = None): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
+    minPoints: Int): (Array[Array[Double]], Array[Array[Array[Double]]]) =
     //val pointSize = x.head.length
     
-    def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]], Array[Double]) =
-      val centroids = computeCentroid(x, dataWeights) // TODO: use method in tool
-      val weight = Array(1.0)
+    def buildSingleCluster(): (Array[Array[Double]], Array[Array[Array[Double]]]) =
+      val centroids = computeCentroid(x) // TODO: use method in tool
       val covariance = tool.covariance(x)
 //        val clusterMatrix = Breeze.arrayToDenseMatrix(x)
 //        val centroidVector = new DenseVector[Double](centroids)
 //        Breeze.matrixToArray(cov(clusterMatrix, centroidVector))
 
-      (Array(centroids), Array(covariance), weight)
+      (Array(centroids), Array(covariance))
     
     import jsat.clustering.*
     import jsat.clustering.kmeans.*
@@ -51,14 +49,8 @@ object clustering:
     else
       val dataSet =
         val dataPoints =
-          dataWeights match
-            case Some(dataWeights) =>
-              (x zip dataWeights).map: (p, w) =>
-                // FIXME ignoring weights
-                new DataPoint(new jsat.linear.DenseVector(p))//, w)
-            case None =>
-              x.map: x =>
-                new DataPoint(new jsat.linear.DenseVector(x))
+          x.map: x =>
+            new DataPoint(new jsat.linear.DenseVector(x))
 
         new SimpleDataSet(dataPoints.toList.asJava)
 
@@ -71,7 +63,7 @@ object clustering:
             val points = cluster.map(_.getNumericalValues.arrayCopy())
             // FIXME ignoring weights
             //val weights = cluster.map(_.getWeight)
-            computeCentroid(points, None)//Some(weights))
+            computeCentroid(points)//Some(weights))
 
         // FIXME ignoring weights
         //val totalWeight = clusters.flatten.map(_.getWeight).sum
@@ -80,7 +72,7 @@ object clustering:
         val covariances = clusters.map(c => tool.covariance(c.map(_.getNumericalValues.arrayCopy())))
 
         // FIXME ignoring weights
-        (centroids, covariances, Array())//weights)
+        (centroids, covariances)//weights)
       else buildSingleCluster()
 
 
