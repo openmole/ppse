@@ -88,6 +88,12 @@ lazy val ppsePaper = Project("ppse-paper", file("ppse-paper")).settings (
   excludeConflicting
 )
 
+lazy val ppseCategorial = Project("ppse-categorial", file("ppse-categorial")).settings (
+  version := "1.0-SNAPSHOT",
+  scalaVersion := Scala3Version,
+  excludeConflicting
+) dependsOn(ppsePaper)
+
 lazy val plotPaper  = Project("plot-paper", file("plot-paper")).settings (
   version := "1.0-SNAPSHOT",
   scalaVersion := Scala3Version,
