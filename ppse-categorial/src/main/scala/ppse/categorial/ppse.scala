@@ -1,5 +1,6 @@
 package ppse.categorial
 
+import javax.swing.Popup
 import scala.util.Random
 
 /*
@@ -23,14 +24,58 @@ type Genome = Vector[Double]
 type Pattern = Vector[Int]
 type HitMap = Map[Vector[Int], Int]
 case class Individual(genome: Genome, pattern: Pattern)
-
+case class StepInfo(population: Vector[Individual], generation: Int)
 
 def crossover(i1: Individual, i2: Individual) = ???
 
+def breeding(population: Vector[Individual], genomeSize: Int, size: Int, maxRareSample: Int, hitMap: HitMap, random: Random): Vector[Genome] =
+  def allAtMaxSample = population.forall(i => hitMap.getOrElse(i.pattern, 0) >= maxRareSample)
 
-def breeding(population: Vector[Individual], hitMap: HitMap, size: Int, random: Random) =
-  // TODO biais towards lower hits
-  val weights = Vector.fill(population.length)(1.0 / population.length)
-  ???
+  if allAtMaxSample
+  then Vector.fill(size, genomeSize)(random.nextDouble())
+  else
+    val weights = population.map(p => hitMap(p.pattern)).map(p => math.log(1+ random.nextDouble) / p)
+    ???
 
 
+def updateHitMap(offspringPopulation: Vector[Individual], hitMap: HitMap): HitMap =
+  val newMap = collection.mutable.Map[Vector[Int], Int]() ++ hitMap
+  for
+    i <- offspringPopulation
+  do
+    newMap.updateWith(i.pattern):
+      case None => Some(1)
+      case Some(v) => Some(v + 1)
+
+  newMap.toMap
+
+
+def elitism(population: Vector[Individual], offspringPopulation: Vector[Individual]): Vector[Individual] =
+  (population ++ offspringPopulation)
+    .groupBy(_.pattern)
+    .toVector
+    .map(_._2.head)
+
+
+def evolution(
+  genomeSize: Int,
+  lambda: Int,
+  generations: Int,
+  pattern: Vector[Double] => Vector[Int],
+  population: Vector[Individual] = Vector(),
+  hitMap: HitMap = Map(),
+  generation: Int = 0,
+  maxRareSample: Int = 10,
+  trace: Option[StepInfo => Unit] = None,
+  random: Random): Vector[Individual] =
+
+  trace.foreach(f => f(StepInfo(population, generation)))
+
+  if generation >= generations
+  then population
+  else
+    val offspringGenome = breeding(population, genomeSize, lambda, maxRareSample, hitMap, random)
+    val offspringPopulation = offspringGenome.map(g => Individual(g, pattern(g)))
+    val newPopulation = elitism(population, offspringPopulation)
+    val newHitMap = updateHitMap(offspringPopulation, hitMap)
+    evolution(genomeSize, lambda, generations, pattern, newPopulation, newHitMap, generation + 1, maxRareSample, trace, random)
