@@ -34,7 +34,11 @@ def breeding(population: Vector[Individual], genomeSize: Int, size: Int, maxRare
   if allAtMaxSample
   then Vector.fill(size, genomeSize)(random.nextDouble())
   else
-    val weights = population.map(p => hitMap(p.pattern)).map(p => math.log(1+ random.nextDouble) / p)
+    val weights =
+      val w = population.map(p => hitMap(p.pattern)).map(p => math.log(1+ random.nextDouble) / p)
+      val total = w.sum
+      w.map(_ / total)
+      
     ???
 
 
