@@ -1,14 +1,13 @@
 package ppse.categorial
 
 import org.apache.commons.math3.distribution.{EnumeratedDistribution, MixtureMultivariateNormalDistribution, MultivariateNormalDistribution}
-import org.apache.commons.math3.util.{MathArrays, Pair}
-import org.apache.commons.math3.linear.DiagonalMatrix
 import org.apache.commons.math3.linear.MatrixUtils
-
-import java.util
-import scala.util.Random
-import scala.jdk.CollectionConverters.*
+import org.apache.commons.math3.util.Pair
 import ppse.paper.tool
+
+import scala.annotation.tailrec
+import scala.jdk.CollectionConverters.*
+import scala.util.Random
 /*
  * Copyright (C) 2025 Romain Reuillon
  *
@@ -29,30 +28,54 @@ import ppse.paper.tool
 type Genome = (Vector[Double], Double)
 type Pattern = Vector[Int]
 type HitMap = Map[Vector[Int], Int]
-case class Individual(genome: Genome, pattern: Pattern)
+type SamplingWeightMap = Map[Vector[Int], Double]
 
+case class Individual(genome: Genome, pattern: Pattern)
+case class StepInfo(population: Vector[Individual], generation: Int)
 
 def crossover(i1: Individual, i2: Individual) = ???
 
+def breeding(population: Vector[Individual], genomeSize: Int, size: Int, maxRareSample: Int, hitMap: HitMap, random: Random): Vector[Genome] =
+  def allAtMaxSample = population.forall(i => hitMap.getOrElse(i.pattern, 0) >= maxRareSample)
 
-def breeding(population: Vector[Individual], hitMap: HitMap, size: Int, random: Random) =
-  // TODO biais towards lower hits
-  val weights = Vector.fill(population.length)(1.0 / population.length)
-  ???
+  if allAtMaxSample
+  then
+    Vector.fill(size):
+      Vector.fill(genomeSize)(random.nextDouble()) -> 1.0
+  else
+    val weights =
+      val w = population.map(p => hitMap(p.pattern)).map(p => math.log(1 + random.nextDouble) / p)
+      val total = w.sum
+      w.map(_ / total)
 
+    ???
 
-/*
-def choose(population: Vector[Genome], weights: Vector[Double], random: Random): (Genome, Double) =
-  val randomValue = random.nextDouble()
-  val probabilities = MathArrays.normalizeArray(weights.toArray, 1.0)
-  val cumulativeProbabilities = probabilities.foldLeft(Array(0.0))((a,p)=> a.appended(a.last + p)).tail
-  val index = {
-    val r = util.Arrays.binarySearch(cumulativeProbabilities, randomValue)
-    if r < 0 then -r - 1 else r
-  }
-  assert(index >=0 && index < probabilities.length && randomValue < cumulativeProbabilities(index))
-  (population(index), probabilities(index))
-*/
+def updateHitMap(offspringPopulation: Vector[Individual], hitMap: HitMap): HitMap =
+  val newMap = collection.mutable.Map[Vector[Int], Int]() ++ hitMap
+  for
+    i <- offspringPopulation
+  do
+    newMap.updateWith(i.pattern):
+      case None => Some(1)
+      case Some(v) => Some(v + 1)
+
+  newMap.toMap
+
+def updateWeightMap(offspringGenomes: Vector[Genome], offspringPatterns: Vector[Vector[Int]], likelihoodRatioMap: SamplingWeightMap) =
+  def offSpringDensities =
+    val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
+    groupedGenomes.view.mapValues(v => v.map((_, density) => 1 / density).sum).toSeq
+
+  def updatePatternDensity(map: SamplingWeightMap, pattern: Vector[Int], density: Double): SamplingWeightMap =
+    map.updatedWith(pattern.toVector)(v => Some(v.getOrElse(0.0) + density))
+
+  offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
+
+def elitism(population: Vector[Individual], offspringPopulation: Vector[Individual]): Vector[Individual] =
+  (population ++ offspringPopulation)
+    .groupBy(_.pattern)
+    .toVector
+    .map(_._2.head)
 
 def mutate(population: Vector[Genome], genomeSize: Int, weights: Vector[Double], sigmaMax: Double, random: Random): Genome =
   val apacheRandom = tool.toApacheRandom(random)
@@ -65,5 +88,33 @@ def mutate(population: Vector[Genome], genomeSize: Int, weights: Vector[Double],
   val choice = mixture.sample()
   (choice.toVector, mixture.density(choice))
 
-@main def mutateTest(): Unit =
-  mutate(Vector((Vector(0),0.1),(Vector(1),0.5),(Vector(2),0.4)),1,Vector(0.1,0.5,0.4),0.1,Random(42))
+def computePDF(likelihoodRatioMap: SamplingWeightMap) =
+  val totalDensity = likelihoodRatioMap.values.sum
+  likelihoodRatioMap.map((p, density) => (p, density / totalDensity))
+
+@tailrec
+def evolution(
+  genomeSize: Int,
+  lambda: Int,
+  generations: Int,
+  pattern: Vector[Double] => Vector[Int],
+  population: Vector[Individual] = Vector(),
+  hitMap: HitMap = Map(),
+  likelihoodRatioMap: SamplingWeightMap = Map(),
+  generation: Int = 0,
+  maxRareSample: Int = 10,
+  trace: Option[StepInfo => Unit] = None,
+  random: Random): SamplingWeightMap =
+
+  trace.foreach(f => f(StepInfo(population, generation)))
+
+  if generation >= generations
+  then computePDF(likelihoodRatioMap)
+  else
+    val offspringGenome = breeding(population, genomeSize, lambda, maxRareSample, hitMap, random)
+    val patterns = offspringGenome.map((g, _) => pattern(g))
+    val offspringPopulation = (offspringGenome zip patterns).map((g, p) => Individual(g, p))
+    val newPopulation = elitism(population, offspringPopulation)
+    val newHitMap = updateHitMap(offspringPopulation, hitMap)
+    val newLikelihoodRatioMap = updateWeightMap(offspringGenome, patterns, likelihoodRatioMap)
+    evolution(genomeSize, lambda, generations, pattern, newPopulation, newHitMap, newLikelihoodRatioMap, generation + 1, maxRareSample, trace, random)
