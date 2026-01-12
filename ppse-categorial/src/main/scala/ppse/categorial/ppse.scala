@@ -36,19 +36,20 @@ case class StepInfo(population: Vector[Individual], generation: Int)
 def crossover(i1: Individual, i2: Individual) = ???
 
 def breeding(population: Vector[Individual], genomeSize: Int, size: Int, maxRareSample: Int, hitMap: HitMap, random: Random): Vector[Genome] =
-  def allAtMaxSample = population.forall(i => hitMap.getOrElse(i.pattern, 0) >= maxRareSample)
+  def allAtMaxSample = population.filterNot(i => hitMap.getOrElse(i.pattern, 0) >= maxRareSample)
 
-  if allAtMaxSample
+  if allAtMaxSample.isEmpty
   then
     Vector.fill(size):
       Vector.fill(genomeSize)(random.nextDouble()) -> 1.0
   else
     val weights =
-      val w = population.map(p => hitMap(p.pattern)).map(p => math.log(1 + random.nextDouble) / p)
+      val w = allAtMaxSample.map(p => hitMap(p.pattern)).map(p => math.log(1 + random.nextDouble) / p)
       val total = w.sum
       w.map(_ / total)
 
-    ???
+    Vector.fill(size):
+      mutate(allAtMaxSample.map(_.genome), genomeSize, weights, 0.005, random)
 
 def updateHitMap(offspringPopulation: Vector[Individual], hitMap: HitMap): HitMap =
   val newMap = collection.mutable.Map[Vector[Int], Int]() ++ hitMap
@@ -77,13 +78,13 @@ def elitism(population: Vector[Individual], offspringPopulation: Vector[Individu
     .toVector
     .map(_._2.head)
 
-def mutate(population: Vector[Genome], genomeSize: Int, weights: Vector[Double], sigmaMax: Double, random: Random): Genome =
+def mutate(genomes: Vector[Genome], genomeSize: Int, weights: Vector[Double], sigmaMax: Double, random: Random): Genome =
   val apacheRandom = tool.toApacheRandom(random)
-  val comp = (population zip weights).map((p,w) => new Pair[Vector[Double], java.lang.Double](p._1,w)).toList.asJava
+  val comp = (genomes zip weights).map((p, w) => new Pair[Vector[Double], java.lang.Double](p._1,w)).toList.asJava
   val dist = new EnumeratedDistribution[Vector[Double]](apacheRandom, comp)
   // We generate a covariance matrix using an identity matrix multiplied by the sigma
   val matrix = MatrixUtils.createRealIdentityMatrix(genomeSize).scalarMultiply(sigmaMax).getData
-  val list = population.zip(weights).map((g,w) => new Pair[java.lang.Double,MultivariateNormalDistribution](w, new MultivariateNormalDistribution(g._1.toArray,matrix))).toList.asJava
+  val list = genomes.zip(weights).map((g, w) => new Pair[java.lang.Double,MultivariateNormalDistribution](w, new MultivariateNormalDistribution(g._1.toArray,matrix))).toList.asJava
   val mixture = new MixtureMultivariateNormalDistribution(apacheRandom, list)
   val choice = mixture.sample()
   (choice.toVector, mixture.density(choice))
@@ -117,4 +118,15 @@ def evolution(
     val newPopulation = elitism(population, offspringPopulation)
     val newHitMap = updateHitMap(offspringPopulation, hitMap)
     val newLikelihoodRatioMap = updateWeightMap(offspringGenome, patterns, likelihoodRatioMap)
-    evolution(genomeSize, lambda, generations, pattern, newPopulation, newHitMap, newLikelihoodRatioMap, generation + 1, maxRareSample, trace, random)
+    evolution(
+      genomeSize,
+      lambda,
+      generations,
+      pattern,
+      newPopulation,
+      newHitMap,
+      newLikelihoodRatioMap,
+      generation + 1,
+      maxRareSample,
+      trace,
+      random)
