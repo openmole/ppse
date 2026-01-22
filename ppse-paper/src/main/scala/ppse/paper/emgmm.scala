@@ -238,12 +238,19 @@ object emgmm:
 
   /**
    * 2d matrix dot product.
+   *
    * @param A matrix A
    * @param B matrix B
    */
-  def dot(A: Array[Array[Double]], B: Array[Array[Double]]): Array[Array[Double]] =
-    Array.tabulate(A.length)(i=>B.indices.map(j=>B(j).map(_*A(i)(j))).transpose.map(_.sum).toArray)
+  def dot(a: Array[Array[Double]], b: Array[Array[Double]]): Array[Array[Double]] =
+    import org.apache.commons.math3.linear.BlockRealMatrix
 
+    val aMat = new BlockRealMatrix(a)
+    val bMat = new BlockRealMatrix(b)
+    val cMat = aMat.multiply(bMat)
+
+    cMat.getData
+    
   def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
 
 class PPSE_VBGMM extends VBGMM:
