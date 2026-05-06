@@ -25,6 +25,11 @@ import scala.util.Random
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+/* TODO
+add rejection
+ */
+
 type Genome = (Vector[Double], Double)
 type Pattern = Vector[Int]
 type HitMap = Map[Vector[Int], Int]
@@ -43,13 +48,13 @@ def breeding(population: Vector[Individual], genomeSize: Int, size: Int, maxRare
     Vector.fill(size):
       Vector.fill(genomeSize)(random.nextDouble()) -> 1.0
   else
-    val weights =
-      val w = allAtMaxSample.map(p => hitMap(p.pattern)).map(p => math.log(1 + random.nextDouble) / p)
-      val total = w.sum
-      w.map(_ / total)
+//    val weights =
+//      val w = population.map(p => hitMap(p.pattern)).map(p => math.log(1 + random.nextDouble) / p)
+//      val total = w.sum
+//      w.map(_ / total)
 
     Vector.fill(size):
-      mutate(allAtMaxSample.map(_.genome), genomeSize, weights, 0.005, random)
+      mutate(allAtMaxSample.map(_.genome), genomeSize, allAtMaxSample.map(_ => 1.0), 0.005, random)
 
 def updateHitMap(offspringPopulation: Vector[Individual], hitMap: HitMap): HitMap =
   val newMap = collection.mutable.Map[Vector[Int], Int]() ++ hitMap

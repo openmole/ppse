@@ -52,6 +52,11 @@ object tool:
 
   def mean(x: Array[Array[Double]]): Array[Double] = x.transpose.map(a=>a.sum/a.length)
 
+
+  def stddev1D(xs: Seq[Double]): Double =
+    val mean = xs.sum / xs.size
+    math.sqrt(xs.map(x => (x - mean) * (x - mean)).sum / xs.size)
+
   def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
 
   def percentile(data: Seq[Double], percentile: Double): Double =

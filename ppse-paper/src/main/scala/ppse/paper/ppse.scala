@@ -38,20 +38,21 @@ def breeding(
  genomeSize: Int,
  lambda: Int,
  gmm: Option[(GMM, RejectionSamplerState)],
- random: Random): Array[(Array[Double], Double)] =
+ random: Random): Array[(Array[Double], Option[Double])] =
  gmm match
   case None =>
     def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
-    Array.fill(lambda)((randomGenome(genomeSize, random), 1.0))
+    Array.fill(lambda)((randomGenome(genomeSize, random), None))
   case Some((gmm, rejectionState)) =>
     val rejectionSampler = RejectionSampler(gmm, random)
     val (_, samples) = RejectionSampler.sampleArray(rejectionSampler, lambda, rejectionState)
-    samples
+    samples.map: (g, density) =>
+      (g, Some(density))
 
 def elitism(
   genomes: Array[Array[Double]],
   patterns: Array[Array[Int]],
-  offspringGenomes: Array[(Array[Double], Double)],
+  offspringGenomes: Array[(Array[Double], Option[Double])],
   offspringPatterns: Array[Array[Int]],
   random: Random): (Array[Array[Double]], Array[Array[Int]]) =
   def allGenomes = genomes ++ offspringGenomes.map(_._1)
@@ -107,7 +108,7 @@ def computeGMM(
               rng = random, 
               minClusterSize = minClusterSize, 
               regularisationEpsilon = regularisationEpsilon, 
-              impl = GMM.IMPL.VBGMM)
+              impl = GMM.IMPL.EMGMM)
 
         def gmmWithOutliers = emgmm.integrateOutliers(rareIndividuals, fittedGMM, regularisationEpsilon)
 
@@ -124,7 +125,7 @@ def computeGMM(
 def updateState(
   genomes: Array[Array[Double]],
   patterns: Array[Array[Int]],
-  offspringGenomes: Array[(Array[Double], Double)],
+  offspringGenomes: Array[(Array[Double], Option[Double])],
   offspringPatterns: Array[Array[Int]],
   likelihoodRatioMap: SamplingWeightMap,
   hitMap: HitMap,
@@ -135,18 +136,27 @@ def updateState(
   dilation: Double,
   warmupSampler: Int,
   minClusterSize: Int,
-  random: Random): (HitMap, SamplingWeightMap, Option[(GMM, rejection.RejectionSamplerState)]) =
+  random: Random,
+  gmm: Option[GMM]): (HitMap, SamplingWeightMap, Option[(GMM, rejection.RejectionSamplerState)]) =
   val newHitMap =
-    def updateHits(m: HitMap, p: Vector[Int]) = m.updatedWith(p)(v => Some(v.getOrElse(0) + 1))
+    def updateHits(m: HitMap, p: Vector[Int]) =
+      m.updatedWith(p)(v => Some(v.getOrElse(0) + 1))
+
     offspringPatterns.foldLeft(hitMap)((m, p) => updateHits(m, p.toVector))
 
   def newLikelihoodRatioMap =
     def offSpringDensities =
       val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
-      groupedGenomes.view.mapValues(v => v.map ((_, density) => 1 / density).sum).toSeq
+      groupedGenomes.view.mapValues: v =>
+        v.map ((_, density) => 1 / density.getOrElse(Double.PositiveInfinity)).sum
+      .toSeq
 
     def updatePatternDensity(map: SamplingWeightMap, pattern: Array[Int], density: Double): SamplingWeightMap =
-      map.updatedWith(pattern.toVector)( v => Some(v.getOrElse(0.0) + density))
+      map.updatedWith(pattern.toVector): v =>
+        // TODO remove comment once diagnostic is completed
+        //if pattern.toSeq == Seq(0, 10, 8) then println("hit bad " + (1 / density) + " " + v + " " + gmm.map(_.components.size))
+        //if pattern.toSeq == Seq(0, 18, 6) then println("hit oka " + (1 / density) + " " + v + " " + gmm.map(_.components.size))
+        Some(v.getOrElse(0.0) + density)
 
     offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
 
@@ -231,7 +241,8 @@ def evolution(
         dilation = dilation,
         warmupSampler = 10000,
         minClusterSize = minClusterSize,
-        random = random)
+        random = random,
+        gmm = gmm.map(_._1))
 
     evolution(
       genomeSize = genomeSize,

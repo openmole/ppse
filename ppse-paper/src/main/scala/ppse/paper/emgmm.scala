@@ -250,7 +250,7 @@ object emgmm:
     val cMat = aMat.multiply(bMat)
 
     cMat.getData
-    
+
   def covariance(x: Array[Array[Double]]) = new Covariance(x).getCovarianceMatrix.getData
 
 class PPSE_VBGMM extends VBGMM:

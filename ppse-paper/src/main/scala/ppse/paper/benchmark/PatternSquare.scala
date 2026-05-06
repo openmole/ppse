@@ -127,6 +127,54 @@ case class PatternSquare(squares: PatternSquare.Square*)
     (0 until replications).map(run).awaitAll
 
 
+@main def oneSquareBenchmarkPPSE(result: String, generations: Int) =
+  val resultFile = File(result)
+
+  val genomeSize = 2
+  val lambda = 1
+  val maxRareSample = 10
+  val minClusterSize = 10
+  val regularisationEpsilon = 1e-6
+  val dilation = 4.0
+
+  val oneSquare = PatternSquare(
+    PatternSquare.Square(Vector(0.5, 0.5), 1.0, 20)
+  )
+
+  resultFile.delete(true)
+
+  def run(resultFile: File)(using Async.Spawn) = Future:
+    println(s"Running replication")
+
+
+    def trace(s: ppse.StepInfo) =
+      if s.generation % 10 == 0 && s.generation > 0
+      then println(s.generation)
+
+    val result =
+      ppse.evolution(
+        genomeSize = genomeSize,
+        lambda = lambda,
+        generations = generations,
+        maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
+        regularisationEpsilon = regularisationEpsilon,
+        dilation = dilation,
+        pattern = PatternSquare.pattern(oneSquare, _),
+        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
+        trace = Some(trace))
+
+    val s = result.map(_._2).toSeq
+    println(s.max - s.min)
+
+    result.toSeq.foreach: l =>
+      resultFile.appendLine:
+        (l._1.map(_.toDouble) ++ Seq(l._2)).mkString(",")
+
+  Async.blocking:
+    run(resultFile).await
+
+
 @main def patternSquareBenchmarkRandom(result: String, replications: Int, nbPoints: Int) =
   val resultFile = File(result)
   val allPatterns = PatternSquare.allPatterns2D(PatternSquare.benchmarkPattern)
