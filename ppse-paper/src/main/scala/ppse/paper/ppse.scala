@@ -145,18 +145,27 @@ def updateState(
     offspringPatterns.foldLeft(hitMap)((m, p) => updateHits(m, p.toVector))
 
   def newLikelihoodRatioMap =
+    def safeInverseDensity(density: Option[Double]): Double =
+      val d = density.getOrElse(0.0)
+      val clamped = math.max(d, 1e-12) // Prevent division by zero
+      1.0 / clamped
     def offSpringDensities =
       val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
       groupedGenomes.view.mapValues: v =>
-        v.map ((_, density) => 1 / density.getOrElse(Double.PositiveInfinity)).sum
+        v.map ((_, density) => safeInverseDensity(density)).sum
       .toSeq
 
     def updatePatternDensity(map: SamplingWeightMap, pattern: Array[Int], density: Double): SamplingWeightMap =
-      map.updatedWith(pattern.toVector): v =>
-        // TODO remove comment once diagnostic is completed
-        //if pattern.toSeq == Seq(0, 10, 8) then println("hit bad " + (1 / density) + " " + v + " " + gmm.map(_.components.size))
-        //if pattern.toSeq == Seq(0, 18, 6) then println("hit oka " + (1 / density) + " " + v + " " + gmm.map(_.components.size))
-        Some(v.getOrElse(0.0) + density)
+      if density.isInfinite || density.isNaN then
+        println(s"CRITICAL: Invalid density detected for pattern ${pattern.mkString(",")}.")
+        // FIXME Skip updating or use a fallback value? Skipping for now
+        map
+      else
+        map.updatedWith(pattern.toVector): v =>
+          // TODO remove comment once diagnostic is completed
+          //if pattern.toSeq == Seq(0, 10, 8) then println("hit bad " + (1 / density) + " " + v + " " + gmm.map(_.components.size))
+          //if pattern.toSeq == Seq(0, 18, 6) then println("hit oka " + (1 / density) + " " + v + " " + gmm.map(_.components.size))
+          Some(v.getOrElse(0.0) + density)
 
     offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
 
