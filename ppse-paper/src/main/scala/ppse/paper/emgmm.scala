@@ -260,8 +260,8 @@ class PPSE_VBGMM extends VBGMM:
       new SimpleDataSet(dataPoints.toList.asJava)
     val clusters = cluster(dataSet).asScala.toSeq.map(_.asScala.toArray).zipWithIndex.map((d,index)=>(d,math.exp(this.log_pi(index))))
     val one_point_clusters = clusters.count(_._1.length == 1)
-    if one_point_clusters == x.length then 
-      GMM(Array(tool.mean(x)), Array(tool.covariance(x)), Array(1.0))
+    if one_point_clusters == x.length
+    then GMM(Array(tool.mean(x)), Array(tool.covariance(x)), Array(1.0))
     else 
       //val clusters_with_multiple_points = clusters.filter(_._1.length > 1)
       val weightSum = clusters.map(_._2).sum
@@ -338,6 +338,13 @@ object GMM:
       case IMPL.VBGMM =>
         PPSE_VBGMM().getGMM(x, regularisationEpsilon)
 
+  def apply(components: Seq[GMM.Component]) =
+    val weights = components.map(_.weight)
+    val s = weights.sum
+    new GMM(
+      components.map(c => c.copy(weight = c.weight / s))
+    )
+
   def apply(
    means: Array[Array[Double]],
    covariances: Array[Array[Array[Double]]],
@@ -383,6 +390,5 @@ object GMM:
     def cov = component.covariance.map(_.mkString(",")).mkString(";")
     s"$mean $cov ${component.weight}"
 
-
-case class GMM(components: Seq[GMM.Component])
+case class GMM private(components: Seq[GMM.Component])
 
