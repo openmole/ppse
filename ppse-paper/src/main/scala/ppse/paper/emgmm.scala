@@ -375,5 +375,14 @@ object GMM:
     def size: Int = gmm.components.size
     def isEmpty: Boolean = gmm.components.isEmpty
 
+  def show(gmm: GMM): String =
+    gmm.components.map(show).mkString(":")
+
+  def show(component: GMM.Component): String =
+    def mean = component.mean.mkString(",")
+    def cov = component.covariance.map(_.mkString(",")).mkString(";")
+    s"$mean $cov ${component.weight}"
+
+
 case class GMM(components: Seq[GMM.Component])
 
