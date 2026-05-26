@@ -146,7 +146,6 @@ case class PatternSquare(squares: PatternSquare.Square*)
   def run(resultFile: File)(using Async.Spawn) = Future:
     println(s"Running replication")
 
-
     def trace(s: ppse.StepInfo) =
       if s.generation % 10 == 0 && s.generation > 0
       then println(s.generation)
@@ -173,6 +172,59 @@ case class PatternSquare(squares: PatternSquare.Square*)
 
   Async.blocking:
     run(resultFile).await
+
+@main def oneNoisySquareBenchmarkPPSE(result: String, generations: Int) =
+  val resultFile = File(result)
+
+  val genomeSize = 2
+  val lambda = 1
+  val maxRareSample = 10
+  val minClusterSize = 10
+  val regularisationEpsilon = 1e-6
+  val dilation = 4.0
+
+  val oneSquare = PatternSquare(
+    PatternSquare.Square(Vector(0.5, 0.5), 1.0, 20)
+  )
+
+  resultFile.delete(true)
+
+  def run(resultFile: File)(using Async.Spawn) = Future:
+    println(s"Running replication")
+
+    def trace(s: ppse.StepInfo) =
+      if s.generation % 10 == 0 && s.generation > 0
+      then println(s.generation)
+
+    val rng = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
+
+    val result =
+      ppse.evolution(
+        genomeSize = genomeSize,
+        lambda = lambda,
+        generations = generations,
+        maxRareSample = maxRareSample,
+        minClusterSize = minClusterSize,
+        regularisationEpsilon = regularisationEpsilon,
+        dilation = dilation,
+        pattern =
+          x =>
+            val noise = IArray.fill(genomeSize)(rng.nextGaussian() * 0.1)
+            val values = (x zip noise).map(_ + _)
+            PatternSquare.pattern(oneSquare, values),
+        random = rng,
+        trace = Some(trace))
+
+    val s = result.map(_._2).toSeq
+    println(s.max - s.min)
+
+    result.toSeq.filter(!_._1.startsWith(Seq(-1))).foreach: l =>
+      resultFile.appendLine:
+        (l._1.drop(1).map(_.toDouble) ++ Seq(l._2)).mkString(",")
+
+  Async.blocking:
+    run(resultFile).await
+
 
 
 @main def patternSquareBenchmarkRandom(result: String, replications: Int, nbPoints: Int) =

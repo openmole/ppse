@@ -37,15 +37,25 @@ type HitMap = Map[Vector[Int], Int]
 def breeding(
  genomeSize: Int,
  lambda: Int,
- gmm: Option[(GMM, RejectionSamplerState)],
+ gmm: Option[GMM],
+ warmupSample: Int,
+ minDensity: Double,
+ densitySample: Int,
  random: Random): Array[(Array[Double], Option[Double])] =
  gmm match
   case None =>
     def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
     Array.fill(lambda)((randomGenome(genomeSize, random), None))
-  case Some((gmm, rejectionState)) =>
-    val rejectionSampler = RejectionSampler(gmm, random)
-    val (_, samples) = RejectionSampler.sampleArray(rejectionSampler, lambda, rejectionState)
+  case Some(gmm) =>
+    val florDensity =
+      val dist = GMM.toDistribution(gmm, random)
+      def densitySamples = (0 until densitySample).map(_ => dist.density(dist.sample()))
+      tool.quantile(densitySamples, minDensity)
+
+    val rejectionSampler = RejectionSampler(gmm, random, Some(florDensity))
+    val samplerState = RejectionSampler.warmup(rejectionSampler, warmupSample)
+
+    val (_, samples) = RejectionSampler.sampleArray(rejectionSampler, lambda, samplerState)
     samples.map: (g, density) =>
       (g, Some(density))
 
@@ -70,7 +80,6 @@ def computeGMM(
   iterations: Int,
   tolerance: Double,
   dilation: Double,
-  warmupSampling: Int,
   minClusterSize: Int,
   random: Random) =
 
@@ -114,11 +123,11 @@ def computeGMM(
 
         val dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
 
-        val samplerState =
-          val sampler = RejectionSampler(dilatedGMM, random)
-          RejectionSampler.warmup(sampler, warmupSampling)
+//        val samplerState =
+//          val sampler = RejectionSampler(dilatedGMM, random)
+//          RejectionSampler.warmup(sampler, warmupSampling)
 
-        (dilatedGMM, samplerState)
+        dilatedGMM
 
   res
 
@@ -134,10 +143,9 @@ def updateState(
   iterations: Int,
   tolerance: Double,
   dilation: Double,
-  warmupSampler: Int,
   minClusterSize: Int,
   random: Random,
-  gmm: Option[GMM]): (HitMap, SamplingWeightMap, Option[(GMM, rejection.RejectionSamplerState)]) =
+  gmm: Option[GMM]): (HitMap, SamplingWeightMap, Option[GMM]) =
   val newHitMap =
     def updateHits(m: HitMap, p: Vector[Int]) =
       m.updatedWith(p)(v => Some(v.getOrElse(0) + 1))
@@ -179,7 +187,6 @@ def updateState(
       iterations = iterations,
       tolerance = tolerance,
       dilation = dilation,
-      warmupSampling = warmupSampler,
       minClusterSize = minClusterSize,
       random = random
     )
@@ -202,13 +209,16 @@ def evolution(
   maxRareSample: Int,
   minClusterSize: Int,
   regularisationEpsilon: Double,
-  dilation: Double = 1.0,
+  dilation: Double = 4.0,
+  warmupSample: Int = 1000,
+  minDensity: Double = 0.05,
+  densitySample: Int = 1000,
   pattern: Vector[Double] => Vector[Int],
   genomes: Array[Array[Double]] = Array(),
   patterns: Array[Array[Int]] = Array(),
   likelihoods: SamplingWeightMap = Map(),
   hitMap: HitMap = Map(),
-  gmm: Option[(GMM, rejection.RejectionSamplerState)] = None,
+  gmm: Option[GMM] = None,
   random: Random,
   generation: Int = 0,
   trace: Option[StepInfo => Unit] = None)(using Async.Spawn): SamplingWeightMap =
@@ -218,7 +228,7 @@ def evolution(
   if generation >= generations
   then computePDF(likelihoods)
   else
-    val offSpringGenomes = breeding(genomeSize, lambda, gmm, random)
+    val offSpringGenomes = breeding(genomeSize, lambda, gmm, warmupSample = warmupSample, minDensity = minDensity, densitySample = densitySample, random)
     val offspringPatterns =
       offSpringGenomes.toSeq.map: (g, _) =>
         Future:
@@ -248,10 +258,9 @@ def evolution(
         iterations = 1000,
         tolerance = 0.0001,
         dilation = dilation,
-        warmupSampler = 10000,
         minClusterSize = minClusterSize,
         random = random,
-        gmm = gmm.map(_._1))
+        gmm = gmm)
 
     evolution(
       genomeSize = genomeSize,
@@ -261,6 +270,9 @@ def evolution(
       minClusterSize = minClusterSize,
       regularisationEpsilon = regularisationEpsilon,
       dilation = dilation,
+      warmupSample = warmupSample,
+      minDensity = minDensity,
+      densitySample = densitySample,
       pattern = pattern,
       elitedGenomes,
       elitedPatterns,

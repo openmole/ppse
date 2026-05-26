@@ -24,15 +24,16 @@ object rejection:
 
   object RejectionSampler:
 
-    def apply(gmm: GMM, rng: Random) =
+    def apply(gmm: GMM, rng: Random, floorDensity: Option[Double] = None) =
       val distribution = GMM.toDistribution(gmm, rng)
 
       def sample() =
         val x = distribution.sample()
         (x, distribution.density(x))
 
-      def accept(p: Array[Double]) =
-        p.forall(_ >= 0.0) && p.forall(_ <= 1.0)
+      def accept(p: Array[Double], density: Double) =
+        p.forall(_ >= 0.0) && p.forall(_ <= 1.0) &&
+          floorDensity.map(cd => density > cd).getOrElse(true)
 
       new RejectionSampler(sample, accept)
 
@@ -44,15 +45,15 @@ object rejection:
     def warmup(sampler: RejectionSampler, n: Int, state: RejectionSamplerState = RejectionSamplerState()): RejectionSamplerState =
       if n > 0
       then
-        val (x, _) = sampler.sampleFunction()
-        if !sampler.accept(x)
+        val (x, d) = sampler.sampleFunction()
+        if !sampler.accept(x, d)
         then warmup(sampler, n - 1, RejectionSampler.fail(state))
         else warmup(sampler, n - 1, RejectionSampler.success(state))
       else state
 
     def sample(sampler: RejectionSampler, state: RejectionSamplerState = RejectionSamplerState()): (RejectionSamplerState, (Array[Double], Double)) =
       val (x, density) = sampler.sampleFunction()
-      if !sampler.accept(x)
+      if !sampler.accept(x, density)
       then sample(sampler, RejectionSampler.fail(state))
       else
         val newState = RejectionSampler.success(state)
@@ -67,6 +68,6 @@ object rejection:
       else (state, res.reverse.toArray)
 
 
-  case class RejectionSampler(sampleFunction: () => (Array[Double], Double), accept: Array[Double] => Boolean)
+  case class RejectionSampler(sampleFunction: () => (Array[Double], Double), accept: (Array[Double], Double) => Boolean)
   case class RejectionSamplerState(test: Long = 0L, pass: Long = 0L)
 

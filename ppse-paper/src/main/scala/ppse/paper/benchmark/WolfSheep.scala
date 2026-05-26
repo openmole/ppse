@@ -112,7 +112,7 @@ object WolfSheep:
 
       val osc = tool.countOscillations(wolves, reg.slope, reg.intercept)
       val amplitude = wolves.max - wolves.min
-      val median = tool.percentile(wolves, 50)
+      val median = tool.quantile(wolves, 0.5)
 
       Vector(slope.toDouble, osc.toDouble, amplitude / 10, median / 10)
 

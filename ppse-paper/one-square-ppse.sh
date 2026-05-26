@@ -1,1 +1,1 @@
-(cd .. && sbt --mem 4096 "project ppse-paper" "runMain ppse.paper.benchmark.oneSquareBenchmarkPPSE /tmp/one-square-ppse.csv 2000")
+(cd .. && sbt --mem 4096 "project ppse-paper" "runMain ppse.paper.benchmark.oneSquareBenchmarkPPSE /tmp/one-square-ppse.csv 10000")
