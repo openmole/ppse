@@ -32,32 +32,75 @@ import scala.annotation.tailrec
 type SamplingWeightMap = Map[Vector[Int], Double]
 type HitMap = Map[Vector[Int], Int]
 
+case class DensityQuantile(quantile: Double, sample: Int = 1000)
+case class DefensiveDistribution(weight: Double)
+
 /* --------- Evolutionnary algorithm -------- */
 
 def breeding(
- genomeSize: Int,
- lambda: Int,
- gmm: Option[GMM],
- warmupSample: Int,
- minDensity: Double,
- densitySample: Int,
- random: Random): Array[(Array[Double], Option[Double])] =
+  genomeSize: Int,
+  lambda: Int,
+  gmm: Option[GMM],
+  warmupSample: Int,
+  randomRatio: Double,
+  minDensityQuantile: Option[DensityQuantile],
+  defensiveDistribution: Option[DefensiveDistribution],
+  random: Random): Array[(Array[Double], Option[Double])] =
+ def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
+
  gmm match
-  case None =>
-    def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
-    Array.fill(lambda)((randomGenome(genomeSize, random), None))
+  case None => Array.fill(lambda)((randomGenome(genomeSize, random), None))
   case Some(gmm) =>
-    val florDensity =
-      val dist = GMM.toDistribution(gmm, random)
-      def densitySamples = (0 until densitySample).map(_ => dist.density(dist.sample()))
-      tool.quantile(densitySamples, minDensity)
+    val distribution = GMM.toDistribution(gmm, random)
 
-    val rejectionSampler = RejectionSampler(gmm, random, Some(florDensity))
+    val floorDensity =
+      minDensityQuantile.map: minDensityQuantile =>
+        def densitySamples = (0 until minDensityQuantile.sample).map(_ => distribution.density(distribution.sample()))
+        tool.quantile(densitySamples, minDensityQuantile.quantile)
+
+    val rejectionSampler =
+      def sample() = distribution.sample()
+
+      def accept(p: Array[Double]) =
+        p.forall(_ >= 0.0) && p.forall(_ <= 1.0) &&
+          floorDensity.map(cd => distribution.density(p) > cd).getOrElse(true)
+
+      new RejectionSampler(sample, accept)
+
+
+    def sampleArray(sampler: RejectionSampler, n: Int, state: RejectionSamplerState = RejectionSamplerState(), res: List[(Array[Double], Option[Double])] = List()): (RejectionSamplerState, Array[(Array[Double], Option[Double])]) =
+      if n > 0
+      then
+        if random.nextDouble() < randomRatio
+        then
+          val rg = randomGenome(genomeSize, random)
+          sampleArray(sampler, n - 1, state, (rg, None) :: res)
+        else
+          val (newState, newSample) =
+            defensiveDistribution match
+              case Some(defensiveDistribution) =>
+                if random.nextDouble < defensiveDistribution.weight
+                then (state, randomGenome(genomeSize, random))
+                else RejectionSampler.sample(sampler, state)
+              case None => RejectionSampler.sample(sampler, state)
+
+          val newDenstity =
+            val rejectionDensity =
+              RejectionSampler.density(
+                newState,
+                distribution.density(newSample)
+              )
+
+            defensiveDistribution match
+              case Some(defensiveDistribution) => (1 - defensiveDistribution.weight) * rejectionDensity + defensiveDistribution.weight
+              case None => rejectionDensity
+
+          sampleArray(sampler, n - 1, newState, (newSample, Some(newDenstity)) :: res)
+      else (state, res.reverse.toArray)
+
     val samplerState = RejectionSampler.warmup(rejectionSampler, warmupSample)
-
-    val (_, samples) = RejectionSampler.sampleArray(rejectionSampler, lambda, samplerState)
-    samples.map: (g, density) =>
-      (g, Some(density))
+    val (_, samples) = sampleArray(rejectionSampler, lambda, samplerState)
+    samples
 
 def elitism(
   genomes: Array[Array[Double]],
@@ -210,9 +253,10 @@ def evolution(
   minClusterSize: Int,
   regularisationEpsilon: Double,
   dilation: Double = 4.0,
+  randomRatio: Double = 0.0,
   warmupSample: Int = 1000,
-  minDensity: Double = 0.05,
-  densitySample: Int = 1000,
+  minDensityQuantile: Option[DensityQuantile] = None,
+  defensiveDistribution: Option[DefensiveDistribution] = None,
   pattern: Vector[Double] => Vector[Int],
   genomes: Array[Array[Double]] = Array(),
   patterns: Array[Array[Int]] = Array(),
@@ -228,7 +272,18 @@ def evolution(
   if generation >= generations
   then computePDF(likelihoods)
   else
-    val offSpringGenomes = breeding(genomeSize, lambda, gmm, warmupSample = warmupSample, minDensity = minDensity, densitySample = densitySample, random)
+    val offSpringGenomes =
+      breeding(
+        genomeSize,
+        lambda,
+        gmm,
+        randomRatio = randomRatio,
+        warmupSample = warmupSample,
+        minDensityQuantile = minDensityQuantile,
+        defensiveDistribution = defensiveDistribution,
+        random
+      )
+
     val offspringPatterns =
       offSpringGenomes.toSeq.map: (g, _) =>
         Future:
@@ -271,9 +326,10 @@ def evolution(
       regularisationEpsilon = regularisationEpsilon,
       dilation = dilation,
       warmupSample = warmupSample,
-      minDensity = minDensity,
-      densitySample = densitySample,
+      minDensityQuantile = minDensityQuantile,
+      defensiveDistribution = defensiveDistribution,
       pattern = pattern,
+      randomRatio = randomRatio,
       elitedGenomes,
       elitedPatterns,
       updatedlikelihoodRatioMap,

@@ -119,6 +119,9 @@ case class PatternSquare(squares: PatternSquare.Square*)
       minClusterSize = minClusterSize,
       regularisationEpsilon = regularisationEpsilon,
       dilation = dilation,
+      //minDensityQuantile = Some(ppse.DensityQuantile(0.2)),
+      randomRatio = 0.0,
+      //defensiveDistribution = Some(ppse.DefensiveDistribution(0.1)),
       pattern = PatternSquare.pattern(PatternSquare.benchmarkPattern, _),
       random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(r)),
       trace = Some(trace))
@@ -127,103 +130,115 @@ case class PatternSquare(squares: PatternSquare.Square*)
     (0 until replications).map(run).awaitAll
 
 
-@main def oneSquareBenchmarkPPSE(result: String, generations: Int) =
+@main def oneSquareBenchmarkPPSE(result: String, replications: Int, generations: Int) =
   val resultFile = File(result)
 
   val genomeSize = 2
-  val lambda = 1
+  val lambda = 100
   val maxRareSample = 10
   val minClusterSize = 10
   val regularisationEpsilon = 1e-6
   val dilation = 4.0
 
   val oneSquare = PatternSquare(
-    PatternSquare.Square(Vector(0.5, 0.5), 1.0, 20)
+    PatternSquare.Square(Vector(0.5, 0.5), 1.0, 30)
   )
+
+  val allPatterns = PatternSquare.allPatterns2D(oneSquare)
 
   resultFile.delete(true)
 
-  def run(resultFile: File)(using Async.Spawn) = Future:
+  def run(r: Int)(using Async.Spawn) = Future:
     println(s"Running replication")
 
     def trace(s: ppse.StepInfo) =
       if s.generation % 10 == 0 && s.generation > 0
-      then println(s.generation)
+      then
+        println(s.generation)
+        val all = allPatterns.filterNot(PatternSquare.isFallbackPattern)
+        val indexPattern = all.map(k => k -> s.likelihoodRatioMap.getOrElse(k, 0.0)).toMap
+        val missed = all.size - s.likelihoodRatioMap.count((k, _) => all.contains(k))
 
-    val result =
-      ppse.evolution(
-        genomeSize = genomeSize,
-        lambda = lambda,
-        generations = generations,
-        maxRareSample = maxRareSample,
-        minClusterSize = minClusterSize,
-        regularisationEpsilon = regularisationEpsilon,
-        dilation = dilation,
-        pattern = PatternSquare.pattern(oneSquare, _),
-        random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42)),
-        trace = Some(trace))
+        val error =
+          val (ref, q) =
+            indexPattern.toSeq.map: (p, d) =>
+              (PatternSquare.patternDensity(oneSquare, p), d)
+            .unzip
 
-    val s = result.map(_._2).toSeq
-    println(s.max - s.min)
+          jeffreysDivergence(ref, q)
 
-    result.toSeq.foreach: l =>
-      resultFile.appendLine:
-        (l._1.map(_.toDouble) ++ Seq(l._2)).mkString(",")
+        resultFile.append(s"$r,${s.generation * lambda},$error,$missed\n")
 
-  Async.blocking:
-    run(resultFile).await
 
-@main def oneNoisySquareBenchmarkPPSE(result: String, generations: Int) =
-  val resultFile = File(result)
-
-  val genomeSize = 2
-  val lambda = 1
-  val maxRareSample = 10
-  val minClusterSize = 10
-  val regularisationEpsilon = 1e-6
-  val dilation = 4.0
-
-  val oneSquare = PatternSquare(
-    PatternSquare.Square(Vector(0.5, 0.5), 1.0, 20)
-  )
-
-  resultFile.delete(true)
-
-  def run(resultFile: File)(using Async.Spawn) = Future:
-    println(s"Running replication")
-
-    def trace(s: ppse.StepInfo) =
-      if s.generation % 10 == 0 && s.generation > 0
-      then println(s.generation)
-
-    val rng = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
-
-    val result =
-      ppse.evolution(
-        genomeSize = genomeSize,
-        lambda = lambda,
-        generations = generations,
-        maxRareSample = maxRareSample,
-        minClusterSize = minClusterSize,
-        regularisationEpsilon = regularisationEpsilon,
-        dilation = dilation,
-        pattern =
-          x =>
-            val noise = IArray.fill(genomeSize)(rng.nextGaussian() * 0.1)
-            val values = (x zip noise).map(_ + _)
-            PatternSquare.pattern(oneSquare, values),
-        random = rng,
-        trace = Some(trace))
-
-    val s = result.map(_._2).toSeq
-    println(s.max - s.min)
-
-    result.toSeq.filter(!_._1.startsWith(Seq(-1))).foreach: l =>
-      resultFile.appendLine:
-        (l._1.drop(1).map(_.toDouble) ++ Seq(l._2)).mkString(",")
+    ppse.evolution(
+      genomeSize = genomeSize,
+      lambda = lambda,
+      generations = generations,
+      maxRareSample = maxRareSample,
+      minClusterSize = minClusterSize,
+      regularisationEpsilon = regularisationEpsilon,
+      dilation = dilation,
+      minDensityQuantile = Some(ppse.DensityQuantile(0.2)),
+      defensiveDistribution = Some(ppse.DefensiveDistribution(0.1)),
+      pattern = PatternSquare.pattern(oneSquare, _),
+      random = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42 + r)),
+      trace = Some(trace))
 
   Async.blocking:
-    run(resultFile).await
+    (0 until replications).map(run).awaitAll
+
+
+//@main def oneNoisySquareBenchmarkPPSE(result: String, generations: Int) =
+//  val resultFile = File(result)
+//
+//  val genomeSize = 2
+//  val lambda = 1
+//  val maxRareSample = 10
+//  val minClusterSize = 10
+//  val regularisationEpsilon = 1e-6
+//  val dilation = 4.0
+//
+//  val oneSquare = PatternSquare(
+//    PatternSquare.Square(Vector(0.5, 0.5), 1.0, 20)
+//  )
+//
+//  resultFile.delete(true)
+//
+//  def run(resultFile: File)(using Async.Spawn) = Future:
+//    println(s"Running replication")
+//
+//    def trace(s: ppse.StepInfo) =
+//      if s.generation % 10 == 0 && s.generation > 0
+//      then println(s.generation)
+//
+//    val rng = tool.toJavaRandom(org.apache.commons.math3.random.Well44497b(42))
+//
+//    val result =
+//      ppse.evolution(
+//        genomeSize = genomeSize,
+//        lambda = lambda,
+//        generations = generations,
+//        maxRareSample = maxRareSample,
+//        minClusterSize = minClusterSize,
+//        regularisationEpsilon = regularisationEpsilon,
+//        dilation = dilation,
+//        pattern =
+//          x =>
+//            val noise = IArray.fill(genomeSize)(rng.nextGaussian() * 0.1)
+//            val values = (x zip noise).map(_ + _)
+//            PatternSquare.pattern(oneSquare, values),
+//        random = rng,
+//        trace = Some(trace))
+//
+//    val s = result.map(_._2).toSeq
+//    println(s.max - s.min)
+//
+//    result.toSeq.filter(!_._1.startsWith(Seq(-1))).foreach: l =>
+//      resultFile.appendLine:
+//        (l._1.drop(1).map(_.toDouble) ++ Seq(l._2)).mkString(",")
+//
+//  Async.blocking:
+//    run(resultFile).await
 
 
 
