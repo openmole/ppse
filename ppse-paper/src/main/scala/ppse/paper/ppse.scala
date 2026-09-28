@@ -1,0 +1,287 @@
+package ppse.paper.ppse
+
+/*
+ * Copyright (C) 2021 Romain Reuillon
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+
+import util.{Failure, Success, Try}
+import java.util.Random
+import ppse.paper.*
+import rejection.*
+import gears.async.*
+import gears.async.default.given
+import smile.stat.distribution.MultivariateGaussianMixture
+
+import scala.annotation.tailrec
+
+type SamplingWeightMap = Map[Vector[Int], Double]
+type HitMap = Map[Vector[Int], Int]
+
+case class DensityQuantile(quantile: Double, sample: Int = 1000)
+
+/* --------- Evolutionnary algorithm -------- */
+
+def breeding(
+  genomeSize: Int,
+  lambda: Int,
+  gmm: Option[GMM],
+  warmupSample: Int,
+  minDensityQuantile: Option[DensityQuantile],
+  random: Random): Array[(Array[Double], Option[Double])] =
+ def randomGenome(size: Int, random: Random) = Array.fill(size)(random.nextDouble())
+
+ gmm match
+  case None => Array.fill(lambda)((randomGenome(genomeSize, random), None))
+  case Some(gmm) =>
+    val distribution = GMM.toDistribution(gmm, random)
+
+    val floorDensity =
+      minDensityQuantile.map: minDensityQuantile =>
+        def densitySamples = (0 until minDensityQuantile.sample).map(_ => distribution.density(distribution.sample()))
+        tool.quantile(densitySamples, minDensityQuantile.quantile)
+
+    val rejectionSampler =
+      def sample() = distribution.sample()
+
+      def accept(p: Array[Double]) =
+        p.forall(_ >= 0.0) && p.forall(_ <= 1.0) &&
+          floorDensity.map(cd => distribution.density(p) > cd).getOrElse(true)
+
+      new RejectionSampler(sample, accept)
+
+    val samplerState = RejectionSampler.warmup(rejectionSampler, warmupSample)
+
+    (0 until lambda).toArray.map: _ =>
+      val (_, newSample) = RejectionSampler.sample(rejectionSampler, samplerState)
+      val newDensity = RejectionSampler.density(samplerState, distribution.density(newSample))
+      (newSample, Some(newDensity))
+
+def elitism(
+  genomes: Array[Array[Double]],
+  patterns: Array[Array[Int]],
+  offspringGenomes: Array[(Array[Double], Option[Double])],
+  offspringPatterns: Array[Array[Int]],
+  nicheSize: Int,
+  random: Random): (Array[Array[Double]], Array[Array[Int]]) =
+  def allGenomes = genomes ++ offspringGenomes.map(_._1)
+  def allPatterns = patterns ++ offspringPatterns
+
+  for
+    (g, ps) <- (allGenomes zip allPatterns).groupBy(_._2)
+    p <- scala.util.Random(random).shuffle(ps).take(nicheSize)
+  yield (g, p)
+
+  def shuffled = scala.util.Random(random).shuffle(allGenomes zip allPatterns)
+  shuffled.distinctBy { (_, pattern) => pattern.toVector }.toArray.unzip
+
+def computeGMM(
+  genomes: Array[Array[Double]],
+  patterns: Array[Array[Int]],
+  hitMap: HitMap,
+  maxRareSample: Int,
+  regularisationEpsilon: Double,
+  iterations: Int,
+  tolerance: Double,
+  dilation: Double,
+  minClusterSize: Int,
+  random: Random) =
+
+  val rareIndividuals =
+    (genomes zip patterns).filter: p =>
+      val hits = hitMap.getOrElse(p._2.toVector, 0)
+      hits <= maxRareSample
+    .map(_._1)
+
+  val res =
+    if rareIndividuals.isEmpty
+    then None
+    else
+      Some:
+        def fittedGMM =
+          if rareIndividuals.length < minClusterSize
+          then GMM.empty
+          else
+            GMM.build(
+              rareIndividuals, 
+              rng = random, 
+              minClusterSize = minClusterSize, 
+              regularisationEpsilon = regularisationEpsilon)
+
+        def gmmWithOutliers = emgmm.integrateOutliers(rareIndividuals, fittedGMM, regularisationEpsilon)
+
+        def dilatedGMM = GMM.dilate(gmmWithOutliers, dilation)
+
+        dilatedGMM
+
+  res
+
+def updateState(
+  genomes: Array[Array[Double]],
+  patterns: Array[Array[Int]],
+  offspringGenomes: Array[(Array[Double], Option[Double])],
+  offspringPatterns: Array[Array[Int]],
+  likelihoodRatioMap: SamplingWeightMap,
+  hitMap: HitMap,
+  maxRareSample: Int,
+  regularisationEpsilon: Double,
+  iterations: Int,
+  tolerance: Double,
+  dilation: Double,
+  minClusterSize: Int,
+  random: Random,
+  gmm: Option[GMM]): (HitMap, SamplingWeightMap, Option[GMM]) =
+  val newHitMap =
+    def updateHits(m: HitMap, p: Vector[Int]) =
+      m.updatedWith(p)(v => Some(v.getOrElse(0) + 1))
+
+    offspringPatterns.foldLeft(hitMap)((m, p) => updateHits(m, p.toVector))
+
+  def newLikelihoodRatioMap =
+    def safeInverseDensity(density: Option[Double]): Double =
+      density match
+        case Some(d) => 1 / d
+        case None => 0.0
+
+    def offSpringDensities =
+      val groupedGenomes = (offspringGenomes zip offspringPatterns).groupMap(_._2)(_._1)
+      groupedGenomes.view.mapValues: v =>
+        v.map ((_, density) => safeInverseDensity(density)).sum
+      .toSeq
+
+    def updatePatternDensity(map: SamplingWeightMap, pattern: Array[Int], density: Double): SamplingWeightMap =
+      map.updatedWith(pattern.toVector): v =>
+        Some(v.getOrElse(0.0) + density)
+
+    offSpringDensities.foldLeft(likelihoodRatioMap) { case (map, (pattern, density)) => updatePatternDensity(map, pattern, density) }
+
+  def newGMM =
+    computeGMM(
+      genomes = genomes,
+      patterns = patterns,
+      hitMap = newHitMap,
+      maxRareSample = maxRareSample,
+      regularisationEpsilon = regularisationEpsilon,
+      iterations = iterations,
+      tolerance = tolerance,
+      dilation = dilation,
+      minClusterSize = minClusterSize,
+      random = random
+    )
+
+  (newHitMap, newLikelihoodRatioMap, newGMM)
+
+
+def computePDF(likelihoodRatioMap: SamplingWeightMap) =
+  val totalDensity = likelihoodRatioMap.values.sum
+  likelihoodRatioMap.map((p, density) => (p, density / totalDensity))
+
+
+case class StepInfo(generation: Int, likelihoodRatioMap: SamplingWeightMap)
+
+@tailrec
+def evolution(
+  genomeSize: Int,
+  lambda: Int,
+  generations: Int,
+  maxRareSample: Int,
+  minClusterSize: Int,
+  nicheSize: Int = 1,
+  regularisationEpsilon: Double = 10e-6,
+  dilation: Double = 2.0,
+  warmupSample: Int = 1000,
+  minDensityQuantile: Option[DensityQuantile] = None,
+  pattern: Vector[Double] => Vector[Int],
+  genomes: Array[Array[Double]] = Array(),
+  patterns: Array[Array[Int]] = Array(),
+  likelihoods: SamplingWeightMap = Map(),
+  hitMap: HitMap = Map(),
+  gmm: Option[GMM] = None,
+  random: Random,
+  generation: Int = 0,
+  trace: Option[StepInfo => Unit] = None)(using Async.Spawn): SamplingWeightMap =
+  trace.foreach: f =>
+    f(StepInfo(generation, computePDF(likelihoods)))
+
+  if generation >= generations
+  then computePDF(likelihoods)
+  else
+    val offSpringGenomes =
+      breeding(
+        genomeSize,
+        lambda,
+        gmm,
+        warmupSample = warmupSample,
+        minDensityQuantile = minDensityQuantile,
+        random
+      )
+
+    val offspringPatterns =
+      offSpringGenomes.toSeq.map: (g, _) =>
+        Future:
+          pattern(g.toVector).toArray
+      .awaitAll
+      .toArray
+
+
+    val (elitedGenomes, elitedPatterns) =
+      elitism(
+        genomes = genomes,
+        patterns = patterns,
+        offspringGenomes = offSpringGenomes,
+        offspringPatterns = offspringPatterns,
+        nicheSize = nicheSize,
+        random = random)
+
+    val (updatedHitMap, updatedlikelihoodRatioMap, updatedGMM) =
+      updateState(
+        genomes = elitedGenomes,
+        patterns = elitedPatterns,
+        offspringGenomes = offSpringGenomes,
+        offspringPatterns = offspringPatterns,
+        likelihoodRatioMap = likelihoods,
+        hitMap = hitMap,
+        maxRareSample = maxRareSample,
+        regularisationEpsilon = regularisationEpsilon,
+        iterations = 1000,
+        tolerance = 0.0001,
+        dilation = dilation,
+        minClusterSize = minClusterSize,
+        random = random,
+        gmm = gmm)
+
+    evolution(
+      genomeSize = genomeSize,
+      lambda = lambda,
+      generations = generations,
+      maxRareSample = maxRareSample,
+      minClusterSize = minClusterSize,
+      nicheSize = nicheSize,
+      regularisationEpsilon = regularisationEpsilon,
+      dilation = dilation,
+      warmupSample = warmupSample,
+      minDensityQuantile = minDensityQuantile,
+      pattern = pattern,
+      genomes = elitedGenomes,
+      patterns = elitedPatterns,
+      likelihoods = updatedlikelihoodRatioMap,
+      hitMap = updatedHitMap,
+      gmm = updatedGMM,
+      random = random,
+      generation = generation + 1,
+      trace = trace)
+
